@@ -9,13 +9,12 @@
             {
                 id: "openseadragon1",
                 prefixUrl: "deepzoom.py/openseadragon/images/",
-                tileSources: "out.dzi",
+                tileSources: "main_image.dzi",
                 maxZoomPixelRatio: 1,
-                //immediateRender: true
             });
             $.ajax(
             {
-                url: "out.csv",
+                url: "main_image.csv",
                 async: false,
                 success: function (csvd) 
                 {
