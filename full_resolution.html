@@ -1,0 +1,111 @@
+<html>
+    <body>
+        <div id="openseadragon1"></div>
+        <script src="deepzoom.py/openseadragon/openseadragon.min.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+        <script src="jquery.csv.js"></script>
+        <script type="text/javascript">
+            var viewer = OpenSeadragon(
+            {
+                id: "openseadragon1",
+                prefixUrl: "deepzoom.py/openseadragon/images/",
+                tileSources: "out.dzi",
+                maxZoomPixelRatio: 1,
+                //immediateRender: true
+            });
+            $.ajax(
+            {
+                url: "out.csv",
+                async: false,
+                success: function (csvd) 
+                {
+                    data = $.csv.toArrays(csvd);
+                },
+                dataType: "text",
+                complete: function ()
+                {
+                    // call a function on complete 
+                }
+            });
+
+            var maxZoom, size, total;
+            var width = data[0].length, height = data.length;
+
+            viewer.addHandler('open', function() 
+            {
+                maxZoom = viewer.viewport.getMaxZoom();
+                size = (width < height) ? width-1 : height-1;
+                size = width-1;
+                total = width * height;
+            });
+            var num1 = 0;
+            var updateImage = function() {
+            if(num1 == 5){num1 = 0;
+                var zoom = viewer.viewport.getZoom(true);
+                var screen_bounds = viewer.viewport.getBounds(true);
+                var x = screen_bounds.x;
+                var y = screen_bounds.y;
+                var screen_width = screen_bounds.width;
+                var screen_height = screen_bounds.height;
+                if(zoom >= maxZoom - .1)
+                {
+                    viewer.viewport.maxZoomPixelRatio = 1;
+                    var imgs = [];
+                    var y_begin = (Math.floor(y*size - 0) > 0) ? Math.floor(y*size - 0) : 0;
+                    var y_end   = (Math.floor((y + screen_height)*size + 0) < height) ? Math.floor((y + screen_height)*size + 0) : height-1;
+                    var x_begin = (Math.floor(x*size - 0) > 0) ? Math.floor(x*size - 0) : 0;
+                    var x_end   = (Math.floor((x + screen_width)*size + 0) < width) ? Math.floor((x + screen_width)*size + 0) : width-1;
+
+                    for(var i = y_begin; i <= y_end; ++i)
+                    {
+                        for(var j = x_begin; j <= x_end; ++j)
+                        {
+                            imgs[imgs.length] = i*width + j;
+                        }
+                    }
+
+                    viewer.world._items = viewer.world._items.filter(function(val, index)
+                    {
+                        if(index > 0)
+                        {
+                            var bounds = val.getBounds(true);
+                            var i = imgs.indexOf(Math.round(bounds.y*size)*width + Math.round(bounds.x*size));
+                            if(i > -1)
+                            {
+                                imgs.splice(i, 1);
+                                return true;
+                            }
+                            else
+                            {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+                    for(var index in imgs)
+                    {
+                        var j = imgs[index]%width;
+                        var i = Math.floor(imgs[index]/width);
+                        viewer.addTiledImage(
+                            {
+                                x: j/size,
+                                y: i/size,
+                                width: 1/size,
+                                tileSource: "mosaic_files/"+data[i][j]+".dzi"
+                            }
+                        );
+                    }
+
+                }
+                else
+                {
+                    viewer.viewport.maxZoomPixelRatio = 1;
+                    viewer.world._items.length = 1;
+                }
+            }else num1++;
+            }
+
+            viewer.addHandler('animation', updateImage);
+        </script>
+    </body>
+</html>

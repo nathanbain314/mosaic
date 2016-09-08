@@ -1,0 +1,198 @@
+<html>
+    <body>
+        <div id="openseadragon1"></div>
+        <script src="deepzoom.py/openseadragon/openseadragon.min.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+        <script src="jquery.csv.js"></script>
+        <script type="text/javascript">
+            var viewer = OpenSeadragon(
+            {
+                id: "openseadragon1",
+                prefixUrl: "deepzoom.py/openseadragon/images/",
+                mouseNavEnabled: false,
+                showNavigationControl: false,
+                tileSources: "mosaics/32.dzi",
+                //maxZoomPixelRatio: 3,
+                immediateRender: true
+            });
+            $.ajax(
+            {
+                url: "mosaics/32.csv",
+                async: false,
+                success: function (csvd) 
+                {
+                    data = $.csv.toArrays(csvd);
+                },
+                dataType: "text",
+                complete: function ()
+                {
+                    // call a function on complete 
+                }
+            });
+
+            var maxZoom, size, total;
+            var width = data[0].length, height = data.length;
+            var viewportPoint;
+
+            viewer.addHandler('open', function() 
+            {
+                maxZoom = viewer.viewport.getMaxZoom();
+                size = (width < height) ? width-1 : height-1;
+                size = width-1;
+                total = width * height;
+                var tracker = new OpenSeadragon.MouseTracker({
+                    element: viewer.container,
+                    moveHandler: function(event) {
+                        var webPoint = event.position;
+                        viewportPoint = viewer.viewport.pointFromPixel(webPoint);  
+                    }
+                });  
+
+                tracker.setTracking(true);
+            });
+            var num1 = 0;
+            var updateImage = function() {
+            if(num1 == 5){num1 = 0;
+                if(viewer.world._items.length == 2)
+                {
+                    viewer.world.removeItem(viewer.world._items[0]);
+                    var box = viewer.world._items[0].getBounds(true);
+                    //viewer.world._items[0] = viewer.world._items[1];
+                    //viewer.world._items.length = 1;
+                    //var box = v.tiledImage.getBounds(true);
+                    //var zoom = viewer.viewport.getZoom(true);
+                    box.width = 1;
+                    //box.height *= width;
+                    var i = box.x*size;
+                    var j = box.y*size;
+                    //console.log(i,j);
+                    box.x = 0;//box.width / 2;
+                    box.y = 0;//box.height / 2;
+                    viewer.world._items[0].setPosition(box.getTopLeft(), true);
+                    viewer.world._items[0].setWidth(1, true);
+                    var point = viewer.viewport.getCenter(true);
+                    point.x = point.x * size - i;
+                    point.y = point.y * size - j;
+                    //console.log(point.x, point.y);
+                    //point.width = point.width * size - i;
+                    //point.height = point.height * size - j;
+                    viewer.viewport.panTo(point, true);
+                    //viewer.viewport.fitBounds(point, true);
+                    //viewer.viewport.resize(zoom, true);
+
+                    //viewer.viewport.zoomTo(1, null, true);
+                    //viewer.world._items[0].x = 0;
+                    //viewer.world._items[0].y = 0;
+                    //viewer.viewport.fitBounds(p, true);
+                    //setPosition(p);
+                    //var zoom = viewer.viewport.getZoom(true);
+                    //viewer.viewport.zoomTo(1,null,true)
+                    viewer.viewport.zoomBy(1/size, null, true);
+                    $.ajax(
+                    {
+                        url: viewer.world._items[0].source.tilesUrl.slice(0, -7)+".csv",
+                        async: false,
+                        success: function (csvd) 
+                        {
+                            data = $.csv.toArrays(csvd);
+                        },
+                        dataType: "text",
+                        complete: function ()
+                        {
+                            // call a function on complete 
+                        }
+                    });
+                    viewportPoint.x = viewportPoint.x * size - i;
+                    viewportPoint.y = viewportPoint.y * size - j;
+                    width = data[0].length;
+                    height = data.length;
+                    size = width-1;
+                }
+                else
+                {
+                var zoom = viewer.viewport.getZoom(true);
+                var screen_bounds = viewer.viewport.getBounds(true);
+                var x = screen_bounds.x;
+                var y = screen_bounds.y;
+                var screen_width = screen_bounds.width;
+                var screen_height = screen_bounds.height;
+                if(zoom >= maxZoom - .1)
+                {
+                    viewer.viewport.maxZoomPixelRatio = 1;
+                    var imgs = [];
+                    var y_begin = (Math.floor(y*size - 0) > 0) ? Math.floor(y*size - 0) : 0;
+                    var y_end   = (Math.floor((y + screen_height)*size + 0) < height) ? Math.floor((y + screen_height)*size + 0) : height-1;
+                    var x_begin = (Math.floor(x*size - 0) > 0) ? Math.floor(x*size - 0) : 0;
+                    var x_end   = (Math.floor((x + screen_width)*size + 0) < width) ? Math.floor((x + screen_width)*size + 0) : width-1;
+
+                    for(var i = y_begin; i <= y_end; ++i)
+                    {
+                        for(var j = x_begin; j <= x_end; ++j)
+                        {
+                            imgs[imgs.length] = i*width + j;
+                        }
+                    }
+
+                    viewer.world._items = viewer.world._items.filter(function(val, index)
+                    {
+                        if(index > 0)
+                        {
+                            var bounds = val.getBounds(true);
+                            var i = imgs.indexOf(Math.round(bounds.y*size)*width + Math.round(bounds.x*size));
+                            if(i > -1)
+                            {
+                                imgs.splice(i, 1);
+                                return true;
+                            }
+                            else
+                            {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+                    for(var index in imgs)
+                    {
+                        var j = imgs[index]%width;
+                        var i = Math.floor(imgs[index]/width);
+                        viewer.addTiledImage(
+                            {
+                                x: j/size,
+                                y: i/size,
+                                width: 1/size,
+                                tileSource: "mosaics/"+data[i][j]+".dzi"
+                            }
+                        );
+                    }
+
+                }
+                else
+                {
+                    //viewer.viewport.maxZoomPixelRatio = 3;
+                    viewer.world._items.length = 1;
+                }}
+            }else num1++;
+            viewer.viewport.zoomBy(1.002, viewportPoint, false);
+            }
+            var zoomer = setInterval(updateImage, 10);
+            var is_zoom = true;
+
+            $(window).keyup(
+            function(event) 
+            {
+                //if (event.which === 32)
+                //{
+                    if(is_zoom)
+                    {
+                        clearInterval(zoomer);
+                    }
+                    else
+                    {
+                        zoomer = setInterval(updateImage, 10);
+                    }
+                    is_zoom = !is_zoom;
+                //}
+            });
+        </script>
+    </body>
+</html>
