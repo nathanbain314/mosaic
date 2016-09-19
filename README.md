@@ -21,9 +21,11 @@ The more photos in your input directory the better your photomosaic will look. C
 Your mosaic might not use every image in sent into it, but if you create a directory of zoomable images it will create one for every image, so the following are some commands to delete the unused ones.
 
     cat out.csv | sed "s/,/\'$'\n''/g' | sed '/^$/d' | sort -u > used_files
+    
     ls -l mosaic_files/ | grep ^- | awk '{print $9}' | sed 's/.\{4\}$//‘ > created_files
     
     rm $(comm -23 created_files used_files | sed -e 's/^/mosaic_files\//'| sed -e 's/$/.dzi/‘)
+    
     rm -r $(comm -23 created_files used_files | sed -e 's/^/mosaic_files\//'| sed -e 's/$/_files/')
 
 #RunContinuous
