@@ -42,4 +42,5 @@ Input image
 Static image photo mosaic
 ![Static mosaic](https://raw.githubusercontent.com/nathanbain314/mosaic/master/output.png)
 [Full resolution zoomable mosaic](http://nathanbain.com/mosaic/full_resolution.html)
+
 [Infinite continuous zoomable mosaic](http://nathanbain.com/mosaic/continuous.html)
