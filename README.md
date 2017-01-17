@@ -38,7 +38,7 @@ The only way to view this continuous photo mosaic is by using the accompanying *
 
 #Examples
 Input image
-![Input image](https://raw.githubusercontent.com/nathanbain314/mosaic/master/input.png)
+![Input image](https://raw.githubusercontent.com/nathanbain314/mosaic/master/input.jpg)
 Static image photo mosaic
 ![Static mosaic](https://raw.githubusercontent.com/nathanbain314/mosaic/master/output.png)
 [Full resolution zoomable mosaic](http://nathanbain.com/mosaic/full_resolution.html)
