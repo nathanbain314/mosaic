@@ -14,6 +14,7 @@ This creates a photomosaic and saves it as either a single image or a zoomable i
 - -s, --shrink :  Amount that the input image will be shrunk by before building the mosaic.
 - -b, --build : Sets whether or not to build a directory of zoomable images for each of the images in the input directory.
 - -d, --directory : Directory to save zoomable images to if the **-b** flag is set
+
 ##Full Resolution HTML File
 The zoomable image will only be saved with 64 by 64 pixel thumbnails of each image, so in order to view the full resolution mosaic you will need to build the zoomable image directory with **-b -d directory_name**. In *full_resolution.html*, change *main_image.dzi* (line 15) and *main_image.csv* (line 21) to the zoomable image and csv files that you created, and change *mosaic_files* (lines 48 and 105) to the directory of zoomable images.
 ##Tips
