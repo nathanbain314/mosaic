@@ -35,6 +35,10 @@ int main( int argc, char **argv )
     vips_cache_set_max_mem( 10 );
     //vips_leak_set(TRUE);
 
+    // Directory has to end in a slash in order to work
+    if( image_directory.back() != '/' ) image_directory += '/';
+    if( output_directory.back() != '/' ) output_directory += '/';
+
     pair< PointCloud, vector< VImage > > both  = create_image_array ( image_directory, output_directory, build );
     PointCloud averages = both.first;
     vector< VImage > thumbnails = both.second;

@@ -1,20 +1,24 @@
+<!DOCTYPE html>
 <html>
-    <body>
-        <div id="openseadragon1"></div>
-        <script src="deepzoom.py/openseadragon/openseadragon.min.js"></script>
+    <head>
+        <script src="openseadragon/openseadragon.min.js"></script>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
         <script src="jquery.csv.js"></script>
+    </head>
+    <body>
+        <div id="mosaic" style="width: 100px; height: 100px;"></div>
         <script type="text/javascript">
             var viewer = OpenSeadragon(
             {
-                id: "openseadragon1",
-                prefixUrl: "deepzoom.py/openseadragon/images/",
-                tileSources: "main_image.dzi",
-                maxZoomPixelRatio: 1,
+                id: "mosaic",
+                prefixUrl: "openseadragon/images/",
+                tileSources: "imageName.dzi",
+                maxZoomPixelRatio: 1.2//,
+                //immediateRender: true
             });
             $.ajax(
             {
-                url: "main_image.csv",
+                url: "imageName.csv",
                 async: false,
                 success: function (csvd) 
                 {
@@ -36,6 +40,14 @@
                 size = (width < height) ? width-1 : height-1;
                 size = width-1;
                 total = width * height;
+                        viewer.addTiledImage(
+                            {
+                                x: 0,
+                                y: 0,
+                                width: 1/size,
+                                tileSource: "mosaicFiles/"+data[0][0]+".dzi"
+                            }
+                        );
             });
             var num1 = 0;
             var updateImage = function() {
@@ -90,7 +102,7 @@
                                 x: j/size,
                                 y: i/size,
                                 width: 1/size,
-                                tileSource: "mosaic_files/"+data[i][j]+".dzi"
+                                tileSource: "mosaicFiles/"+data[i][j]+".dzi"
                             }
                         );
                     }
@@ -98,7 +110,7 @@
                 }
                 else
                 {
-                    viewer.viewport.maxZoomPixelRatio = 1;
+                    viewer.viewport.maxZoomPixelRatio = 2;
                     viewer.world._items.length = 1;
                 }
             }else num1++;

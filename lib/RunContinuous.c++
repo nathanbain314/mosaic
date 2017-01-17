@@ -3,7 +3,6 @@
 
 using namespace TCLAP;
 
-/* Run with ./RunMosaic input_image output_image image_directory output_directory */
 int main( int argc, char **argv )
 {
   try
@@ -18,6 +17,10 @@ int main( int argc, char **argv )
 
     string image_directory  = imagesArg.getValue();
     string output_directory = directoryArg.getValue();
+
+    // Directory has to end in a slash in order to work
+    if( image_directory.back() != '/' ) image_directory += '/';
+    if( output_directory.back() != '/' ) output_directory += '/';
 
     if( vips_init( argv[0] ) )
       vips_error_exit( NULL ); 
@@ -53,7 +56,7 @@ int main( int argc, char **argv )
     vector< VImage > thumbnails;
     progressbar *generating_thumbnails = progressbar_new("Generating thumbnails", num_images);
 
-  // Iterate through all images in directory
+    // Iterate through all images in directory
     if ((dir = opendir (image_directory.c_str())) != NULL) 
     {
       while ((ent = readdir (dir)) != NULL)
@@ -69,6 +72,7 @@ int main( int argc, char **argv )
           height = image.height();
           size = ( width < height ) ? width : height;
 
+          // Generate new thumbnails based on image averages
           if(size >= 64 && image.bands() == 3)
           {
             stringstream ss;
@@ -87,6 +91,7 @@ int main( int argc, char **argv )
 
     progressbar *building_mosaics = progressbar_new("Building mosaics", num_images);
     p = 0;
+
     // Iterate through all images in directory
     if ((dir = opendir (image_directory.c_str())) != NULL) 
     {
@@ -103,6 +108,7 @@ int main( int argc, char **argv )
           height = image.height();
           size = ( width < height ) ? width : height;
 
+          // Create zoomable mosaics
           if(size >= 64 && image.bands() == 3)
           {
             stringstream ss;

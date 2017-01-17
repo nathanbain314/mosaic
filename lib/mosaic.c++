@@ -18,6 +18,7 @@ pair< PointCloud, vector< VImage > > create_image_array( string image_directory,
 
   int num_images = 0;
 
+  // Count the number of valid image files in the directory
   if ((dir = opendir (image_directory.c_str())) != NULL) 
   {
     while ((ent = readdir (dir)) != NULL)
@@ -25,7 +26,13 @@ pair< PointCloud, vector< VImage > > create_image_array( string image_directory,
       str = image_directory;
       if( ent->d_name[0] != '.' )
       {
-        ++num_images;
+        try
+        {
+          str.append(ent->d_name);
+          VImage::vipsload( (char *)str.c_str() );
+          ++num_images;
+        }
+        catch (...) {}
       }
     }
   }
@@ -37,6 +44,9 @@ pair< PointCloud, vector< VImage > > create_image_array( string image_directory,
 
   progressbar *processing_images = progressbar_new("Processing images", num_images);
 
+  // Create thumbnails direcoty
+  g_mkdir("thumbnails", 0777);
+
   // Iterate through all images in directory
   if ((dir = opendir (image_directory.c_str())) != NULL) 
   {
@@ -46,19 +56,32 @@ pair< PointCloud, vector< VImage > > create_image_array( string image_directory,
 
       if( ent->d_name[0] != '.' )
       {
-        // Load the image
-        str.append(ent->d_name);
-        
-        VImage image = VImage::vipsload( (char *)str.c_str() );
+        VImage image;
+        try
+        {
+          // Load the image
+          str.append(ent->d_name);
+          
+          image = VImage::vipsload( (char *)str.c_str() );
+        }
+        catch(...)
+        {
+          // If it is not a valid image then coninue
+          continue;
+        }
+
+        // Find the width of the largest square
         width = image.width();
         height = image.height();
         size = ( width < height ) ? width : height;
 
-        if(size >= 64 && image.bands() == 3)
+        // Square must be at least 64 by 64 pixels
+        if(size >= 64 && image.bands() >= 3 )
         {
           stringstream ss;
           ss << "thumbnails/" << p << ".v";
 
+          // Build the zoomable image if necessary 
           if( build )
           {
             stringstream ss2;
@@ -69,6 +92,7 @@ pair< PointCloud, vector< VImage > > create_image_array( string image_directory,
               image.extract_area((width-size)/2, 0, size, size).dzsave((char *)ss2.str().c_str());
           }
 
+          // Create and save a 64 by 64 pixel thumbnail
           char * thumbname = (char *)ss.str().c_str();
           if(width < height) 
           {
@@ -84,9 +108,12 @@ pair< PointCloud, vector< VImage > > create_image_array( string image_directory,
             shrink((double)size/64.0, (double)size/64.0).
             vipssave(thumbname);
           }
+
+          // Push the thumbnail onto the thumbnail vector
           image = VImage::vipsload(thumbname);
           thumbnails.push_back(image);   
 
+          // Save the average color data
           double *da = (double *)image.stats().data();
 
           PointCloud::Point pt;
@@ -108,11 +135,14 @@ pair< PointCloud, vector< VImage > > create_image_array( string image_directory,
   return pair< PointCloud, vector< VImage > >(cloud, thumbnails);
 }
 
+// Generate thumbnails based on previous averages
 void generate_thumbnail( PointCloud &averages, string input_image, string output_image, double shrink, bool square)
 {
+  // Shrink the image by an amount first
   VImage image = (shrink > 1) ? VImage::vipsload( (char *)input_image.c_str() ).shrink(shrink, shrink) : 
                                 VImage::vipsload( (char *)input_image.c_str() );
 
+  // Convert to a square
   if(square)
   {
     image = (image.width() < image.height()) ? image.extract_area(0, (image.height()-image.width())/2, image.width(), image.width()) :
@@ -124,6 +154,7 @@ void generate_thumbnail( PointCloud &averages, string input_image, string output
   int width = image.width();
   int height = image.height();
   
+  // Build kd tree
   typedef KDTreeSingleIndexAdaptor< L2_Simple_Adaptor<int, PointCloud >, PointCloud, 3 > my_kd_tree_t;
 
   my_kd_tree_t index(3 , averages, KDTreeSingleIndexAdaptorParams(20) );
@@ -133,6 +164,7 @@ void generate_thumbnail( PointCloud &averages, string input_image, string output
   int out_dist_sqr;
   nanoflann::KNNResultSet<int> resultSet(1);
 
+  // Get closest color from kd tree and recolor the image
   ofstream csv_data;
   for (int i = 0, p = 0; i < height; ++i)
   {
@@ -151,11 +183,14 @@ void generate_thumbnail( PointCloud &averages, string input_image, string output
   image.vipssave((char *)output_image.c_str());
 }
 
+// Generate a zoomable mosaic
 void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string input_image, string output_image, double shrink, bool square)
 {
+  // Shrink the input image is necessary
   VImage image = (shrink > 1) ? VImage::vipsload( (char *)input_image.c_str() ).shrink(shrink, shrink) : 
                                 VImage::vipsload( (char *)input_image.c_str() );
 
+  // Convert to a square
   if(square)
   {
     image = (image.width() < image.height()) ? image.extract_area(0, (image.height()-image.width())/2, image.width(), image.width()) :
@@ -172,6 +207,7 @@ void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string
 
   int **mosaic = new int*[height];
 
+  // Build kd tree
   typedef KDTreeSingleIndexAdaptor< L2_Simple_Adaptor<int, PointCloud >, PointCloud, 3 > my_kd_tree_t;
 
   my_kd_tree_t index(3 , q, KDTreeSingleIndexAdaptorParams(20) );
@@ -181,6 +217,7 @@ void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string
   int out_dist_sqr;
   nanoflann::KNNResultSet<int> resultSet(1);
 
+  // Iterate through every pixel of image and find the closest color
   ofstream csv_data;
   csv_data.open(string(output_image).append(".csv").c_str());
   for (int i = 0; i < height; ++i)
@@ -192,6 +229,7 @@ void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string
       int query_pt[3] = { (int)image_data[p], (int)image_data[p+1], (int)image_data[p+2]};
       index.findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(20));
 
+      // Set the value in the array and write to the csv file
       mosaic[i][j] = ret_index;
       csv_data << ret_index << ",";
     }
@@ -200,6 +238,7 @@ void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string
 
   csv_data.close();
 
+  // Create the dzi file 
   ofstream dzi_file;
   dzi_file.open(string(output_image).append(".dzi").c_str());
   dzi_file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << endl;
@@ -215,9 +254,13 @@ void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string
   int j_end = ceil(width / num_tiles);
   ostringstream ss;
   ss << output_image << "_files/";
+
+  // Make the directory for the zoomable image
   g_mkdir(ss.str().c_str(), 0777);
   ss << log_dzi+6 << "/";
   g_mkdir(ss.str().c_str(), 0777);
+
+  // Build the lowest level by stitching images from the thumbnails
   for(int i = 0; i <= i_end; ++i)
   {
     int y_end = ((i+1)*num_tiles < height) ? (i+1)*num_tiles : height;
@@ -242,6 +285,7 @@ void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string
     }
   }
   
+  // Progressively build the image pyramid from the bottom up
   for(int zoom = 5; zoom >= -log_dzi; --zoom )
   {
     int w = (int)ceil((double)width/ (double)(1 << (7-zoom)));
@@ -250,6 +294,8 @@ void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string
     ss3 << output_image << "_files/" << log_dzi+zoom << "/";
     ss2 << output_image << "_files/" << log_dzi+zoom+1 << "/";
     g_mkdir(ss3.str().c_str(), 0777);
+
+    // Take four images, shrink by a factor of two, and combine into a combination image
     for(int i = 1; i < w; i+=2)
     {
       for(int j = 1; j < h; j+=2)
@@ -261,6 +307,7 @@ void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string
         jpegsave((char *)ss3.str().append(to_string(i>>1)+"_"+to_string(j>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
       }
     }
+    // Side cases
     if(w%2 == 1)
     {
       for(int j = 1; j < h; j+=2)
@@ -279,6 +326,7 @@ void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string
         jpegsave((char *)ss3.str().append(to_string(j>>1)+"_"+to_string(h>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
       }
     }
+    // Corner cases
     if(w%2 == 1 && h%2 == 1)
     {
         VImage::jpegload((char *)ss2.str().append(to_string(w-1)+"_"+to_string(h-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
@@ -287,6 +335,7 @@ void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string
   }
 }
 
+// Build a static nonzoomable image
 void generate_image( PointCloud &q, vector< VImage > thumbnails, string input_image, string output_image, double shrink)
 {
   VImage image = (shrink > 1) ? VImage::vipsload( (char *)input_image.c_str() ).shrink(shrink, shrink) : 
@@ -308,6 +357,7 @@ void generate_image( PointCloud &q, vector< VImage > thumbnails, string input_im
   int out_dist_sqr;
   nanoflann::KNNResultSet<int> resultSet(1);
 
+  // Create a vector of all of the necessary images
   for (int i = 0, p = 0; i < height; ++i)
   {
     for (int j = 0; j < width; ++j, p+=3)
@@ -320,5 +370,6 @@ void generate_image( PointCloud &q, vector< VImage > thumbnails, string input_im
     }
   }
 
+  // Join the images into the final image
   VImage::arrayjoin(lines, VImage::option()->set( "across", width )).vipssave((char *)output_image.c_str());
 }
