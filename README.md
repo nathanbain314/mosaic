@@ -42,10 +42,8 @@ Input image
 ![Input image](https://raw.githubusercontent.com/nathanbain314/mosaic/master/input.jpg)
 Static image photo mosaic
 ![Static mosaic](https://raw.githubusercontent.com/nathanbain314/mosaic/master/output.png)
-Full resolution zoomable mosaic
-
+Full resolution zoomable mosaic  
 The mosaic [located here](http://nathanbain.com/mosaic/full_resolution.html) is made up of 921600 total images and 971 unique images. The mosaic takes up approximately 2.7 gigabytes on my server. 
 
-Infinite continuous zoomable mosaic
-
+Infinite continuous zoomable mosaic  
 An infinite mosaic is [located here](http://nathanbain.com/mosaic/continuous.html). It takes up 5.8 gigabytes on my server.
