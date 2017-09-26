@@ -1,375 +1,844 @@
 #include "mosaic.h"
-#include "progressbar.h"
-#include "nanoflann.hpp"
 
-using namespace nanoflann;
-
-// Takes string of image directory location and returns vector of average color for each image
-pair< PointCloud, vector< VImage > > create_image_array( string image_directory, string output_directory, bool build )
+void generateThumbnails( vector< string > &names, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude )
 {
   DIR *dir;
   struct dirent *ent;
   string str;
-  int n = 0;
-  int total_r, total_g, total_b;
 
-  PointCloud cloud;
-  vector< VImage > thumbnails;
-
-  int num_images = 0;
+  int size, width, height, num_images = 0, mosaicTileArea = mosaicTileWidth*mosaicTileWidth*3, imageTileArea = imageTileWidth*imageTileWidth*3;
+  int minAllow = exclude ? max(256,max(mosaicTileWidth,imageTileWidth)) : max(mosaicTileWidth,imageTileWidth);
+  bool different = mosaicTileWidth != imageTileWidth;
 
   // Count the number of valid image files in the directory
-  if ((dir = opendir (image_directory.c_str())) != NULL) 
+  if ((dir = opendir (imageDirectory.c_str())) != NULL) 
   {
     while ((ent = readdir (dir)) != NULL)
     {   
-      str = image_directory;
-      if( ent->d_name[0] != '.' )
+      if( ent->d_name[0] != '.' && vips_foreign_find_load( string( imageDirectory + ent->d_name ).c_str() ) != NULL )
       {
-        try
-        {
-          str.append(ent->d_name);
-          VImage::vipsload( (char *)str.c_str() );
-          ++num_images;
-        }
-        catch (...) {}
+        ++num_images;
       }
     }
   }
 
-  int p = 0;
-  unsigned char * data;
-  int size, size_sqr, width, height;
-  int offset;
-
   progressbar *processing_images = progressbar_new("Processing images", num_images);
 
-  // Create thumbnails direcoty
-  g_mkdir("thumbnails", 0777);
-
   // Iterate through all images in directory
-  if ((dir = opendir (image_directory.c_str())) != NULL) 
+  if ((dir = opendir (imageDirectory.c_str())) != NULL) 
   {
     while ((ent = readdir (dir)) != NULL)
     {
-      str = image_directory;
-
-      if( ent->d_name[0] != '.' )
+      if( ent->d_name[0] == '.' ) continue;
+      try
       {
-        VImage image;
-        try
-        {
-          // Load the image
-          str.append(ent->d_name);
-          
-          image = VImage::vipsload( (char *)str.c_str() );
-        }
-        catch(...)
-        {
-          // If it is not a valid image then coninue
-          continue;
-        }
+        str = imageDirectory + ent->d_name;
+
+        VImage image = VImage::vipsload( (char *)str.c_str() );
 
         // Find the width of the largest square
         width = image.width();
         height = image.height();
         size = ( width < height ) ? width : height;
 
-        // Square must be at least 64 by 64 pixels
-        if(size >= 64 && image.bands() >= 3 )
+        unsigned char * c;
+
+        if( image.bands() == 1 )
         {
-          stringstream ss;
-          ss << "thumbnails/" << p << ".v";
+          image = image.bandjoin(image).bandjoin(image);
+        }
+        if( image.bands() == 4 )
+        {
+          image = image.flatten();
+        }
 
-          // Build the zoomable image if necessary 
-          if( build )
-          {
-            stringstream ss2;
-            ss2 << output_directory << p;
-            if(width < height) 
-              image.extract_area(0, (height-size)/2, size, size).dzsave((char *)ss2.str().c_str());
-            else
-              image.extract_area((width-size)/2, 0, size, size).dzsave((char *)ss2.str().c_str());
-          }
-
-          // Create and save a 64 by 64 pixel thumbnail
-          char * thumbname = (char *)ss.str().c_str();
+        if( size >= minAllow && image.bands() == 3 )
+        {          
           if(width < height) 
           {
-            image.
+            c = (unsigned char *)image.
             extract_area(0, (height-size)/2, size, size).
-            shrink((double)size/64.0, (double)size/64.0).
-            vipssave(thumbname);
+            resize((double)mosaicTileWidth/(double)size).data();
           }
           else
           {
-            image.
+            c = (unsigned char *)image.
             extract_area( (width-size)/2, 0, size, size).
-            shrink((double)size/64.0, (double)size/64.0).
-            vipssave(thumbname);
+            resize((double)mosaicTileWidth/(double)size).data();
           }
 
-          // Push the thumbnail onto the thumbnail vector
-          image = VImage::vipsload(thumbname);
-          thumbnails.push_back(image);   
+          mosaicTileData.push_back( vector< unsigned char >(c, c + mosaicTileArea) );
 
-          // Save the average color data
-          double *da = (double *)image.stats().data();
+          if( different )
+          {
+            if(width < height) 
+            {
+              c = (unsigned char *)image.
+              extract_area(0, (height-size)/2, size, size).
+              resize((double)imageTileWidth/(double)size).data();
+            }
+            else
+            {
+              c = (unsigned char *)image.
+              extract_area( (width-size)/2, 0, size, size).
+              resize((double)imageTileWidth/(double)size).data();
+            }
 
-          PointCloud::Point pt;
-          pt.r = (int)da[14];
-          pt.g = (int)da[24];
-          pt.b = (int)da[34];
-          cloud.pts.push_back(pt);
-          
-          ++p;
+            imageTileData.push_back( vector< unsigned char >(c, c + imageTileArea) );
+          }
+          names.push_back( str );
         }
-        progressbar_inc( processing_images );
       }
+      catch (...) {}
+
+      progressbar_inc( processing_images );
     }
 
     progressbar_finish( processing_images );
 
     closedir (dir);
   }
-  return pair< PointCloud, vector< VImage > >(cloud, thumbnails);
 }
 
-// Generate thumbnails based on previous averages
-void generate_thumbnail( PointCloud &averages, string input_image, string output_image, double shrink, bool square)
+pair< int, double > computeBest( vector< vector< float > > &imageData, vector< float > &d, int start, int end, int tileWidth, vector< vector< int > > &mosaic, int i, int j, int repeat )
 {
-  // Shrink the image by an amount first
-  VImage image = (shrink > 1) ? VImage::vipsload( (char *)input_image.c_str() ).shrink(shrink, shrink) : 
-                                VImage::vipsload( (char *)input_image.c_str() );
+  int best = 0; 
+  double difference = DBL_MAX;
 
-  // Convert to a square
-  if(square)
+  int xEnd = ( (j+repeat+1<(int)mosaic[0].size()) ? j+repeat+1 : mosaic[0].size() );
+  int yEnd = ( (i+repeat+1<(int)mosaic.size()) ? i+repeat+1 : mosaic.size() );
+
+  for( int k = start; k < end; ++k )
   {
-    image = (image.width() < image.height()) ? image.extract_area(0, (image.height()-image.width())/2, image.width(), image.width()) :
-                                               image.extract_area((image.width()-image.height())/2, 0, image.height(), image.height());
-  }
-
-  unsigned char * image_data = (unsigned char *)image.data();
-  
-  int width = image.width();
-  int height = image.height();
-  
-  // Build kd tree
-  typedef KDTreeSingleIndexAdaptor< L2_Simple_Adaptor<int, PointCloud >, PointCloud, 3 > my_kd_tree_t;
-
-  my_kd_tree_t index(3 , averages, KDTreeSingleIndexAdaptorParams(20) );
-  index.buildIndex();
-
-  size_t ret_index;
-  int out_dist_sqr;
-  nanoflann::KNNResultSet<int> resultSet(1);
-
-  // Get closest color from kd tree and recolor the image
-  ofstream csv_data;
-  for (int i = 0, p = 0; i < height; ++i)
-  {
-    for (int j = 0; j < width; ++j, p+=3)
+    if( repeat > 0 )
     {
-      resultSet.init(&ret_index, &out_dist_sqr );
-      int query_pt[3] = { (int)image_data[p], (int)image_data[p+1], (int)image_data[p+2]};
-      index.findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(20));
+      bool valid = true;
 
-      image_data[p] = averages.pts[ret_index].r;
-      image_data[p+1] = averages.pts[ret_index].g;
-      image_data[p+2] = averages.pts[ret_index].b;
-    }
-  }
-
-  image.vipssave((char *)output_image.c_str());
-}
-
-// Generate a zoomable mosaic
-void generate_zoomable_image( PointCloud &q, vector< VImage > thumbnails, string input_image, string output_image, double shrink, bool square)
-{
-  // Shrink the input image is necessary
-  VImage image = (shrink > 1) ? VImage::vipsload( (char *)input_image.c_str() ).shrink(shrink, shrink) : 
-                                VImage::vipsload( (char *)input_image.c_str() );
-
-  // Convert to a square
-  if(square)
-  {
-    image = (image.width() < image.height()) ? image.extract_area(0, (image.height()-image.width())/2, image.width(), image.width()) :
-                                               image.extract_area((image.width()-image.height())/2, 0, image.height(), image.height());
-  }
-
-  unsigned char * image_data = (unsigned char *)image.data();
-  
-  int width = image.width();
-  int height = image.height();
-  
-  int p = 0;
-  int best;
-
-  int **mosaic = new int*[height];
-
-  // Build kd tree
-  typedef KDTreeSingleIndexAdaptor< L2_Simple_Adaptor<int, PointCloud >, PointCloud, 3 > my_kd_tree_t;
-
-  my_kd_tree_t index(3 , q, KDTreeSingleIndexAdaptorParams(20) );
-  index.buildIndex();
-
-  size_t ret_index;
-  int out_dist_sqr;
-  nanoflann::KNNResultSet<int> resultSet(1);
-
-  // Iterate through every pixel of image and find the closest color
-  ofstream csv_data;
-  csv_data.open(string(output_image).append(".csv").c_str());
-  for (int i = 0; i < height; ++i)
-  {
-    mosaic[i] = new int[width];
-    for (int j = 0; j < width; ++j, p+=3)
-    {
-      resultSet.init(&ret_index, &out_dist_sqr );
-      int query_pt[3] = { (int)image_data[p], (int)image_data[p+1], (int)image_data[p+2]};
-      index.findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(20));
-
-      // Set the value in the array and write to the csv file
-      mosaic[i][j] = ret_index;
-      csv_data << ret_index << ",";
-    }
-    csv_data << endl;
-  }
-
-  csv_data.close();
-
-  // Create the dzi file 
-  ofstream dzi_file;
-  dzi_file.open(string(output_image).append(".dzi").c_str());
-  dzi_file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << endl;
-  dzi_file << "<Image xmlns=\"http://schemas.microsoft.com/deepzoom/2008\" Format=\"jpeg\" Overlap=\"0\" TileSize=\"256\">" << endl;
-  dzi_file << "    <Size Height=\"" << height*64 << "\" Width=\"" << width*64 << "\"/>" << endl;
-  dzi_file << "</Image>" << endl;
-  dzi_file.close();
-
-  int log_dzi = (int)ceil( log2((width > height) ? width : height ) );
-  
-  int num_tiles = 256 >> 6;
-  int i_end = ceil(height / num_tiles);
-  int j_end = ceil(width / num_tiles);
-  ostringstream ss;
-  ss << output_image << "_files/";
-
-  // Make the directory for the zoomable image
-  g_mkdir(ss.str().c_str(), 0777);
-  ss << log_dzi+6 << "/";
-  g_mkdir(ss.str().c_str(), 0777);
-
-  // Build the lowest level by stitching images from the thumbnails
-  for(int i = 0; i <= i_end; ++i)
-  {
-    int y_end = ((i+1)*num_tiles < height) ? (i+1)*num_tiles : height;
-    for(int j = 0; j <= j_end; ++j)
-    {
-      int x_end = ((j+1)*num_tiles < width) ? (j+1)*num_tiles : width;
-      int size_length = x_end - j*num_tiles;
-      if(y_end - i*num_tiles > 0 && size_length > 0)
+      for( int y = (i-repeat > 0) ? i-repeat : 0; valid && y < yEnd; ++y )
       {
-        vector<VImage> lines;
-        for(int y = i*num_tiles; y < y_end; ++y)
+        for( int x = (j-repeat > 0) ? j-repeat : 0; valid && x < xEnd; ++x )
         {
-          for( int x = j*num_tiles; x < x_end; ++x)
+          if(  y == i && x == j ) continue;
+          if( mosaic[y][x] == k )
           {
-            lines.push_back(thumbnails[mosaic[y][x]]);
+            valid = false;
           }
         }
-        ostringstream ss2;
-        ss2 << ss.str() << j << "_" << i << ".jpeg";
-        VImage::arrayjoin(lines, VImage::option()->set( "across", size_length )).jpegsave((char *)ss2.str().c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
       }
-    }
-  }
-  
-  // Progressively build the image pyramid from the bottom up
-  for(int zoom = 5; zoom >= -log_dzi; --zoom )
-  {
-    int w = (int)ceil((double)width/ (double)(1 << (7-zoom)));
-    int h = (int)ceil((double)height/ (double)(1 << (7-zoom)));
-    ostringstream ss2, ss3;
-    ss3 << output_image << "_files/" << log_dzi+zoom << "/";
-    ss2 << output_image << "_files/" << log_dzi+zoom+1 << "/";
-    g_mkdir(ss3.str().c_str(), 0777);
 
-    // Take four images, shrink by a factor of two, and combine into a combination image
-    for(int i = 1; i < w; i+=2)
-    {
-      for(int j = 1; j < h; j+=2)
-      {
-        (VImage::jpegload((char *)ss2.str().append(to_string(i-1)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
-        join(VImage::jpegload((char *)ss2.str().append(to_string(i)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
-        join(VImage::jpegload((char *)ss2.str().append(to_string(i-1)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
-        join(VImage::jpegload((char *)ss2.str().append(to_string(i)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL),VIPS_DIRECTION_VERTICAL).
-        jpegsave((char *)ss3.str().append(to_string(i>>1)+"_"+to_string(j>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
-      }
+      if( !valid ) continue;
     }
-    // Side cases
-    if(w%2 == 1)
+
+    double sum = 0;
+    for( int l = 0; l < tileWidth*tileWidth*3; l+=3 )
     {
-      for(int j = 1; j < h; j+=2)
-      {
-        (VImage::jpegload((char *)ss2.str().append(to_string(w-1)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
-        join(VImage::jpegload((char *)ss2.str().append(to_string(w-1)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_VERTICAL)).
-        jpegsave((char *)ss3.str().append(to_string(w>>1)+"_"+to_string(j>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
-      }
+      sum += vips_col_dE00( imageData[k][l], imageData[k][l+1], imageData[k][l+2], d[l], d[l+1], d[l+2] );
     }
-    if(h%2 == 1)
+
+    if( sum < difference )
     {
-      for(int j = 1; j < w; j+=2)
-      {
-        (VImage::jpegload((char *)ss2.str().append(to_string(j-1)+"_"+to_string(h-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
-        join(VImage::jpegload((char *)ss2.str().append(to_string(j)+"_"+to_string(h-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
-        jpegsave((char *)ss3.str().append(to_string(j>>1)+"_"+to_string(h>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
-      }
-    }
-    // Corner cases
-    if(w%2 == 1 && h%2 == 1)
-    {
-        VImage::jpegload((char *)ss2.str().append(to_string(w-1)+"_"+to_string(h-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
-        jpegsave((char *)ss3.str().append(to_string(w>>1)+"_"+to_string(h>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
+      difference = sum;
+      best = k;
     }
   }
+
+  return pair< int, double >( best, difference );
 }
 
-// Build a static nonzoomable image
-void generate_image( PointCloud &q, vector< VImage > thumbnails, string input_image, string output_image, double shrink)
+// Takes a vector of image thumbnails, input image and number of images per row and creates output image
+int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat, bool square, int resize )
 {
-  VImage image = (shrink > 1) ? VImage::vipsload( (char *)input_image.c_str() ).shrink(shrink, shrink) : 
-                                VImage::vipsload( (char *)input_image.c_str() );
+  bool show = ( buildingMosaic != NULL );
 
-  unsigned char * image_data = (unsigned char *)image.data();
-  
-  int width = image.width();
-  int height = image.height();
-  
-  vector<VImage> lines;
+  VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );//.colourspace( VIPS_INTERPRETATION_LAB );
 
-  typedef KDTreeSingleIndexAdaptor< L2_Simple_Adaptor<int, PointCloud >, PointCloud, 3 > my_kd_tree_t;
-
-  my_kd_tree_t index( 3, q, KDTreeSingleIndexAdaptorParams(20) );
-  index.buildIndex();
-
-  size_t ret_index;
-  int out_dist_sqr;
-  nanoflann::KNNResultSet<int> resultSet(1);
-
-  // Create a vector of all of the necessary images
-  for (int i = 0, p = 0; i < height; ++i)
+  if( image.bands() == 1 )
   {
-    for (int j = 0; j < width; ++j, p+=3)
-    {
-      resultSet.init(&ret_index, &out_dist_sqr );
-      int query_pt[3] = { (int)image_data[p], (int)image_data[p+1], (int)image_data[p+2]};
-      index.findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(20));
+    image = image.bandjoin(image).bandjoin(image);
+  }
+  if( image.bands() == 4 )
+  {
+    image = image.flatten();
+  }
 
-      lines.push_back(thumbnails[ret_index]);
+  if(square)
+  {
+    image = (image.width() < image.height()) ? image.extract_area(0, (image.height()-image.width())/2, image.width(), image.width()) :
+                                               image.extract_area((image.width()-image.height())/2, 0, image.height(), image.height());
+  }
+
+  if( resize != 0 ) image = image.resize( (double)resize / (double)(image.width()) );
+
+  int width = image.width();
+
+  unsigned char * c = ( unsigned char * )image.data();
+
+  int numHorizontal = mosaic[0].size();
+  int numVertical = mosaic.size();
+
+  int tileWidth = width / numHorizontal;
+  int tileArea = tileWidth*tileWidth*3;
+
+  int num_images = imageData.size();
+
+  vector< bool > used( num_images, false );
+
+  int total = numVertical*numHorizontal;
+  vector< int > indices( total );
+  iota( indices.begin(), indices.end(), 0 );
+  if( repeat > 0 ) shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
+
+  for( int p = 0; p < total; ++p )
+  {
+    int i = indices[p] / numHorizontal;
+    int j = indices[p] % numHorizontal;
+    int best = 0; 
+    double difference = DBL_MAX;
+
+    vector< float > d(tileArea);
+
+    for( int y = 0, n = 0; y < tileWidth; ++y )
+    {
+      for( int x = 0; x < tileWidth; ++x, n+=3 )
+      {
+        int l = ( ( i * tileWidth + y ) * width + j * tileWidth + x ) * 3;
+
+        float r,g,b;
+        vips_col_sRGB2scRGB_16(c[l],c[l+1],c[l+2], &r,&g,&b );
+        vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
+        vips_col_XYZ2Lab( r, g, b, &d[n], &d[n+1], &d[n+2] );
+      }
+    }
+
+    future< pair< int, double > > ret[20];
+
+    for( double k = 0; k < 20; ++k )
+    {
+      ret[int(k)] = async( launch::async, &computeBest, ref(imageData), ref(d), k/20.0 * imageData.size(), (k+1)/20.0 * imageData.size(), tileWidth, ref(mosaic), i, j, repeat );
+    }
+    for( int k = 0; k < 20; ++k )
+    {
+      pair< int, double > b = ret[k].get();
+      if( b.second < difference )
+      {
+        best = b.first;
+        difference = b.second;
+      } 
+    }
+
+    mosaic[i][j] = best;
+    used[ best ] = true;
+
+    if( show ) progressbar_inc( buildingMosaic );
+  }
+
+  return accumulate(used.begin(), used.end(), 0);
+}
+
+int generateMosaic( KDTreeVectorOfVectorsAdaptor< vector< vector< int > >, int > &mat_index, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat, bool square, int resize )
+{
+  bool show = ( buildingMosaic != NULL );
+
+  int searchSize = max( 1, 4*repeat*(repeat+1)+1 );
+  int *out_dist_sqr = new int[searchSize];
+
+  int num_images = mat_index.kdtree_get_point_count();
+
+  VImage image = VImage::vipsload( (char *)inputImage.c_str() );
+
+  if( image.bands() == 1 )
+  {
+    image = image.bandjoin(image).bandjoin(image);
+  }
+  if( image.bands() == 4 )
+  {
+    image = image.flatten();
+  }
+
+  if(square)
+  {
+    image = (image.width() < image.height()) ? image.extract_area(0, (image.height()-image.width())/2, image.width(), image.width()) :
+                                               image.extract_area((image.width()-image.height())/2, 0, image.height(), image.height());
+  }
+
+  if( resize != 0 ) image = image.resize( (double)resize / (double)(image.width()) );
+
+  int width = image.width();
+
+  unsigned char * c = ( unsigned char * )image.data();
+
+  int numHorizontal = mosaic[0].size();
+  int numVertical = mosaic.size();
+
+  int tileWidth = width / numHorizontal;
+  int tileArea = tileWidth*tileWidth*3;
+
+  vector< bool > used( num_images, false );
+
+  int total = numVertical*numHorizontal;
+  vector< int > indices( total );
+  iota( indices.begin(), indices.end(), 0 );
+  if( repeat > 0 ) shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
+
+  for( int p = 0; p < total; ++p )
+  {
+    int i = indices[p] / numHorizontal;
+    int j = indices[p] % numHorizontal;
+
+    vector< int > d(tileArea);
+
+    for( int y = 0, n = 0; y < tileWidth; ++y )
+    {
+      for( int x = 0; x < tileWidth; ++x, n+=3 )
+      {
+        int l = ( ( i * tileWidth + y ) * width + j * tileWidth + x ) * 3;
+        d[n] = c[l];
+        d[n+1] = c[l+1];
+        d[n+2] = c[l+2];
+      }
+    }
+
+    int xEnd = ( (j+repeat+1<numHorizontal) ? j+repeat+1 : numHorizontal );
+    int yEnd = ( (i+repeat+1<numVertical) ? i+repeat+1 : numVertical );
+
+    vector< size_t > ret_index( searchSize );
+
+    mat_index.query( &d[0], searchSize, ret_index.data(), &out_dist_sqr[0] );
+
+    if( searchSize > 1 )
+    {
+      for( int y = (i-repeat > 0) ? i-repeat : 0; y < yEnd; ++y )
+      {
+        for( int x = (j-repeat > 0) ? j-repeat : 0; x < xEnd; ++x )
+        {
+          if(  y == i && x == j ) continue;
+          vector< size_t >::iterator position = find(ret_index.begin(), ret_index.end(), mosaic[y][x]);
+          if (position != ret_index.end()) ret_index.erase(position);
+        }
+      }
+    }
+    
+    mosaic[i][j] = ret_index[0];
+    used[ ret_index[0] ] = true;
+
+    if( show ) progressbar_inc( buildingMosaic );
+  }
+
+  return accumulate(used.begin(), used.end(), 0);
+}
+
+void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< int > > &mosaic, string outputImage, int tileWidth )
+{
+  int width = mosaic[0].size();
+  int height = mosaic.size(); 
+  unsigned char *data = new unsigned char[width*height*tileWidth*tileWidth*3];
+
+  for( int i = 0; i < height; ++i )
+  {
+    for( int j = 0; j < width; ++j )
+    {
+      for( int y = 0; y < tileWidth; ++y )
+      {
+        for( int x = 0; x < tileWidth; ++x )
+        {
+          data[ 3 * ( width * tileWidth * ( i * tileWidth + y ) + j * tileWidth + x ) ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)];
+          data[ 3 * ( width * tileWidth * ( i * tileWidth + y ) + j * tileWidth + x ) + 1 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+1];
+          data[ 3 * ( width * tileWidth * ( i * tileWidth + y ) + j * tileWidth + x ) + 2 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+2];
+        }
+      }
     }
   }
 
-  // Join the images into the final image
-  VImage::arrayjoin(lines, VImage::option()->set( "across", width )).vipssave((char *)output_image.c_str());
+  VImage::new_from_memory( data, width*height*tileWidth*tileWidth*3, width*tileWidth, height*tileWidth, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
+}
+
+void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > imageNames, int numUnique, string outputImage, ofstream& htmlFile )
+{
+  ostringstream levelData;
+
+  int width = mosaic[0].size();
+  int height = mosaic.size();
+
+  int numHorizontal = width;
+  int numVertical = height;
+  int maxZoomablesLevel = INT_MIN;
+  int minZoomablesLevel = INT_MAX;
+
+  int level = (int)ceil( log2((width > height) ? width : height ) ) + 6;
+  bool first = true;
+
+  string outputDirectory = string( outputImage + "zoom/" );
+
+  g_mkdir(outputDirectory.c_str(), 0777);
+
+  vector< string > mosaicStrings;
+
+  progressbar *generatingZoomables = progressbar_new("Generating zoomables", numUnique);
+
+  levelData << "var levelData = [";
+
+  {
+    ostringstream currentMosaic;
+    vector< int > alreadyDone;
+
+    currentMosaic << "[";
+    for( int i = 0; i < height; ++i )
+    {
+      currentMosaic << "[";
+      for( int j = 0; j < width; ++j )
+      {
+        int current = mosaic[i][j];
+
+        bool skip = false;
+        int k = 0;
+        for( ; k < (int)alreadyDone.size(); ++k )
+        {
+          if( alreadyDone[k] == current )
+          {
+            skip = true;
+            break;
+          }
+        }
+
+        if( !skip )
+        {
+          alreadyDone.push_back( current );
+          mosaic[i][j] = alreadyDone.size()-1;
+
+          VImage image = VImage::vipsload( (char *)imageNames[current].c_str() );
+
+          // Find the width of the largest square
+          int width = image.width();
+          int height = image.height();
+          int size = ( width < height ) ? width : height;
+            
+          int log = round( log2( size ) );
+
+          if( alreadyDone.size() > 1 ) levelData << ","; 
+          levelData << (log-8);
+
+          maxZoomablesLevel = max( maxZoomablesLevel, (log-8) );
+          minZoomablesLevel = min( minZoomablesLevel, (log-8) );
+
+          int newSize = 1 << log;
+
+          // Build the zoomable image if necessary 
+          string zoomableName = outputDirectory + to_string(mosaic[i][j]);
+          if(width < height)
+          { 
+            image.extract_area(0, (height-size)/2, size, size).resize((double)newSize/(double)size).dzsave((char *)zoomableName.c_str(), VImage::option()->set( "depth", VIPS_FOREIGN_DZ_DEPTH_ONETILE )->set( "tile-size", 256 )->set( "overlap", false )->set( "strip", true ) );
+          }
+          else
+          {
+            image.extract_area( (width-size)/2, 0, size, size).resize((double)newSize/(double)size).dzsave((char *)zoomableName.c_str(), VImage::option()->set( "depth", VIPS_FOREIGN_DZ_DEPTH_ONETILE )->set( "tile-size", 256 )->set( "overlap", false )->set( "strip", true ) );
+          }
+          progressbar_inc( generatingZoomables );
+        }
+        else
+        {
+          mosaic[i][j] = k;
+        }
+        currentMosaic << mosaic[i][j];
+        if( j < width - 1 ) currentMosaic << ","; 
+      }
+      currentMosaic << "]";
+      if( i < height - 1 ) currentMosaic << ",";
+    }
+    currentMosaic << "]";
+    mosaicStrings.push_back(currentMosaic.str());
+  }
+
+  progressbar_finish( generatingZoomables );
+  progressbar *generatingLevels = progressbar_new("Generating levels", height);
+
+  levelData << "];";
+
+  for( ; level >= 0; --level )
+  { 
+    vector< vector< int > > alreadyDone;
+
+    ostringstream image, directory, input, currentMosaic;
+
+    // Make the directory for the zoomable image
+    image << outputImage << level << "/";
+    input << outputImage << level + 1 << "/";
+    directory << outputDirectory;
+    g_mkdir(image.str().c_str(), 0777);
+
+    for( int i = 1; i < height; i+=2 )
+    {
+      for( int j = 1; j < width; j+=2 )
+      {
+        vector< int > current = { mosaic[i-1][j-1], mosaic[i-1][j], mosaic[i][j-1], mosaic[i][j] };
+
+        bool skip = false;
+        int k = 0;
+        for( ; k < (int)alreadyDone.size(); ++k )
+        {
+          if( alreadyDone[k] == current )
+          {
+            skip = true;
+            break;
+          }
+        }
+
+        if( !skip )
+        {
+          alreadyDone.push_back( current );
+
+          mosaic[i/2][j/2] = alreadyDone.size()-1;
+
+          if( first )
+          {
+            (VImage::jpegload((char *)directory.str().append(to_string(mosaic[i-1][j-1])+"_files/0/0_0.jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+            join(VImage::jpegload((char *)directory.str().append(to_string(mosaic[i-1][j])+"_files/0/0_0.jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
+            join(VImage::jpegload((char *)directory.str().append(to_string(mosaic[i][j-1])+"_files/0/0_0.jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+            join(VImage::jpegload((char *)directory.str().append(to_string(mosaic[i][j])+"_files/0/0_0.jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL),VIPS_DIRECTION_VERTICAL).
+            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+          }
+          else
+          {
+            (VImage::jpegload((char *)input.str().append(to_string(mosaic[i-1][j-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+            join(VImage::jpegload((char *)input.str().append(to_string(mosaic[i-1][j])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
+            join(VImage::jpegload((char *)input.str().append(to_string(mosaic[i][j-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+            join(VImage::jpegload((char *)input.str().append(to_string(mosaic[i][j])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL),VIPS_DIRECTION_VERTICAL).
+            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+          }
+        }
+        else
+        {
+          mosaic[i/2][j/2] = k;
+        }
+      }
+      progressbar_inc( generatingLevels );
+    }
+
+    if(width%2 == 1)
+    {
+      for(int j = 1; j < height; j+=2)
+      {
+        vector< int > current = { mosaic[j-1][width-1], mosaic[j][width-1] };
+
+        bool skip = false;
+        int k = 0;
+        for( ; k < (int)alreadyDone.size(); ++k )
+        {
+          if( alreadyDone[k] == current )
+          {
+            skip = true;
+            break;
+          }
+        }
+
+        if( !skip )
+        {
+          alreadyDone.push_back( current );
+
+          mosaic[j/2][width/2] = alreadyDone.size()-1;
+
+          if( first )
+          {
+            (VImage::jpegload((char *)directory.str().append(to_string(mosaic[j-1][width-1])+"_files/0/0_0.jpeg").c_str()).
+            join(VImage::jpegload((char *)directory.str().append(to_string(mosaic[j][width-1])+"_files/0/0_0.jpeg").c_str()),VIPS_DIRECTION_VERTICAL)).
+            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+          }
+          else
+          {
+            (VImage::jpegload((char *)input.str().append(to_string(mosaic[j-1][width-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+            join(VImage::jpegload((char *)input.str().append(to_string(mosaic[j][width-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_VERTICAL)).
+            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+          }
+        }
+        else
+        {
+          mosaic[j/2][width/2] = k;
+        }
+      }
+    }
+
+    if(height%2 == 1)
+    {
+      for(int j = 1; j < width; j+=2)
+      {
+        vector< int > current = { mosaic[height-1][j-1], mosaic[height-1][j] };
+
+        bool skip = false;
+        int k = 0;
+        for( ; k < (int)alreadyDone.size(); ++k )
+        {
+          if( alreadyDone[k] == current )
+          {
+            skip = true;
+            break;
+          }
+        }
+
+        if( !skip )
+        {
+          alreadyDone.push_back( current );
+
+          mosaic[height/2][j/2] = alreadyDone.size()-1;
+
+          if( first )
+          {
+            (VImage::jpegload((char *)directory.str().append(to_string(mosaic[height-1][j-1])+"_files/0/0_0.jpeg").c_str()).
+            join(VImage::jpegload((char *)directory.str().append(to_string(mosaic[height-1][j])+"_files/0/0_0.jpeg").c_str()),VIPS_DIRECTION_HORIZONTAL)).
+            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+          }
+          else
+          {
+            (VImage::jpegload((char *)input.str().append(to_string(mosaic[height-1][j-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+            join(VImage::jpegload((char *)input.str().append(to_string(mosaic[height-1][j])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
+            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+          }
+        }
+        else
+        {
+          mosaic[height/2][j/2] = k;
+        }
+      }
+    }
+
+    if(width%2 == 1 && height%2 == 1)
+    {
+      mosaic[height/2][width/2] = alreadyDone.size();
+      if( first )
+      {
+        VImage::jpegload((char *)directory.str().append(to_string(mosaic[height-1][width-1])+"_files/0/0_0.jpeg").c_str()).
+        jpegsave((char *)image.str().append(to_string(alreadyDone.size())+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
+      }
+      else
+      {
+        VImage::jpegload((char *)input.str().append(to_string(mosaic[height-1][width-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+        jpegsave((char *)image.str().append(to_string(alreadyDone.size())+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
+      }
+    }
+
+    width = (int)ceil((double)width/2.0);
+    height = (int)ceil((double)height/2.0);
+
+    currentMosaic << "[";
+
+    for( int i = 0; i < height; ++i )
+    {
+      currentMosaic << "[";
+      for( int j = 0; j < width; ++j )
+      {
+        currentMosaic << mosaic[i][j];
+        if( j < width-1 ) currentMosaic << ",";
+      }
+      currentMosaic << "]";
+      if( i < height-1 ) currentMosaic << ",";
+    }
+    currentMosaic << "]";
+
+    mosaicStrings.push_back(currentMosaic.str());
+
+    first = false;
+  }
+
+  progressbar_finish( generatingLevels );
+
+  htmlFile << levelData.str() << endl;
+
+  htmlFile << "var data = [ \n";
+
+  for( int i = mosaicStrings.size()-1; i>=0; --i )
+  {
+    htmlFile << mosaicStrings[i] << "," << endl;
+  }
+
+  htmlFile << "];";
+
+  htmlFile << "var mosaicWidth = " << numHorizontal << ";\nvar mosaicHeight = " << numVertical << ";\nvar mosaicLevel = " << mosaicStrings.size()-1 << ";\nvar minZoomablesLevel = " << minZoomablesLevel << ";\nvar maxZoomablesLevel = " << maxZoomablesLevel << ";\n";
+}
+
+void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VImage > &images, string outputDirectory, ofstream& htmlFile )
+{
+  vector< string > mosaicStrings;
+  vector< vector< vector< int > > > alreadyDone( 6 );
+
+  g_mkdir( outputDirectory.c_str(), 0777);
+  g_mkdir( string( outputDirectory ).append( "0/" ).c_str(), 0777);
+  g_mkdir( string( outputDirectory ).append( "1/" ).c_str(), 0777);
+  g_mkdir( string( outputDirectory ).append( "2/" ).c_str(), 0777);
+  g_mkdir( string( outputDirectory ).append( "3/" ).c_str(), 0777);
+  g_mkdir( string( outputDirectory ).append( "4/" ).c_str(), 0777);
+  g_mkdir( string( outputDirectory ).append( "5/" ).c_str(), 0777);
+
+  int numImages = mosaic.size();
+
+  int size = 64;
+
+  {
+    ostringstream currentMosaic;
+    currentMosaic << "[";
+
+    progressbar *generatingLevels = progressbar_new("Generating level 5", numImages);
+
+    for( int n = 0; n < numImages; ++n )
+    {
+      currentMosaic << "[";
+      for( int i = 0; i < size; ++i )
+      {
+        currentMosaic << "[";
+        for( int j = 0; j < size; ++j )
+        {
+          currentMosaic << mosaic[n][i][j];
+          if( j < size-1 ) currentMosaic << ",";
+        }
+        currentMosaic << "]";
+        if( i < size-1 ) currentMosaic << ",";
+      }
+      currentMosaic << "]";
+      if( n < numImages-1 ) currentMosaic << ",";
+
+      for( int i = 1; i < size; i+=2 )
+      {
+        for( int j = 1; j < size; j+=2 )
+        {
+          vector< int > current = { mosaic[n][i-1][j-1], mosaic[n][i-1][j], mosaic[n][i][j-1], mosaic[n][i][j] };
+
+          bool skip = false;
+          int k = 0;
+          for( ; k < (int)alreadyDone[5].size(); ++k )
+          {
+            if( alreadyDone[5][k] == current )
+            {
+              skip = true;
+              break;
+            }
+          }
+
+          if( !skip )
+          {
+            alreadyDone[5].push_back( current );
+
+            mosaic[n][i>>1][j>>1] = alreadyDone[5].size()-1;
+
+            (images[current[0]].
+            join(images[current[1]],VIPS_DIRECTION_HORIZONTAL)).
+            join(images[current[2]].
+            join(images[current[3]],VIPS_DIRECTION_HORIZONTAL),VIPS_DIRECTION_VERTICAL).
+            jpegsave((char *)string( outputDirectory ).append( "5/" + to_string(mosaic[n][i>>1][j>>1]) + ".jpeg" ).c_str() /*, VImage::option()->set( "optimize_coding", true )->set( "strip", true ) */ ); 
+          }
+          else
+          {
+            mosaic[n][i>>1][j>>1] = k;
+          }
+        }
+      }
+      progressbar_inc( generatingLevels );
+    }
+
+    progressbar_finish( generatingLevels );
+
+    currentMosaic << "]\n";
+
+    mosaicStrings.push_back( currentMosaic.str() );
+  }
+
+  for( int l = 4; l >= 0 ; --l )
+  {
+    ostringstream currentMosaic;
+    currentMosaic << "[";
+
+    progressbar *generatingLevels = progressbar_new(string( "Generating level " + to_string(l) ).c_str(), numImages);
+
+    size = size >> 1;
+    for( int n = 0; n < numImages; ++n )
+    {
+      currentMosaic << "[";
+      for( int i = 0; i < size; ++i )
+      {
+        currentMosaic << "[";
+        for( int j = 0; j < size; ++j )
+        {
+          currentMosaic << mosaic[n][i][j];
+          if( j < size-1 ) currentMosaic << ",";
+        }
+        currentMosaic << "]";
+        if( i < size-1 ) currentMosaic << ",";
+      }
+      currentMosaic << "]";
+      if( n < numImages-1 ) currentMosaic << ",";
+
+      for( int i = 1; i < size; i+=2 )
+      {
+        for( int j = 1; j < size; j+=2 )
+        {
+          vector< int > current = { mosaic[n][i-1][j-1], mosaic[n][i-1][j], mosaic[n][i][j-1], mosaic[n][i][j] };
+
+          bool skip = false;
+          int k = 0;
+          for( ; k < (int)alreadyDone[l].size(); ++k )
+          {
+            if( alreadyDone[l][k] == current )
+            {
+              skip = true;
+              break;
+            }
+          }
+
+          if( !skip )
+          {
+            alreadyDone[l].push_back( current );
+            mosaic[n][i>>1][j>>1] = alreadyDone[l].size()-1;
+
+            (VImage::jpegload((char *)string( outputDirectory ).append(to_string(l+1) + "/" + to_string(current[0])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+            join(VImage::jpegload((char *)string( outputDirectory ).append(to_string(l+1) + "/" + to_string(current[1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
+            join(VImage::jpegload((char *)string( outputDirectory ).append(to_string(l+1) + "/" + to_string(current[2])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+            join(VImage::jpegload((char *)string( outputDirectory ).append(to_string(l+1) + "/" + to_string(current[3])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL),VIPS_DIRECTION_VERTICAL).
+            jpegsave((char *)string( outputDirectory ).append(to_string(l) + "/" + to_string(alreadyDone[l].size()-1)+".jpeg").c_str() /*, VImage::option()->set( "optimize_coding", true )->set( "strip", true )*/ );
+          }
+          else
+          {
+            mosaic[n][i>>1][j>>1] = k;
+          }
+        }
+      }
+      progressbar_inc( generatingLevels );
+    }
+
+    progressbar_finish( generatingLevels );
+
+    currentMosaic << "]\n";
+    mosaicStrings.push_back( currentMosaic.str() );
+  }
+
+  {
+    ostringstream currentMosaic;
+    currentMosaic << "[";
+
+    size = size >> 1;
+    for( int n = 0; n < numImages; ++n )
+    {
+      currentMosaic << "[";
+      for( int i = 0; i < size; ++i )
+      {
+        currentMosaic << "[";
+        for( int j = 0; j < size; ++j )
+        {
+          currentMosaic << mosaic[n][i][j];
+          if( j < size-1 ) currentMosaic << ",";
+        }
+        currentMosaic << "]";
+        if( i < size-1 ) currentMosaic << ",";
+      }
+      currentMosaic << "]";
+      if( n < numImages-1 ) currentMosaic << ",";
+    }
+
+    currentMosaic << "]\n";
+    mosaicStrings.push_back( currentMosaic.str() );
+  }
+
+  htmlFile << "var data = [ \n";
+
+  for( int i = mosaicStrings.size()-1; i>=0; --i )
+  {
+    htmlFile << mosaicStrings[i] << "," << endl;
+  }
+
+  htmlFile << "];";
 }

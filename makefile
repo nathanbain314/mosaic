@@ -1,28 +1,30 @@
 CXX += -std=c++11 -stdlib=libc++ -O3 -g
 
-EXECUTABLE = RunMosaic RunContinuous
-
 SRC = lib
 INCLUDE = include
 OBJDIR = build
+OUTDIR = bin
+EXECUTABLE = $(OUTDIR)/RunMosaic $(OUTDIR)/RunContinuous
 
-CFLAGS += -I$(INCLUDE) -Wimplicit-function-declaration -Wall -Wextra -pedantic
+CFLAGS += -I$(INCLUDE) -Wno-everything
 LDLIBS = -lncurses
 VIPS_FLAGS = `pkg-config vips-cpp --cflags --libs`
 
 all: $(EXECUTABLE)
 
-RunMosaic: $(OBJDIR)/RunMosaic.o $(OBJDIR)/mosaic.o $(OBJDIR)/progressbar.o
-	$(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDLIBS) $(VIPS_FLAGS) $(OBJDIR)/RunMosaic.o $(OBJDIR)/mosaic.o $(OBJDIR)/progressbar.o -o RunMosaic
+$(OUTDIR)/%: $(OBJDIR)/%.o $(OBJDIR)/mosaic.o $(OBJDIR)/progressbar.o
+	@mkdir -p $(dir $@)
+	$(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDLIBS) $(VIPS_FLAGS) $^ -o $@
 
-RunContinuous: $(OBJDIR)/RunContinuous.o $(OBJDIR)/mosaic.o $(OBJDIR)/progressbar.o
-	$(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDLIBS) $(VIPS_FLAGS) $(OBJDIR)/RunContinuous.o $(OBJDIR)/mosaic.o $(OBJDIR)/progressbar.o -o RunContinuous
+.PRECIOUS: $(OBJDIR)/%.o
 
-$(OBJDIR)/%.o: $(SRC)/%.c $(INCLUDE)/%.h
-	$(CC) -c $(CFLAGS) $(CPPFLAGS) $< -o $@
+$(OBJDIR)/%.o: $(SRC)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) -c $(CFLAGS) $< -o $@
 
-$(OBJDIR)/%.o: $(SRC)/%.c++ $(INCLUDE)/mosaic.h
-	$(CXX) -c $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(VIPS_FLAGS) $< -o $@
+$(OBJDIR)/%.o: $(SRC)/%.c++
+	@mkdir -p $(dir $@)
+	$(CXX) -c $(CFLAGS) $(VIPS_FLAGS) $< -o $@
 
 clean:
-	rm -f $(OBJDIR)/*.o $(EXECUTABLE)
+	rm -rf $(OBJDIR) $(OUTDIR)
