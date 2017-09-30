@@ -11,7 +11,7 @@ int main( int argc, char **argv )
   {
     CmdLine cmd("Creates an image mosaic.", ' ', "2.0");
 
-    ValueArg<int> thumbnailArg( "t", "thumbnailSize", "Maximum thumbnail size", false, 0, "int", cmd);
+    ValueArg<int> mosaicTileArg( "m", "mosaicTileSize", "Maximum tile size for generating mosaic", false, 0, "int", cmd);
 
     SwitchArg colorArg( "c", "color", "Use de00 for color difference", cmd, false );
 
@@ -27,9 +27,9 @@ int main( int argc, char **argv )
     string outputDirectory    = outputArg.getValue();
     int repeat                = repeatArg.getValue();
     bool trueColor            = colorArg.getValue();
-    int thumbnailSize         = thumbnailArg.getValue();
+    int mosaicTileSize         = thumbnailArg.getValue();
 
-    int tileWidth = ( thumbnailSize > 0 && thumbnailSize < 64 ) ? thumbnailSize : 64;
+    int tileWidth = ( mosaicTileSize > 0 && mosaicTileSize < 64 ) ? mosaicTileSize : 64;
     int tileWidthSqr = tileWidth*tileWidth;
     int tileArea = tileWidthSqr*3;
 
