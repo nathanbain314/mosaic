@@ -43,7 +43,7 @@ viewer = OpenSeadragon({
 });
 
 viewer.viewport.getMaxZoom = function() { 
-  var minzoom = mosaicWidth<<(minZoomablesLevel+8)/document.getElementById("mosaic").offsetWidth;
+  var minzoom = (mosaicWidth<<(minZoomablesLevel+8))/document.getElementById("mosaic").offsetWidth;
 
   if( viewer.viewport.getZoom() >= minzoom )
   {

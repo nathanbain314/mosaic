@@ -27,7 +27,7 @@ int main( int argc, char **argv )
     string outputDirectory    = outputArg.getValue();
     int repeat                = repeatArg.getValue();
     bool trueColor            = colorArg.getValue();
-    int mosaicTileSize         = thumbnailArg.getValue();
+    int mosaicTileSize        = mosaicTileArg.getValue();
 
     int tileWidth = ( mosaicTileSize > 0 && mosaicTileSize < 64 ) ? mosaicTileSize : 64;
     int tileWidthSqr = tileWidth*tileWidth;
