@@ -743,7 +743,8 @@ void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VI
     ostringstream currentMosaic;
     currentMosaic << "[";
 
-    progressbar *generatingLevels = progressbar_new(string( "Generating level " + to_string(l) ).c_str(), numImages);
+    string progressString = "Generating level "+ to_string(l);
+    progressbar *generatingLevels = progressbar_new(progressString.c_str(), numImages);
 
     size = size >> 1;
     for( int n = 0; n < numImages; ++n )
