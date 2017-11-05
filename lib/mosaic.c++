@@ -380,6 +380,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
   {
     ostringstream currentMosaic;
     vector< int > alreadyDone;
+    int numTiles = 0;
 
     currentMosaic << "[";
     for( int i = 0; i < height; ++i )
@@ -391,7 +392,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
 
         bool skip = false;
         int k = 0;
-        for( ; k < (int)alreadyDone.size(); ++k )
+        for( ; k < numTiles; ++k )
         {
           if( alreadyDone[k] == current )
           {
@@ -403,7 +404,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
         if( !skip )
         {
           alreadyDone.push_back( current );
-          mosaic[i][j] = alreadyDone.size()-1;
+          mosaic[i][j] = numTiles++;
 
           VImage image = VImage::vipsload( (char *)imageNames[current].c_str() );
 
@@ -414,7 +415,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
             
           int log = round( log2( size ) );
 
-          if( alreadyDone.size() > 1 ) levelData << ","; 
+          if( numTiles > 1 ) levelData << ","; 
           levelData << (log-8);
 
           maxZoomablesLevel = max( maxZoomablesLevel, (log-8) );
@@ -456,6 +457,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
   for( ; level >= 0; --level )
   { 
     vector< vector< int > > alreadyDone;
+    int numTiles = 0;
 
     ostringstream image, directory, input, currentMosaic;
 
@@ -473,7 +475,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
 
         bool skip = false;
         int k = 0;
-        for( ; k < (int)alreadyDone.size(); ++k )
+        for( ; k < numTiles; ++k )
         {
           if( alreadyDone[k] == current )
           {
@@ -486,15 +488,13 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
         {
           alreadyDone.push_back( current );
 
-          mosaic[i/2][j/2] = alreadyDone.size()-1;
-
           if( first )
           {
             (VImage::jpegload((char *)directory.str().append(to_string(mosaic[i-1][j-1])+"_files/0/0_0.jpeg").c_str(), VImage::option()->set( "shrink", 2)).
             join(VImage::jpegload((char *)directory.str().append(to_string(mosaic[i-1][j])+"_files/0/0_0.jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
             join(VImage::jpegload((char *)directory.str().append(to_string(mosaic[i][j-1])+"_files/0/0_0.jpeg").c_str(), VImage::option()->set( "shrink", 2)).
             join(VImage::jpegload((char *)directory.str().append(to_string(mosaic[i][j])+"_files/0/0_0.jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL),VIPS_DIRECTION_VERTICAL).
-            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+            jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
           }
           else
           {
@@ -502,8 +502,10 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
             join(VImage::jpegload((char *)input.str().append(to_string(mosaic[i-1][j])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
             join(VImage::jpegload((char *)input.str().append(to_string(mosaic[i][j-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
             join(VImage::jpegload((char *)input.str().append(to_string(mosaic[i][j])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL),VIPS_DIRECTION_VERTICAL).
-            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+            jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
           }
+
+          mosaic[i/2][j/2] = numTiles++;
         }
         else
         {
@@ -515,13 +517,14 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
 
     if(width%2 == 1)
     {
+      alreadyDone.clear();
       for(int j = 1; j < height; j+=2)
       {
         vector< int > current = { mosaic[j-1][width-1], mosaic[j][width-1] };
 
         bool skip = false;
         int k = 0;
-        for( ; k < (int)alreadyDone.size(); ++k )
+        for( ; k < numTiles; ++k )
         {
           if( alreadyDone[k] == current )
           {
@@ -534,20 +537,20 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
         {
           alreadyDone.push_back( current );
 
-          mosaic[j/2][width/2] = alreadyDone.size()-1;
-
           if( first )
           {
             (VImage::jpegload((char *)directory.str().append(to_string(mosaic[j-1][width-1])+"_files/0/0_0.jpeg").c_str()).
             join(VImage::jpegload((char *)directory.str().append(to_string(mosaic[j][width-1])+"_files/0/0_0.jpeg").c_str()),VIPS_DIRECTION_VERTICAL)).
-            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+            jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
           }
           else
           {
             (VImage::jpegload((char *)input.str().append(to_string(mosaic[j-1][width-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
             join(VImage::jpegload((char *)input.str().append(to_string(mosaic[j][width-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_VERTICAL)).
-            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+            jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
           }
+
+          mosaic[j/2][width/2] = numTiles++;
         }
         else
         {
@@ -558,13 +561,14 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
 
     if(height%2 == 1)
     {
+      alreadyDone.clear();
       for(int j = 1; j < width; j+=2)
       {
         vector< int > current = { mosaic[height-1][j-1], mosaic[height-1][j] };
 
         bool skip = false;
         int k = 0;
-        for( ; k < (int)alreadyDone.size(); ++k )
+        for( ; k < numTiles; ++k )
         {
           if( alreadyDone[k] == current )
           {
@@ -577,20 +581,20 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
         {
           alreadyDone.push_back( current );
 
-          mosaic[height/2][j/2] = alreadyDone.size()-1;
-
           if( first )
           {
             (VImage::jpegload((char *)directory.str().append(to_string(mosaic[height-1][j-1])+"_files/0/0_0.jpeg").c_str()).
             join(VImage::jpegload((char *)directory.str().append(to_string(mosaic[height-1][j])+"_files/0/0_0.jpeg").c_str()),VIPS_DIRECTION_HORIZONTAL)).
-            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+            jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
           }
           else
           {
             (VImage::jpegload((char *)input.str().append(to_string(mosaic[height-1][j-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
             join(VImage::jpegload((char *)input.str().append(to_string(mosaic[height-1][j])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
-            jpegsave((char *)image.str().append(to_string(alreadyDone.size()-1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+            jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
           }
+
+          mosaic[height/2][j/2] = numTiles++;
         }
         else
         {
@@ -601,16 +605,16 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
 
     if(width%2 == 1 && height%2 == 1)
     {
-      mosaic[height/2][width/2] = alreadyDone.size();
+      mosaic[height/2][width/2] = numTiles;
       if( first )
       {
         VImage::jpegload((char *)directory.str().append(to_string(mosaic[height-1][width-1])+"_files/0/0_0.jpeg").c_str()).
-        jpegsave((char *)image.str().append(to_string(alreadyDone.size())+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
+        jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
       }
       else
       {
         VImage::jpegload((char *)input.str().append(to_string(mosaic[height-1][width-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
-        jpegsave((char *)image.str().append(to_string(alreadyDone.size())+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
+        jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
       }
     }
 
