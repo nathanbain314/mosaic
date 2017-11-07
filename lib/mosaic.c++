@@ -6,9 +6,10 @@ void generateThumbnails( vector< string > &names, vector< vector< unsigned char 
   struct dirent *ent;
   string str;
 
-  int size, width, height, num_images = 0, mosaicTileArea = mosaicTileWidth*mosaicTileWidth*3, imageTileArea = imageTileWidth*imageTileWidth*3;
-  int minAllow = exclude ? max(256,max(mosaicTileWidth,imageTileWidth)) : max(mosaicTileWidth,imageTileWidth);
+  int size, width, height, mosaicTileArea = mosaicTileWidth*mosaicTileWidth*3, imageTileArea = imageTileWidth*imageTileWidth*3;
   bool different = mosaicTileWidth != imageTileWidth;
+
+  cout << "Reading directory ..." << endl;
 
   // Count the number of valid image files in the directory
   if ((dir = opendir (imageDirectory.c_str())) != NULL) 
@@ -17,31 +18,39 @@ void generateThumbnails( vector< string > &names, vector< vector< unsigned char 
     {   
       if( ent->d_name[0] != '.' && vips_foreign_find_load( string( imageDirectory + ent->d_name ).c_str() ) != NULL )
       {
-        ++num_images;
+        names.push_back( imageDirectory + ent->d_name );
       }
     }
   }
 
+  int num_images = names.size();
+
   progressbar *processing_images = progressbar_new("Processing images", num_images);
 
   // Iterate through all images in directory
-  if ((dir = opendir (imageDirectory.c_str())) != NULL) 
+  for( int i = 0; i < num_images; ++i )
   {
-    while ((ent = readdir (dir)) != NULL)
+    try
     {
-      if( ent->d_name[0] == '.' ) continue;
-      try
+      str = names[i];
+      VImage image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "crop", true )->set( "size", VIPS_SIZE_DOWN ));
+
+      if( image.bands() == 1 )
       {
-        str = imageDirectory + ent->d_name;
+        image = image.bandjoin(image).bandjoin(image);
+      }
+      if( image.bands() == 4 )
+      {
+        image = image.flatten();
+      }
 
-        VImage image = VImage::vipsload( (char *)str.c_str() );
+      unsigned char * c = (unsigned char *)image.data();
 
-        // Find the width of the largest square
-        width = image.width();
-        height = image.height();
-        size = ( width < height ) ? width : height;
+      mosaicTileData.push_back( vector< unsigned char >(c, c + mosaicTileArea) );
 
-        unsigned char * c;
+      if( different )
+      {
+        image = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "crop", true )->set( "size", VIPS_SIZE_DOWN ));
 
         if( image.bands() == 1 )
         {
@@ -52,52 +61,20 @@ void generateThumbnails( vector< string > &names, vector< vector< unsigned char 
           image = image.flatten();
         }
 
-        if( size >= minAllow && image.bands() == 3 )
-        {          
-          if(width < height) 
-          {
-            c = (unsigned char *)image.
-            extract_area(0, (height-size)/2, size, size).
-            resize((double)mosaicTileWidth/(double)size).data();
-          }
-          else
-          {
-            c = (unsigned char *)image.
-            extract_area( (width-size)/2, 0, size, size).
-            resize((double)mosaicTileWidth/(double)size).data();
-          }
+        c = (unsigned char *)image.data();
 
-          mosaicTileData.push_back( vector< unsigned char >(c, c + mosaicTileArea) );
-
-          if( different )
-          {
-            if(width < height) 
-            {
-              c = (unsigned char *)image.
-              extract_area(0, (height-size)/2, size, size).
-              resize((double)imageTileWidth/(double)size).data();
-            }
-            else
-            {
-              c = (unsigned char *)image.
-              extract_area( (width-size)/2, 0, size, size).
-              resize((double)imageTileWidth/(double)size).data();
-            }
-
-            imageTileData.push_back( vector< unsigned char >(c, c + imageTileArea) );
-          }
-          names.push_back( str );
-        }
+        imageTileData.push_back( vector< unsigned char >(c, c + imageTileArea) );
       }
-      catch (...) {}
-
-      progressbar_inc( processing_images );
+    }
+    catch (...)
+    {
+      names.erase(names.begin() + i);
     }
 
-    progressbar_finish( processing_images );
-
-    closedir (dir);
+    progressbar_inc( processing_images );
   }
+
+  progressbar_finish( processing_images );
 }
 
 pair< int, double > computeBest( vector< vector< float > > &imageData, vector< float > &d, int start, int end, int tileWidth, vector< vector< int > > &mosaic, int i, int j, int repeat )
