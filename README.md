@@ -8,7 +8,7 @@ There are two executables that will be created: RunMosaic and RunContinuous.
 This creates a photomosaic and saves it as either a single image or a zoomable image.
 ## options
 - -p,  --picture : Image to use as reference for the photomosaic to be based on.
-- -d,  --directory : Directory of images that will be used in the creation of the photomosaic.
+- -d,  --directory : Directory of images that will be used in the creation of the photomosaic. Use this option multiple times for multiple directories.
 - -o,  --output : Name of photomosaic to be created. If the name ends in an image format ( e.g., .png, .jpg ) then the mosaic will be saved as a single image. Otherwise the image tiles will be placed in a directory with the output name and an html file with the output name will be generated.
 - -n, --numHorizontal : Number of tiles horizontally
 - -r, --repeat : Closest distance to repeat image. This is the closest distance that the same image can be used in the mosaic

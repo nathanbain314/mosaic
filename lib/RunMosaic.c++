@@ -25,24 +25,22 @@ int main( int argc, char **argv )
 
     ValueArg<string> outputArg( "o", "output", "Output name", true, "out", "string", cmd);
 
-    ValueArg<string> directoryArg( "d", "directory", "Directory of images to use to build mosaic", true, "images", "string", cmd);
+    MultiArg<string> directoryArg( "d", "directory", "Directory of images to use to build mosaic", true, "string", cmd);
 
     ValueArg<string> pictureArg( "p", "picture", "Reference picture to create mosaic from", true, "in", "string", cmd);
 
     cmd.parse( argc, argv );
 
-    string inputImage         = pictureArg.getValue();
-    string inputDirectory     = directoryArg.getValue();
-    string outputImage        = outputArg.getValue();
-    int repeat                = repeatArg.getValue();
-    int numHorizontal         = numberArg.getValue();
-    bool trueColor            = colorArg.getValue();
-    bool square               = squareArg.getValue();
-    bool exclude              = excludeArg.getValue();
-    int mosaicTileSize        = mosaicTileArg.getValue();
-    int imageTileSize         = imageTileArg.getValue();
-
-    if( inputDirectory.back() != '/' ) inputDirectory += '/';
+    string inputImage                 = pictureArg.getValue();
+    vector< string > inputDirectory   = directoryArg.getValue();
+    string outputImage                = outputArg.getValue();
+    int repeat                        = repeatArg.getValue();
+    int numHorizontal                 = numberArg.getValue();
+    bool trueColor                    = colorArg.getValue();
+    bool square                       = squareArg.getValue();
+    bool exclude                      = excludeArg.getValue();
+    int mosaicTileSize                = mosaicTileArg.getValue();
+    int imageTileSize                 = imageTileArg.getValue();
 
     int width = VImage::new_memory().vipsload( (char *)inputImage.c_str() ).width();
     int height = VImage::new_memory().vipsload( (char *)inputImage.c_str() ).height();
@@ -66,8 +64,21 @@ int main( int argc, char **argv )
     vector< vector< unsigned char > > mosaicTileData;
     vector< vector< unsigned char > > imageTileData;
 
-    generateThumbnails( names, mosaicTileData, imageTileData, inputDirectory, mosaicTileSize, imageTileSize, exclude );
+    for( int i = 0; i < inputDirectory.size(); ++i )
+    {
+      string imageDirectory = inputDirectory[i];
+      if( imageDirectory.back() != '/' ) imageDirectory += '/';
+      generateThumbnails( names, mosaicTileData, imageTileData, imageDirectory, mosaicTileSize, imageTileSize, exclude );
+    }
+
     int numImages = mosaicTileData.size();
+
+    if( numImages == 0 ) 
+    {
+      cout << "No valid images found. The directory might not contain any images, or they might be too small, or they might not be a valid format." << endl;
+      return 0;
+    }
+
     int numVertical = int( (double)height / (double)width * (double)numHorizontal );
     int numUnique = 0;
 

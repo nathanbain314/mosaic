@@ -9,7 +9,10 @@ void generateThumbnails( vector< string > &names, vector< vector< unsigned char 
   int size, width, height, mosaicTileArea = mosaicTileWidth*mosaicTileWidth*3, imageTileArea = imageTileWidth*imageTileWidth*3;
   bool different = mosaicTileWidth != imageTileWidth;
 
-  cout << "Reading directory ..." << endl;
+  int num_images = 0;
+  int i = names.size();
+
+  cout << "Reading directory " << imageDirectory << endl;
 
   // Count the number of valid image files in the directory
   if ((dir = opendir (imageDirectory.c_str())) != NULL) 
@@ -19,20 +22,22 @@ void generateThumbnails( vector< string > &names, vector< vector< unsigned char 
       if( ent->d_name[0] != '.' && vips_foreign_find_load( string( imageDirectory + ent->d_name ).c_str() ) != NULL )
       {
         names.push_back( imageDirectory + ent->d_name );
+        cout << "\rFound " << ++num_images << " images " << flush;
       }
     }
   }
 
-  int num_images = names.size();
+  cout << endl;
 
   progressbar *processing_images = progressbar_new("Processing images", num_images);
 
   // Iterate through all images in directory
-  for( int i = 0; i < num_images; ++i )
+  for( num_images += i; i < num_images; ++i )
   {
     try
     {
       str = names[i];
+      //cout << str << endl;
       VImage image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "crop", true )->set( "size", VIPS_SIZE_DOWN ));
 
       if( image.bands() == 1 )
@@ -44,13 +49,11 @@ void generateThumbnails( vector< string > &names, vector< vector< unsigned char 
         image = image.flatten();
       }
 
-      unsigned char * c = (unsigned char *)image.data();
-
-      mosaicTileData.push_back( vector< unsigned char >(c, c + mosaicTileArea) );
+      unsigned char * c1 = (unsigned char *)image.data();
 
       if( different )
       {
-        image = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "crop", true )->set( "size", VIPS_SIZE_DOWN ));
+        VImage image = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "crop", true )->set( "size", VIPS_SIZE_DOWN ));
 
         if( image.bands() == 1 )
         {
@@ -61,14 +64,17 @@ void generateThumbnails( vector< string > &names, vector< vector< unsigned char 
           image = image.flatten();
         }
 
-        c = (unsigned char *)image.data();
+        unsigned char * c2 = (unsigned char *)image.data();
 
-        imageTileData.push_back( vector< unsigned char >(c, c + imageTileArea) );
+        imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
       }
+      mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
     }
     catch (...)
     {
       names.erase(names.begin() + i);
+      --num_images;
+      --i;
     }
 
     progressbar_inc( processing_images );
@@ -306,6 +312,8 @@ int generateMosaic( KDTreeVectorOfVectorsAdaptor< vector< vector< int > >, int >
 
 void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< int > > &mosaic, string outputImage, int tileWidth )
 {
+  cout << "Generating image ..." << endl;
+
   int width = mosaic[0].size();
   int height = mosaic.size(); 
   unsigned char *data = new unsigned char[width*height*tileWidth*tileWidth*3];
