@@ -502,16 +502,17 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
 
     if(width%2 == 1)
     {
+      int prevTileSize = numTiles;
       alreadyDone.clear();
       for(int j = 1; j < height; j+=2)
       {
         vector< int > current = { mosaic[j-1][width-1], mosaic[j][width-1] };
 
         bool skip = false;
-        int k = 0;
+        int k = prevTileSize;
         for( ; k < numTiles; ++k )
         {
-          if( alreadyDone[k] == current )
+          if( alreadyDone[k-prevTileSize] == current )
           {
             skip = true;
             break;
@@ -546,16 +547,17 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
 
     if(height%2 == 1)
     {
+      int prevTileSize = numTiles;
       alreadyDone.clear();
       for(int j = 1; j < width; j+=2)
       {
         vector< int > current = { mosaic[height-1][j-1], mosaic[height-1][j] };
 
         bool skip = false;
-        int k = 0;
+        int k = prevTileSize;
         for( ; k < numTiles; ++k )
         {
-          if( alreadyDone[k] == current )
+          if( alreadyDone[k-prevTileSize] == current )
           {
             skip = true;
             break;
