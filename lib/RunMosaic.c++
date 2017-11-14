@@ -13,9 +13,7 @@ int main( int argc, char **argv )
 
     ValueArg<int> mosaicTileArg( "m", "mosaicTileSize", "Maximum tile size for generating mosaic", false, 0, "int", cmd);
 
-    SwitchArg squareArg( "e", "exclude", "Exclude images smaller than 256x256", cmd, false );
-
-    SwitchArg excludeArg( "s", "square", "Generate square mosaic", cmd, false );
+    SwitchArg squareArg( "s", "square", "Generate square mosaic", cmd, false );
 
     SwitchArg colorArg( "c", "color", "Use de00 for color difference", cmd, false );
 
@@ -38,12 +36,13 @@ int main( int argc, char **argv )
     int numHorizontal                 = numberArg.getValue();
     bool trueColor                    = colorArg.getValue();
     bool square                       = squareArg.getValue();
-    bool exclude                      = excludeArg.getValue();
     int mosaicTileSize                = mosaicTileArg.getValue();
     int imageTileSize                 = imageTileArg.getValue();
 
     int width = VImage::new_memory().vipsload( (char *)inputImage.c_str() ).width();
     int height = VImage::new_memory().vipsload( (char *)inputImage.c_str() ).height();
+
+    bool isDeepZoom = (vips_foreign_find_save( outputImage.c_str() ) == NULL);
 
     if( mosaicTileSize > 0 )
     {
@@ -68,7 +67,7 @@ int main( int argc, char **argv )
     {
       string imageDirectory = inputDirectory[i];
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      generateThumbnails( names, mosaicTileData, imageTileData, imageDirectory, mosaicTileSize, imageTileSize, exclude );
+      generateThumbnails( names, mosaicTileData, imageTileData, imageDirectory, mosaicTileSize, imageTileSize, isDeepZoom );
     }
 
     int numImages = mosaicTileData.size();
@@ -125,7 +124,7 @@ int main( int argc, char **argv )
 
     progressbar_finish( buildingMosaic );
 
-    if( vips_foreign_find_save( outputImage.c_str() ) == NULL )
+    if( isDeepZoom )
     {
       if( outputImage.back() != '/' ) outputImage += '/';
 
