@@ -13,9 +13,11 @@ int main( int argc, char **argv )
 
     ValueArg<int> mosaicTileArg( "m", "mosaicTileSize", "Maximum tile size for generating mosaic", false, 0, "int", cmd);
 
-    SwitchArg squareArg( "s", "square", "Generate square mosaic", cmd, false );
+    SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
 
-    SwitchArg colorArg( "c", "color", "Use de00 for color difference", cmd, false );
+    SwitchArg spinArg( "s", "spin", "Rotate each image to create four times as many images", cmd, false );
+
+    ValueArg<int> cropStyleArg( "c", "cropStyle", "Style to use for cropping images", false, 0, "int", cmd );
 
     ValueArg<int> repeatArg( "r", "repeat", "Closest distance to repeat image", false, 0, "int", cmd);
 
@@ -35,7 +37,8 @@ int main( int argc, char **argv )
     int repeat                        = repeatArg.getValue();
     int numHorizontal                 = numberArg.getValue();
     bool trueColor                    = colorArg.getValue();
-    bool square                       = squareArg.getValue();
+    int spin                          = (spinArg.getValue() ? 4:1);
+    int cropStyle                     = cropStyleArg.getValue();
     int mosaicTileSize                = mosaicTileArg.getValue();
     int imageTileSize                 = imageTileArg.getValue();
 
@@ -46,11 +49,11 @@ int main( int argc, char **argv )
 
     if( mosaicTileSize > 0 )
     {
-      mosaicTileSize = min( mosaicTileSize, square ? int( min( width, height ) )/numHorizontal : width/numHorizontal );
+      mosaicTileSize = min( mosaicTileSize, width/numHorizontal );
     }
     else
     {
-      mosaicTileSize = square ? int( min( width, height ) )/numHorizontal : width/numHorizontal;
+      mosaicTileSize = width/numHorizontal;
     }
     if( imageTileSize == 0 ) imageTileSize = mosaicTileSize;
     int tileArea = mosaicTileSize*mosaicTileSize*3;
@@ -59,7 +62,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    vector< string > names;
+    vector< cropType > cropData;
     vector< vector< unsigned char > > mosaicTileData;
     vector< vector< unsigned char > > imageTileData;
 
@@ -67,7 +70,7 @@ int main( int argc, char **argv )
     {
       string imageDirectory = inputDirectory[i];
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      generateThumbnails( names, mosaicTileData, imageTileData, imageDirectory, mosaicTileSize, imageTileSize, isDeepZoom );
+      generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileSize, imageTileSize, isDeepZoom, spin, cropStyle );
     }
 
     int numImages = mosaicTileData.size();
@@ -101,7 +104,7 @@ int main( int argc, char **argv )
         }
       }
 
-      numUnique = generateMosaic( lab, mosaic, inputImage, buildingMosaic, repeat, square, resize );
+      numUnique = generateMosaic( lab, mosaic, inputImage, buildingMosaic, repeat, false, resize );
     }
     else
     {
@@ -119,7 +122,7 @@ int main( int argc, char **argv )
 
       my_kd_tree_t mat_index(tileArea, d, 10 );
 
-      numUnique = generateMosaic( mat_index, mosaic, inputImage, buildingMosaic, repeat, square, resize );
+      numUnique = generateMosaic( mat_index, mosaic, inputImage, buildingMosaic, repeat, false, resize );
     }
 
     progressbar_finish( buildingMosaic );
@@ -134,7 +137,7 @@ int main( int argc, char **argv )
 
       htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<div id=\"mosaic\" style=\"width: 1000px; height: 600px;\"></div>\n<script type=\"text/javascript\">\nvar outputName = \"" << outputImage << "\";\nvar outputDirectory = \"" << outputImage << "zoom/\";\n";
 
-      buildDeepZoomImage( mosaic, names, numUnique, outputImage, htmlFile );
+      buildDeepZoomImage( mosaic, cropData, numUnique, outputImage, htmlFile );
 
       htmlFile << "</script>\n<script src=\"js/mosaic.js\"></script>\n</body>\n</html>";
 

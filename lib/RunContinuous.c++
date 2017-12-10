@@ -41,12 +41,12 @@ int main( int argc, char **argv )
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
     vector< vector< unsigned char > > startData, averages2, averages;
-    vector< string > names;
+    vector< cropType > cropData;
     vector< VImage > images;
 
-    generateThumbnails( names, startData, startData, inputDirectory, tileWidth, tileWidth );
+    generateThumbnails( cropData, startData, startData, inputDirectory, tileWidth, tileWidth );
 
-    int numImages = names.size();
+    int numImages = cropData.size();
 
     vector< vector< vector< int > > > mosaics( numImages, vector< vector< int > >( 64, vector< int >( 64 ) ) );
 
@@ -84,7 +84,7 @@ int main( int argc, char **argv )
 
       for( int n = 0; n < numImages; ++n )
       {
-        generateMosaic( lab, mosaics[n], names[n], NULL, repeat, true, tileWidth*64 );
+        generateMosaic( lab, mosaics[n], get<0>(cropData[n]), NULL, repeat, true, tileWidth*64 );
         progressbar_inc( buildingMosaic );
       }
     }
@@ -104,7 +104,7 @@ int main( int argc, char **argv )
 
       for( int n = 0; n < numImages; ++n )
       {
-        generateMosaic( mat_index, mosaics[n], names[n], NULL, repeat, true, tileWidth*64 );
+        generateMosaic( mat_index, mosaics[n], get<0>(cropData[n]), NULL, repeat, true, tileWidth*64 );
         progressbar_inc( buildingMosaic );
       }
     }

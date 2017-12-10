@@ -9,6 +9,7 @@
 #include <numeric>
 #include <random>
 #include <set>
+#include <tuple>
 #include <time.h>
 #include <vips/vips8>
 #include <nanoflann.hpp>
@@ -19,7 +20,9 @@ using namespace nanoflann;
 using namespace vips;
 using namespace std;
 
-void generateThumbnails( vector< string > &names, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude = false );
+typedef tuple< string, int, int, int > cropType;
+
+void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude = false, int spin = 1, int cropStyle = 0 );
 
 pair< int, double > computeBest( vector< vector< float > > &imageData, vector< float > &d, int start, int end, int tileWidth, vector< vector< int > > &mosaic, int i, int j, int repeat );
 
@@ -29,6 +32,6 @@ int generateMosaic( KDTreeVectorOfVectorsAdaptor< vector< vector< int > >, int >
 
 void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< int > > &mosaic, string outputImage, int tileWidth );
 
-void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > imageNames, int numUnique, string outputImage, ofstream& htmlFile );
+void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cropData, int numUnique, string outputImage, ofstream& htmlFile );
 
 void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VImage > &images, string outputDirectory, ofstream& htmlFile );

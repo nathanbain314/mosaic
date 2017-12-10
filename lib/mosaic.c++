@@ -1,18 +1,21 @@
 #include "mosaic.h"
 
-void generateThumbnails( vector< string > &names, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude )
+void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude, int spin, int cropStyle )
 {
   DIR *dir;
   struct dirent *ent;
   string str;
 
-  int size, width, height, mosaicTileArea = mosaicTileWidth*mosaicTileWidth*3, imageTileArea = imageTileWidth*imageTileWidth*3;
+  int size, xOffset, yOffset, width, height, mosaicTileArea = mosaicTileWidth*mosaicTileWidth*3, imageTileArea = imageTileWidth*imageTileWidth*3;
   bool different = mosaicTileWidth != imageTileWidth;
+
+  unsigned char *c1, *c2;
 
   int minAllow = exclude ? max(256,max(mosaicTileWidth,imageTileWidth)) : max(mosaicTileWidth,imageTileWidth);
 
   int num_images = 0;
-  int i = names.size();
+
+  vector< string > names;
 
   cout << "Reading directory " << imageDirectory << endl;
 
@@ -34,58 +37,140 @@ void generateThumbnails( vector< string > &names, vector< vector< unsigned char 
   progressbar *processing_images = progressbar_new("Processing images", num_images);
 
   // Iterate through all images in directory
-  for( num_images += i; i < num_images; ++i )
+  for( int i = 0; i < num_images; ++i )
   {
     progressbar_inc( processing_images );
     try
     {
       str = names[i];
 
-      if( VImage::new_memory().vipsload( (char *)str.c_str() ).width() < minAllow || VImage::new_memory().vipsload( (char *)str.c_str() ).height() < minAllow )
+      width = VImage::new_memory().vipsload( (char *)str.c_str() ).width();
+      height = VImage::new_memory().vipsload( (char *)str.c_str() ).height();
+      int minSize = min(width,height);
+      int maxSize = max(width,height);
+      bool vertical = width < height;
+
+      if( minSize < minAllow )
       {
-        names.erase(names.begin() + i);
-        --num_images;
-        --i;
         continue;
       }
 
-      VImage image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "crop", true )->set( "size", VIPS_SIZE_DOWN ));
+      int sw = floor((double)maxSize*((double)mosaicTileWidth/(double)minSize));
+      int lw = floor((double)maxSize*((double)imageTileWidth/(double)minSize));
+
+      VImage image2, image;
+      
+      switch( cropStyle )
+      {
+        case 0:
+          image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN ));
+          break;
+        case 1:
+          image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN ));
+          break;
+        case 2:
+          image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
+          break;
+        case 3:
+          image = VImage::thumbnail((char *)str.c_str(),ceil((double)maxSize*((double)mosaicTileWidth/(double)minSize)),VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",ceil((double)width*((double)mosaicTileWidth/(double)minSize)))->set("tile_height",ceil((double)height*((double)mosaicTileWidth/(double)minSize))));
+          break;
+      }
+
+      xOffset = min(-(int)image.xoffset(),sw - mosaicTileWidth);
+      yOffset = min(-(int)image.yoffset(),sw - mosaicTileWidth);
 
       if( image.bands() == 1 )
       {
         image = image.bandjoin(image).bandjoin(image);
       }
-      if( image.bands() == 4 )
+      else if( image.bands() == 4 )
       {
         image = image.flatten();
       }
 
-      unsigned char * c1 = (unsigned char *)image.data();
-
       if( different )
       {
-        VImage image = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "crop", true )->set( "size", VIPS_SIZE_DOWN ));
-
-        if( image.bands() == 1 )
+        switch( cropStyle )
         {
-          image = image.bandjoin(image).bandjoin(image);
+          case 0:
+            image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN ));
+            break;
+          case 1:
+            image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN ));
+            break;
+          case 2:
+            image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
+            break;
+          case 3:
+            image2 = VImage::thumbnail((char *)str.c_str(),ceil((double)maxSize*((double)imageTileWidth/(double)minSize)),VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",ceil((double)width*((double)imageTileWidth/(double)minSize)))->set("tile_height",ceil((double)height*((double)imageTileWidth/(double)minSize))));
+            break;
         }
-        if( image.bands() == 4 )
+
+        if( image2.bands() == 1 )
         {
-          image = image.flatten();
+          image2 = image2.bandjoin(image2).bandjoin(image2);
         }
-
-        unsigned char * c2 = (unsigned char *)image.data();
-
-        imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+        else if( image2.bands() == 4 )
+        {
+          image2 = image2.flatten();
+        }
       }
-      mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
+
+      if( cropStyle == 3 )
+      {
+        for( int ii = sw - mosaicTileWidth; ii >= 0; --ii )
+        {
+          VImage newImage, newImage2;
+
+          if( vertical )
+          {
+            newImage = image.extract_area(0,ii,mosaicTileWidth,mosaicTileWidth);
+            if(different) newImage2 = image2.extract_area(0,ii*imageTileWidth/mosaicTileWidth,imageTileWidth,imageTileWidth);
+          }
+          else
+          {
+            newImage = image.extract_area(ii,0,mosaicTileWidth,mosaicTileWidth);
+            if(different) newImage2 = image2.extract_area(ii*imageTileWidth/mosaicTileWidth,0,imageTileWidth,imageTileWidth);
+          }
+
+          for( int jj = 0; jj < spin; ++jj )
+          {
+            if(jj) newImage = newImage.rot90();
+            c1 = (unsigned char *)newImage.data();
+            mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
+
+            if( different )
+            {
+              if(jj) newImage2 = newImage2.rot90();
+              c2 = (unsigned char *)newImage2.data();
+              imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+            }
+
+            cropData.push_back( make_tuple(str,vertical?0:ii*minSize/mosaicTileWidth,vertical?ii*minSize/mosaicTileWidth:0,jj) );
+          }
+        }
+      }
+      else
+      {
+        for( int jj = 0; jj < spin; ++jj )
+        {
+          if(jj) image = image.rot90();
+          c1 = (unsigned char *)image.data();
+          mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
+
+          if( different )
+          {
+            if(jj) image2 = image2.rot90();
+            c2 = (unsigned char *)image2.data();
+            imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+          }
+
+          cropData.push_back( make_tuple(str,xOffset*minSize/mosaicTileWidth,yOffset*minSize/mosaicTileWidth,jj) );
+        }
+      }
     }
     catch (...)
     {
-      names.erase(names.begin() + i);
-      --num_images;
-      --i;
     }
   }
 
@@ -346,8 +431,10 @@ void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< i
   VImage::new_from_memory( data, width*height*tileWidth*tileWidth*3, width*tileWidth, height*tileWidth, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
 }
 
-void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > imageNames, int numUnique, string outputImage, ofstream& htmlFile )
+void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cropData, int numUnique, string outputImage, ofstream& htmlFile )
 {
+  VipsAngle rotAngle[4] = {VIPS_ANGLE_D0,VIPS_ANGLE_D90,VIPS_ANGLE_D180,VIPS_ANGLE_D270};
+
   ostringstream levelData;
 
   int width = mosaic[0].size();
@@ -400,12 +487,12 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
           alreadyDone.push_back( current );
           mosaic[i][j] = numTiles++;
 
-          VImage image = VImage::vipsload( (char *)imageNames[current].c_str() );
+          VImage image = VImage::vipsload( (char *)(get<0>(cropData[current])).c_str() );
 
           // Find the width of the largest square
           int width = image.width();
           int height = image.height();
-          int size = ( width < height ) ? width : height;
+          int size = min( width, height );
             
           int log = round( log2( size ) );
 
@@ -419,14 +506,9 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< string > image
 
           // Build the zoomable image if necessary 
           string zoomableName = outputDirectory + to_string(mosaic[i][j]);
-          if(width < height)
-          { 
-            image.extract_area(0, (height-size)/2, size, size).resize((double)newSize/(double)size).dzsave((char *)zoomableName.c_str(), VImage::option()->set( "depth", VIPS_FOREIGN_DZ_DEPTH_ONETILE )->set( "tile-size", 256 )->set( "overlap", false )->set( "strip", true ) );
-          }
-          else
-          {
-            image.extract_area( (width-size)/2, 0, size, size).resize((double)newSize/(double)size).dzsave((char *)zoomableName.c_str(), VImage::option()->set( "depth", VIPS_FOREIGN_DZ_DEPTH_ONETILE )->set( "tile-size", 256 )->set( "overlap", false )->set( "strip", true ) );
-          }
+
+          image.extract_area(get<1>(cropData[current]), get<2>(cropData[current]), size, size).resize((double)newSize/(double)size).rot(rotAngle[get<3>(cropData[current])]).dzsave((char *)zoomableName.c_str(), VImage::option()->set( "depth", VIPS_FOREIGN_DZ_DEPTH_ONETILE )->set( "tile-size", 256 )->set( "overlap", false )->set( "strip", true ) );
+
           progressbar_inc( generatingZoomables );
         }
         else
