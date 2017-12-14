@@ -13,7 +13,7 @@ int main( int argc, char **argv )
 
     ValueArg<int> mosaicTileArg( "m", "mosaicTileSize", "Maximum tile size for generating mosaic", false, 0, "int", cmd);
 
-    SwitchArg colorArg( "c", "color", "Use de00 for color difference", cmd, false );
+    SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
 
     ValueArg<int> repeatArg( "r", "repeat", "Closest distance to repeat image", false, 0, "int", cmd);
 

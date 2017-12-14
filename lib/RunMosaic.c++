@@ -31,9 +31,9 @@ int main( int argc, char **argv )
 
     cmd.parse( argc, argv );
 
-    string inputImage                 = pictureArg.getValue();
+    string inputName                  = pictureArg.getValue();
     vector< string > inputDirectory   = directoryArg.getValue();
-    string outputImage                = outputArg.getValue();
+    string outputName                 = outputArg.getValue();
     int repeat                        = repeatArg.getValue();
     int numHorizontal                 = numberArg.getValue();
     bool trueColor                    = colorArg.getValue();
@@ -42,10 +42,40 @@ int main( int argc, char **argv )
     int mosaicTileSize                = mosaicTileArg.getValue();
     int imageTileSize                 = imageTileArg.getValue();
 
-    int width = VImage::new_memory().vipsload( (char *)inputImage.c_str() ).width();
-    int height = VImage::new_memory().vipsload( (char *)inputImage.c_str() ).height();
+    if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    bool isDeepZoom = (vips_foreign_find_save( outputImage.c_str() ) == NULL);
+    bool inputIsDirectory = (vips_foreign_find_save( inputName.c_str() ) == NULL);
+    bool isDeepZoom = (vips_foreign_find_save( outputName.c_str() ) == NULL) && !inputIsDirectory;
+
+    vector< string > inputImages;
+    vector< string > outputImages;
+
+    if( inputIsDirectory )
+    {
+      if( inputName.back() != '/' ) inputName += '/';
+      DIR *dir;
+      struct dirent *ent;
+
+      if ((dir = opendir (inputName.c_str())) != NULL) 
+      {
+        while ((ent = readdir (dir)) != NULL)
+        {   
+          if( ent->d_name[0] != '.' && vips_foreign_find_load( string( inputName + ent->d_name ).c_str() ) != NULL )
+          {
+            inputImages.push_back( inputName + ent->d_name );
+            outputImages.push_back( outputName + ent->d_name );
+          }
+        }
+      }
+    }
+    else
+    {
+      inputImages.push_back( inputName );
+      outputImages.push_back( outputName );
+    }
+
+    int width = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).width();
+    int height = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).height();
 
     if( mosaicTileSize > 0 )
     {
@@ -59,8 +89,6 @@ int main( int argc, char **argv )
     int tileArea = mosaicTileSize*mosaicTileSize*3;
 
     int resize = numHorizontal * mosaicTileSize;
-
-    if( VIPS_INIT( argv[0] ) ) return( -1 );
 
     vector< cropType > cropData;
     vector< vector< unsigned char > > mosaicTileData;
@@ -86,11 +114,13 @@ int main( int argc, char **argv )
 
     vector< vector< int > > mosaic( numVertical, vector< int >( numHorizontal, -1 ) );
 
-    progressbar *buildingMosaic = progressbar_new("Building mosaic", numVertical*numHorizontal );
+    vector< vector< int > > d;
+    vector< vector< float > > lab;
 
     if( trueColor  )
     {
-      vector< vector< float > > lab( numImages, vector< float >(tileArea) );
+      d.push_back( vector< int >(tileArea) );
+      lab = vector< vector< float > >( numImages, vector< float >(tileArea) );
 
       float r,g,b;
 
@@ -103,12 +133,10 @@ int main( int argc, char **argv )
           vips_col_XYZ2Lab( r, g, b, &lab[j][p], &lab[j][p+1], &lab[j][p+2] );
         }
       }
-
-      numUnique = generateMosaic( lab, mosaic, inputImage, buildingMosaic, repeat, false, resize );
     }
     else
     {
-      vector< vector< int > > d( numImages, vector< int >(tileArea) );
+      d = vector< vector< int > >( numImages, vector< int >(tileArea) );
 
       for( int j = 0; j < numImages; ++j )
       {
@@ -117,41 +145,56 @@ int main( int argc, char **argv )
           d[j][p] = mosaicTileData[j][p];
         }
       }
-
-      typedef KDTreeVectorOfVectorsAdaptor< vector< vector< int > >, int >  my_kd_tree_t;
-
-      my_kd_tree_t mat_index(tileArea, d, 10 );
-
-      numUnique = generateMosaic( mat_index, mosaic, inputImage, buildingMosaic, repeat, false, resize );
     }
 
-    progressbar_finish( buildingMosaic );
-
-    if( isDeepZoom )
+    if( inputIsDirectory )
     {
-      if( outputImage.back() != '/' ) outputImage += '/';
-
-      g_mkdir(outputImage.c_str(), 0777);
-
-      ofstream htmlFile(outputImage.substr(0, outputImage.size()-1).append(".html").c_str());
-
-      htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<div id=\"mosaic\" style=\"width: 1000px; height: 600px;\"></div>\n<script type=\"text/javascript\">\nvar outputName = \"" << outputImage << "\";\nvar outputDirectory = \"" << outputImage << "zoom/\";\n";
-
-      buildDeepZoomImage( mosaic, cropData, numUnique, outputImage, htmlFile );
-
-      htmlFile << "</script>\n<script src=\"js/mosaic.js\"></script>\n</body>\n</html>";
-
-      htmlFile.close();
+      g_mkdir(outputName.c_str(), 0777);
     }
-    else
+
+    my_kd_tree_t mat_index(tileArea, d, 10 );
+
+    for( int i = 0; i < inputImages.size(); ++i )
     {
-      if( mosaicTileSize == imageTileSize )
+      progressbar *buildingMosaic = progressbar_new("Building mosaic", numVertical*numHorizontal );
+
+      if( trueColor  )
       {
-        buildImage( mosaicTileData, mosaic, outputImage, mosaicTileSize );
+        numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, resize );
       }
       else
       {
-        buildImage( imageTileData, mosaic, outputImage, imageTileSize );
+        numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, resize );
+      }
+
+      progressbar_finish( buildingMosaic );
+
+      if( isDeepZoom )
+      {
+        if( outputImages[i].back() != '/' ) outputImages[i] += '/';
+
+        g_mkdir(outputImages[i].c_str(), 0777);
+
+        ofstream htmlFile(outputImages[i].substr(0, outputImages[i].size()-1).append(".html").c_str());
+
+        htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<div id=\"mosaic\" style=\"width: 1000px; height: 600px;\"></div>\n<script type=\"text/javascript\">\nvar outputName = \"" << outputImages[i] << "\";\nvar outputDirectory = \"" << outputImages[i] << "zoom/\";\n";
+
+        buildDeepZoomImage( mosaic, cropData, numUnique, outputImages[i], htmlFile );
+
+        htmlFile << "</script>\n<script src=\"js/mosaic.js\"></script>\n</body>\n</html>";
+
+        htmlFile.close();
+      }
+      else
+      {
+        if( mosaicTileSize == imageTileSize )
+        {
+          buildImage( mosaicTileData, mosaic, outputImages[i], mosaicTileSize );
+        }
+        else
+        {
+          buildImage( imageTileData, mosaic, outputImages[i], imageTileSize );
+        }
       }
     }
   }

@@ -312,7 +312,7 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   return accumulate(used.begin(), used.end(), 0);
 }
 
-int generateMosaic( KDTreeVectorOfVectorsAdaptor< vector< vector< int > >, int > &mat_index, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat, bool square, int resize )
+int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat, bool square, int resize )
 {
   bool show = ( buildingMosaic != NULL );
 
@@ -406,7 +406,7 @@ int generateMosaic( KDTreeVectorOfVectorsAdaptor< vector< vector< int > >, int >
 
 void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< int > > &mosaic, string outputImage, int tileWidth )
 {
-  cout << "Generating image ..." << endl;
+  cout << "Generating image " << outputImage << endl;
 
   int width = mosaic[0].size();
   int height = mosaic.size(); 

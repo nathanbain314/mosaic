@@ -7,14 +7,14 @@ There are two executables that will be created: RunMosaic and RunContinuous.
 # RunMosaic
 This creates a photomosaic and saves it as either a single image or a zoomable image.
 ## options
-- -p,  --picture : Image to use as reference for the photomosaic to be based on.
+- -p,  --picture : Image to use as reference for the photomosaic to be based on. A directory can also be used, in which case every image in that directory will be turned into a mosaic and saved in the output directory.
 - -d,  --directory : Directory of images that will be used in the creation of the photomosaic. Use this option multiple times for multiple directories.
 - -o,  --output : Name of photomosaic to be created. If the name ends in an image format ( e.g., .png, .jpg ) then the mosaic will be saved as a single image. Otherwise the image tiles will be placed in a directory with the output name and an html file with the output name will be generated.
 - -n, --numHorizontal : Number of tiles horizontally
 - -r, --repeat : Closest distance to repeat image. This is the closest distance that the same image can be used in the mosaic
-- -c, --color : Use [de00](https://en.wikipedia.org/wiki/Color_difference# CIEDE2000) for color difference
-- -s, --square : Generate square mosaic
-- -e, --exclude : Exclude images smaller than 256x256
+- -c, --cropStyle : What cropStyle to use. 0 = center, 1 = entropy, 2 = attention, 3 = all possible crops
+- -t, --trueColor : Use [de00](https://en.wikipedia.org/wiki/Color_difference# CIEDE2000) for color difference
+- -s, --spin : Rotate the images to create four times as many images
 - -m, --mosaicTileSize : Maximum tile size for generating mosaic
 - -i, --imageTileSize : Tile size for generating image
 ## Tips
@@ -22,6 +22,12 @@ This creates a photomosaic and saves it as either a single image or a zoomable i
 A mosaic saved as single image will be built out of the individual tiles. The imageTileSize will default to mosaicTileSize, and changing this is useful for when the output image is too large or too small.
 ### Zoomable images
 A mosaic saved as a zoomable image will generate [deep zoom images](https://msdn.microsoft.com/fr-fr/library/cc645077%28v=vs.95%29.aspx) of each photo in the mosaic and combine and shrink these to build the rest of the tiles for each level. It will then create an html file that uses [openseadragon](http://openseadragon.github.io) to display the mosaic as a custom tile source. The program will save each unique tile only once and reuse it in order to save space with no duplicated tiles. 
+#### Crop Styles
+The tiles in a mosaic are all square, so if the input image is not square then it will have to be cropped down to a square. There are 4 styles for cropping images
+&nbsp;&nbsp;&nbsp;&nbsp;0. (default) Center: crops the center square of each input image
+&nbsp;&nbsp;&nbsp;&nbsp;1. Entropy: crops a square based on how busy it is
+&nbsp;&nbsp;&nbsp;&nbsp;2. Attention: uses vipsinteresting attention functionality to crop a square likely to draw human attention
+&nbsp;&nbsp;&nbsp;&nbsp;3. All: Crops every possible square from an image
 ### Mosaic creation
 The photomosaic will look better with a large and diverse set of input images. If there are more tiles in the mosaic then it will look closer to the original, but if there are fewer it might look more impressive. You may get the error "Too many open files" which can be solved by using **ulimit -n** *int*. Setting the ulimit to slightly more than the number of images in the input directory should fix the problem.
 #### Sum of squares
@@ -42,16 +48,19 @@ Sum of squares: mosaicTileSize = 1 (SS1) and default (SSD); de00: mosaicTileSize
 Rita Vrataski is most visible with the SSD but looks like it has a color filter, while the colors at DED are closer to the original but only has some shape characteristics of the original. Since the lizard has few tiles SSD gets the colors very wrong but SS1 looks much better. The Penrose triangle doesn't even show up in SSD because it is all brown, and DED doesn't differentiate between brown and dark red. 
 
 ##### Pixelated mosaics
-![Legos](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/monaLego.png)
-![Lines](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/monaLines.png)
+![Mona](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/mona.png)
 This program can also be used to create more pixilated mosaics by setting the mosaicTileSize to 1.
+
+##### Directory of reference images
+![Buck](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/buck.gif)
+The program can process an entire directory of images all the same size if that directory is passed as the reference image. The input images will only be loaded and processed once instead for each image in order to save time. The results will be saved in the output directory with the same name as the original image.
 # RunContinuous
 This creates 64 by 64 image photomosaics made up more photomosaics and utilizes [openseadragon](http://openseadragon.github.io) to create an infinite zoom through endless mosaics.
 ## options
 - -i,  --image : Directory of images that will be used in the creation of the photomosaic.
 - -o,  --output : Name of continuous mosaic to be created.
 - -r, --repeat : Closest distance to repeat image. This is the closest distance that the same image can be used in the mosaic
-- -c, --color : Use [de00](https://en.wikipedia.org/wiki/Color_difference# CIEDE2000) for color difference
+- -t, --trueColor : Use [de00](https://en.wikipedia.org/wiki/Color_difference# CIEDE2000) for color difference
 - -m, --mosaicTileSize : Maximum tile size for generating mosaic
 
 ## Continuous HTML File

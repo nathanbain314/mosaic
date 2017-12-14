@@ -21,6 +21,7 @@ using namespace vips;
 using namespace std;
 
 typedef tuple< string, int, int, int > cropType;
+typedef KDTreeVectorOfVectorsAdaptor< vector< vector< int > >, int >  my_kd_tree_t;
 
 void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude = false, int spin = 1, int cropStyle = 0 );
 
@@ -28,7 +29,7 @@ pair< int, double > computeBest( vector< vector< float > > &imageData, vector< f
 
 int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat = 0, bool square = false, int resize = 0 );
 
-int generateMosaic( KDTreeVectorOfVectorsAdaptor< vector< vector< int > >, int > &mat_index, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat = 0, bool square = false, int resize = 0 );
+int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat = 0, bool square = false, int resize = 0 );
 
 void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< int > > &mosaic, string outputImage, int tileWidth );
 
