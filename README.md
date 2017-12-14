@@ -23,11 +23,11 @@ A mosaic saved as single image will be built out of the individual tiles. The im
 ### Zoomable images
 A mosaic saved as a zoomable image will generate [deep zoom images](https://msdn.microsoft.com/fr-fr/library/cc645077%28v=vs.95%29.aspx) of each photo in the mosaic and combine and shrink these to build the rest of the tiles for each level. It will then create an html file that uses [openseadragon](http://openseadragon.github.io) to display the mosaic as a custom tile source. The program will save each unique tile only once and reuse it in order to save space with no duplicated tiles. 
 #### Crop Styles
-The tiles in a mosaic are all square, so if the input image is not square then it will have to be cropped down to a square. There are 4 styles for cropping images
-&nbsp;&nbsp;&nbsp;&nbsp;0. (default) Center: crops the center square of each input image
-&nbsp;&nbsp;&nbsp;&nbsp;1. Entropy: crops a square based on how busy it is
-&nbsp;&nbsp;&nbsp;&nbsp;2. Attention: uses vipsinteresting attention functionality to crop a square likely to draw human attention
-&nbsp;&nbsp;&nbsp;&nbsp;3. All: Crops every possible square from an image
+The tiles in a mosaic are all square, so if the input image is not square then it will have to be cropped down to a square. There are 4 styles for cropping images:     
+&nbsp;&nbsp;&nbsp;&nbsp;0. (default) Center: crops the center square of each input image     
+&nbsp;&nbsp;&nbsp;&nbsp;1. Entropy: crops a square based on how busy it is     
+&nbsp;&nbsp;&nbsp;&nbsp;2. Attention: uses vipsinteresting attention functionality to crop a square likely to draw human attention     
+&nbsp;&nbsp;&nbsp;&nbsp;3. All: Crops every possible square from an image     
 ### Mosaic creation
 The photomosaic will look better with a large and diverse set of input images. If there are more tiles in the mosaic then it will look closer to the original, but if there are fewer it might look more impressive. You may get the error "Too many open files" which can be solved by using **ulimit -n** *int*. Setting the ulimit to slightly more than the number of images in the input directory should fix the problem.
 #### Sum of squares
@@ -43,19 +43,20 @@ Sum of squares: Each image has twice as many horizontal images
 Even at low levels it still resembles the original image
 
 ##### Difference in mosaic generations
-![All](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/all.png)
-| Original | Sum of squares | Sum of squares | de00 | de00 |
+| Color comparison = | Sum of squares | Sum of squares | de00 | de00 |
 | --- | --- | --- | --- | --- |
-| mosaic TileSize | 1 | default | 1 | default | 
+| mosaicTileSize = | 1 | default | 1 | default | 
 | ![Rita](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/rita/0.png) | ![Rita](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/rita/1.png) | ![Rita](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/rita/2.png) | ![Rita](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/rita/3.png) | ![Rita](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/rita/4.png) |
 | ![Lizard](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/lizard/0.png) | ![Lizard](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/lizard/1.png) | ![Lizard](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/lizard/2.png) | ![Lizard](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/lizard/3.png) | ![Lizard](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/lizard/4.png) |
 | ![Penrose](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/penrose/0.png) | ![Penrose](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/penrose/1.png) | ![Penrose](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/penrose/2.png) | ![Penrose](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/penrose/3.png) | ![Penrose](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/penrose/4.png) |
+
 Rita is most visible with the sum of squares and default mosaicTileSize but looks like it has a color filter while the colors with de00 are closer to the original but lacks some of the shape characteristics. The lizard gets some brown spots that aren't in the original image, but by setting the mosaicTileSize to one removes them. The Penrose triangle doesn't even appear with the sum of squares algorithm and default mosaicTileSize, so the other options must be used. 
 
 ##### Pixelated mosaics
 | Lego | Lines | Circles |
 | --- | --- | --- |
 | ![Mona](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/monaLego.png) | ![Mona](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/monaLines.png) | ![Mona](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/monaCircles.png) |
+
 Setting the mosaicTileSize to 1 can help with odd image inputs that benefit for a more pixelated mosaic.
 
 ##### Directory of reference images
