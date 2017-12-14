@@ -44,12 +44,19 @@ Even at low levels it still resembles the original image
 
 ##### Difference in mosaic generations
 ![All](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/all.png)
-Sum of squares: mosaicTileSize = 1 (SS1) and default (SSD); de00: mosaicTileSize = 1 (DE1) and default (DED)
-Rita Vrataski is most visible with the SSD but looks like it has a color filter, while the colors at DED are closer to the original but only has some shape characteristics of the original. Since the lizard has few tiles SSD gets the colors very wrong but SS1 looks much better. The Penrose triangle doesn't even show up in SSD because it is all brown, and DED doesn't differentiate between brown and dark red. 
+| Original | Sum of squares | Sum of squares | de00 | de00 |
+| --- | --- | --- | --- | --- |
+| mosaic TileSize | 1 | default | 1 | default | 
+| ![Rita](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/rita/0.png) | ![Rita](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/rita/1.png) | ![Rita](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/rita/2.png) | ![Rita](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/rita/3.png) | ![Rita](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/rita/4.png) |
+| ![Lizard](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/lizard/0.png) | ![Lizard](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/lizard/1.png) | ![Lizard](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/lizard/2.png) | ![Lizard](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/lizard/3.png) | ![Lizard](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/lizard/4.png) |
+| ![Penrose](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/penrose/0.png) | ![Penrose](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/penrose/1.png) | ![Penrose](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/penrose/2.png) | ![Penrose](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/penrose/3.png) | ![Penrose](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/penrose/4.png) |
+Rita is most visible with the sum of squares and default mosaicTileSize but looks like it has a color filter while the colors with de00 are closer to the original but lacks some of the shape characteristics. The lizard gets some brown spots that aren't in the original image, but by setting the mosaicTileSize to one removes them. The Penrose triangle doesn't even appear with the sum of squares algorithm and default mosaicTileSize, so the other options must be used. 
 
 ##### Pixelated mosaics
-![Mona](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/mona.png)
-This program can also be used to create more pixilated mosaics by setting the mosaicTileSize to 1.
+| Lego | Lines | Circles |
+| --- | --- | --- |
+| ![Mona](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/monaLego.png) | ![Mona](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/monaLines.png) | ![Mona](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/monaCircles.png) |
+Setting the mosaicTileSize to 1 can help with odd image inputs that benefit for a more pixelated mosaic.
 
 ##### Directory of reference images
 ![Buck](https://raw.githubusercontent.com/nathanbain314/mosaic/master/examples/buck.gif)
