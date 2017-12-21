@@ -72,7 +72,9 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
           image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
           break;
         case 3:
-          image = VImage::thumbnail((char *)str.c_str(),ceil((double)maxSize*((double)mosaicTileWidth/(double)minSize)),VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",ceil((double)width*((double)mosaicTileWidth/(double)minSize)))->set("tile_height",ceil((double)height*((double)mosaicTileWidth/(double)minSize))));
+          image = vips_foreign_is_a("gifload",(char *)str.c_str()) ? 
+                  VImage::thumbnail((char *)str.c_str(),ceil((double)maxSize*((double)mosaicTileWidth/(double)minSize)),VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",16)->set("tile_height",16)) : 
+                  VImage::thumbnail((char *)str.c_str(),ceil((double)maxSize*((double)mosaicTileWidth/(double)minSize)),VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",ceil((double)width*((double)mosaicTileWidth/(double)minSize)))->set("tile_height",ceil((double)height*((double)mosaicTileWidth/(double)minSize))));
           break;
       }
 
@@ -102,7 +104,9 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
             image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
             break;
           case 3:
-            image2 = VImage::thumbnail((char *)str.c_str(),ceil((double)maxSize*((double)imageTileWidth/(double)minSize)),VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",ceil((double)width*((double)imageTileWidth/(double)minSize)))->set("tile_height",ceil((double)height*((double)imageTileWidth/(double)minSize))));
+            image2 = vips_foreign_is_a("gifload",(char *)str.c_str()) ? 
+                  VImage::thumbnail((char *)str.c_str(),ceil((double)maxSize*((double)imageTileWidth/(double)minSize)),VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",16)->set("tile_height",16)) : 
+                  VImage::thumbnail((char *)str.c_str(),ceil((double)maxSize*((double)imageTileWidth/(double)minSize)),VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",ceil((double)width*((double)imageTileWidth/(double)minSize)))->set("tile_height",ceil((double)height*((double)imageTileWidth/(double)minSize))));
             break;
         }
 
