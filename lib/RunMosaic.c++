@@ -156,7 +156,7 @@ int main( int argc, char **argv )
 
     for( int i = 0; i < inputImages.size(); ++i )
     {
-      progressbar *buildingMosaic = progressbar_new("Building mosaic", numVertical*numHorizontal );
+      progressbar *buildingMosaic = progressbar_new("Building mosaic", (numVertical/3)*(numHorizontal/3) );
 
       if( trueColor  )
       {
