@@ -181,51 +181,6 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
   progressbar_finish( processing_images );
 }
 
-pair< int, double > computeBest( vector< vector< float > > &imageData, vector< float > &d, int start, int end, int tileWidth, vector< vector< int > > &mosaic, int i, int j, int repeat )
-{
-  int best = 0; 
-  double difference = DBL_MAX;
-
-  int xEnd = ( (j+repeat+1<(int)mosaic[0].size()) ? j+repeat+1 : mosaic[0].size() );
-  int yEnd = ( (i+repeat+1<(int)mosaic.size()) ? i+repeat+1 : mosaic.size() );
-
-  for( int k = start; k < end; ++k )
-  {
-    if( repeat > 0 )
-    {
-      bool valid = true;
-
-      for( int y = (i-repeat > 0) ? i-repeat : 0; valid && y < yEnd; ++y )
-      {
-        for( int x = (j-repeat > 0) ? j-repeat : 0; valid && x < xEnd; ++x )
-        {
-          if(  y == i && x == j ) continue;
-          if( mosaic[y][x] == k )
-          {
-            valid = false;
-          }
-        }
-      }
-
-      if( !valid ) continue;
-    }
-
-    double sum = 0;
-    for( int l = 0; l < tileWidth*tileWidth*3; l+=3 )
-    {
-      sum += vips_col_dE00( imageData[k][l], imageData[k][l+1], imageData[k][l+2], d[l], d[l+1], d[l+2] );
-    }
-
-    if( sum < difference )
-    {
-      difference = sum;
-      best = k;
-    }
-  }
-
-  return pair< int, double >( best, difference );
-}
-
 int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int width, int numHorizontal, int numVertical, progressbar* buildingMosaic )
 {
   bool show = !(blockX+blockY);
@@ -347,7 +302,7 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   int sqrtThreads = sqrt(threads);
 
   int total = ceil((double)numVertical/(double)sqrtThreads)*ceil((double)numHorizontal/(double)sqrtThreads);
-  cout << total << " " << numVertical << " " << numHorizontal << endl;
+
   vector< int > indices( total );
   iota( indices.begin(), indices.end(), 0 );
   if( repeat > 0 ) shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
@@ -359,14 +314,12 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
     for( int j = 0; j < sqrtThreads; ++j, ++k )
     {
       ret[k] = async( launch::async, &generateLABBlock, ref(imageData), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, width, numHorizontal, numVertical, buildingMosaic );
-      //ret[k].get();
     }
   }
 
   for( int k = 0; k < threads; ++k )
   {
     ret[k].get();
-    //break;
   }
 
   return accumulate(used.begin(), used.end(), 0);
@@ -427,15 +380,14 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
     used[ ret_index[0] ] = true;
   }
 
+  delete [] out_dist_sqr;
+
   return 0;
 }
 
 int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat, bool square, int resize )
 {
   bool show = ( buildingMosaic != NULL );
-
-  int searchSize = max( 1, 4*repeat*(repeat+1)+1 );
-  int *out_dist_sqr = new int[searchSize];
 
   int num_images = mat_index.kdtree_get_point_count();
 
@@ -474,7 +426,7 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
   int sqrtThreads = sqrt(threads);
 
   int total = ceil((double)numVertical/(double)sqrtThreads)*ceil((double)numHorizontal/(double)sqrtThreads);
-  cout << total << " " << numVertical << " " << numHorizontal << endl;
+
   vector< int > indices( total );
   iota( indices.begin(), indices.end(), 0 );
   if( repeat > 0 ) shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
@@ -486,14 +438,12 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
     for( int j = 0; j < sqrtThreads; ++j, ++k )
     {
       ret[k] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, width, numHorizontal, numVertical, buildingMosaic );
-      //ret[k].get();
     }
   }
 
   for( int k = 0; k < threads; ++k )
   {
     ret[k].get();
-    //break;
   }
 
   return accumulate(used.begin(), used.end(), 0);
@@ -511,8 +461,6 @@ void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< i
   {
     for( int j = 0; j < width; ++j )
     {
-          //cout << i << " " << j << " " << mosaic[i][j] << endl;
-
       for( int y = 0; y < tileWidth; ++y )
       {
         for( int x = 0; x < tileWidth; ++x )
@@ -526,6 +474,8 @@ void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< i
   }
 
   VImage::new_from_memory( data, width*height*tileWidth*tileWidth*3, width*tileWidth, height*tileWidth, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
+
+  delete [] data;
 }
 
 void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cropData, int numUnique, string outputImage, ofstream& htmlFile )

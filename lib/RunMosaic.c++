@@ -9,6 +9,8 @@ int main( int argc, char **argv )
   {
     CmdLine cmd("Creates an image mosaic.", ' ', "2.0");
 
+    ValueArg<string> fileArg( "f", "file", "File of image data to save or load", false, " ", "string", cmd);
+
     ValueArg<int> imageTileArg( "i", "imageTileSize", "Tile size for generating image", false, 0, "int", cmd);
 
     ValueArg<int> mosaicTileArg( "m", "mosaicTileSize", "Maximum tile size for generating mosaic", false, 0, "int", cmd);
@@ -41,6 +43,7 @@ int main( int argc, char **argv )
     int cropStyle                     = cropStyleArg.getValue();
     int mosaicTileSize                = mosaicTileArg.getValue();
     int imageTileSize                 = imageTileArg.getValue();
+    string fileName                   = fileArg.getValue();
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
@@ -86,29 +89,118 @@ int main( int argc, char **argv )
       mosaicTileSize = width/numHorizontal;
     }
     if( imageTileSize == 0 ) imageTileSize = mosaicTileSize;
-    int tileArea = mosaicTileSize*mosaicTileSize*3;
 
-    int resize = numHorizontal * mosaicTileSize;
-
+    int numImages;
     vector< cropType > cropData;
     vector< vector< unsigned char > > mosaicTileData;
     vector< vector< unsigned char > > imageTileData;
 
-    for( int i = 0; i < inputDirectory.size(); ++i )
+    bool loadData = (fileName != " ");
+
+    if( loadData )
     {
-      string imageDirectory = inputDirectory[i];
-      if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileSize, imageTileSize, isDeepZoom, spin, cropStyle );
+      ifstream data( fileName, ios::binary );
+
+      if(data.is_open())
+      {
+        data.read( (char *)&numImages, sizeof(int) );
+        data.read( (char *)&mosaicTileSize, sizeof(int) );
+        data.read( (char *)&imageTileSize, sizeof(int) );
+
+        for( int i = 0; i < numImages; ++i )
+        {
+          int strLen, cropX, cropY, rot;
+          string str;
+          data.read((char *)&strLen, sizeof(int));
+          char* temp = new char[strLen+1];
+          data.read(temp, strLen);
+          temp[strLen] = '\0';
+          str = temp;
+          delete [] temp;
+          data.read((char *)&cropX, sizeof(int));
+          data.read((char *)&cropY, sizeof(int));
+          data.read((char *)&rot, sizeof(int));
+
+          cropData.push_back(make_tuple(str,cropX,cropY,rot));
+        }
+
+        mosaicTileData.resize( numImages );
+        
+        for( int i = 0; i < numImages; ++i )
+        {
+          mosaicTileData[i].resize( mosaicTileSize*mosaicTileSize*3 );
+          data.read((char *)mosaicTileData[i].data(), mosaicTileData[i].size()*sizeof(unsigned char));
+        }
+
+        if( imageTileSize != mosaicTileSize )
+        {
+          imageTileData.resize( numImages );
+          
+          for( int i = 0; i < numImages; ++i )
+          {
+            imageTileData[i].resize( imageTileSize*imageTileSize*3 );
+            data.read((char *)imageTileData[i].data(), imageTileData[i].size()*sizeof(unsigned char));
+          } 
+        }
+      }
+      else
+      {
+        loadData = false;
+      }
+    }
+    if( !loadData )
+    {
+      for( int i = 0; i < inputDirectory.size(); ++i )
+      {
+        string imageDirectory = inputDirectory[i];
+        if( imageDirectory.back() != '/' ) imageDirectory += '/';
+        generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileSize, imageTileSize, isDeepZoom, spin, cropStyle );
+      }
+
+      numImages = mosaicTileData.size();
+
+      if( numImages == 0 ) 
+      {
+        cout << "No valid images found. The directory might not contain any images, or they might be too small, or they might not be a valid format." << endl;
+        return 0;
+      }
+
+      if( fileName != " " )
+      {
+        ofstream data( fileName, ios::binary );
+        data.write( (char *)&numImages, sizeof(int) );
+
+        data.write( (char *)&mosaicTileSize, sizeof(int) );
+
+        data.write( (char *)&imageTileSize, sizeof(int) );
+
+        for( int i = 0; i < numImages; ++i )
+        {
+          string str = get<0>(cropData[i]);
+          int strLen = str.length();
+          data.write((char *)&strLen,sizeof(strLen));
+          data.write((char *)str.c_str(), strLen);
+          data.write((char *)&get<1>(cropData[i]),sizeof(int));
+          data.write((char *)&get<2>(cropData[i]),sizeof(int));
+          data.write((char *)&get<3>(cropData[i]),sizeof(int));
+        }
+
+        for( int i = 0; i < numImages; ++i )
+        {
+          data.write((char *)&mosaicTileData[i].front(), mosaicTileData[i].size() * sizeof(unsigned char)); 
+        }
+
+        if( imageTileSize != mosaicTileSize )
+        {
+          for( int i = 0; i < numImages; ++i )
+          {
+            data.write((char *)&imageTileData[i].front(), imageTileData[i].size() * sizeof(unsigned char)); 
+          }
+        }
+      }
     }
 
-    int numImages = mosaicTileData.size();
-
-    if( numImages == 0 ) 
-    {
-      cout << "No valid images found. The directory might not contain any images, or they might be too small, or they might not be a valid format." << endl;
-      return 0;
-    }
-
+    int tileArea = mosaicTileSize*mosaicTileSize*3;
     int numVertical = int( (double)height / (double)width * (double)numHorizontal );
     int numUnique = 0;
 
@@ -160,11 +252,11 @@ int main( int argc, char **argv )
 
       if( trueColor  )
       {
-        numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, resize );
+        numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileSize );
       }
       else
       {
-        numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, resize );
+        numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileSize );
       }
 
       progressbar_finish( buildingMosaic );

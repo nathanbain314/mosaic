@@ -17,6 +17,7 @@ This creates a photomosaic and saves it as either a single image or a zoomable i
 - -s, --spin : Rotate the images to create four times as many images
 - -m, --mosaicTileSize : Maximum tile size for generating mosaic
 - -i, --imageTileSize : Tile size for generating image
+- -f, --file : File of image data to save or load
 ## Tips
 ### Single images
 A mosaic saved as single image will be built out of the individual tiles. The imageTileSize will default to mosaicTileSize, and changing this is useful for when the output image is too large or too small.
