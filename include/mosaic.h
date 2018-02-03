@@ -20,10 +20,10 @@ using namespace nanoflann;
 using namespace vips;
 using namespace std;
 
-typedef tuple< string, int, int, int > cropType;
+typedef tuple< string, int, int, int, bool > cropType;
 typedef KDTreeVectorOfVectorsAdaptor< vector< vector< int > >, int >  my_kd_tree_t;
 
-void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude = false, int spin = 1, int cropStyle = 0 );
+void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude = false, int spin = 1, int cropStyle = 0, bool flip = false );
 
 pair< int, double > computeBest( vector< vector< float > > &imageData, vector< float > &d, int start, int end, int tileWidth, vector< vector< int > > &mosaic, int i, int j, int repeat );
 

@@ -1,6 +1,6 @@
 #include "mosaic.h"
 
-void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude, int spin, int cropStyle )
+void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude, int spin, int cropStyle, bool flip )
 {
   DIR *dir;
   struct dirent *ent;
@@ -137,39 +137,57 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
             if(different) newImage2 = image2.extract_area(ii*imageTileWidth/mosaicTileWidth,0,imageTileWidth,imageTileWidth);
           }
 
-          for( int jj = 0; jj < spin; ++jj )
+          for( int ff = 0; ff <= flip; ++ff)
           {
-            if(jj) newImage = newImage.rot90();
-            c1 = (unsigned char *)newImage.data();
-            mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
-
-            if( different )
+            if(ff)
             {
-              if(jj) newImage2 = newImage2.rot90();
-              c2 = (unsigned char *)newImage2.data();
-              imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+              newImage = newImage.flip(VIPS_DIRECTION_HORIZONTAL);
+              if( different ) newImage2 = newImage2.flip(VIPS_DIRECTION_HORIZONTAL);
             }
 
-            cropData.push_back( make_tuple(str,vertical?0:ii*minSize/mosaicTileWidth,vertical?ii*minSize/mosaicTileWidth:0,jj) );
+            for( int jj = 0; jj < spin; ++jj )
+            {
+              if(jj) newImage = newImage.rot90();
+              c1 = (unsigned char *)newImage.data();
+              mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
+
+              if( different )
+              {
+                if(jj) newImage2 = newImage2.rot90();
+                c2 = (unsigned char *)newImage2.data();
+                imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+              }
+
+              cropData.push_back( make_tuple(str,vertical?0:ii*minSize/mosaicTileWidth,vertical?ii*minSize/mosaicTileWidth:0,jj,ff) );
+            }
           }
         }
       }
       else
       {
-        for( int jj = 0; jj < spin; ++jj )
+        for( int ff = 0; ff <= flip; ++ff)
         {
-          if(jj) image = image.rot90();
-          c1 = (unsigned char *)image.data();
-          mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
-
-          if( different )
+          if(ff)
           {
-            if(jj) image2 = image2.rot90();
-            c2 = (unsigned char *)image2.data();
-            imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+            image = image.flip(VIPS_DIRECTION_HORIZONTAL);
+            if( different ) image2 = image2.flip(VIPS_DIRECTION_HORIZONTAL);
           }
 
-          cropData.push_back( make_tuple(str,xOffset*minSize/mosaicTileWidth,yOffset*minSize/mosaicTileWidth,jj) );
+          for( int jj = 0; jj < spin; ++jj )
+          {
+            if(jj) image = image.rot90();
+            c1 = (unsigned char *)image.data();
+            mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
+
+            if( different )
+            {
+              if(jj) image2 = image2.rot90();
+              c2 = (unsigned char *)image2.data();
+              imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+            }
+
+            cropData.push_back( make_tuple(str,xOffset*minSize/mosaicTileWidth,yOffset*minSize/mosaicTileWidth,jj,ff) );
+          }
         }
       }
     }
@@ -554,8 +572,14 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
           // Build the zoomable image if necessary 
           string zoomableName = outputDirectory + to_string(mosaic[i][j]);
 
-          image.extract_area(get<1>(cropData[current]), get<2>(cropData[current]), size, size).resize((double)newSize/(double)size).rot(rotAngle[get<3>(cropData[current])]).dzsave((char *)zoomableName.c_str(), VImage::option()->set( "depth", VIPS_FOREIGN_DZ_DEPTH_ONETILE )->set( "tile-size", 256 )->set( "overlap", false )->set( "strip", true ) );
-
+          if( get<4>(cropData[current]) )
+          {
+            image.extract_area(get<1>(cropData[current]), get<2>(cropData[current]), size, size).resize((double)newSize/(double)size).flip(VIPS_DIRECTION_HORIZONTAL).rot(rotAngle[get<3>(cropData[current])]).dzsave((char *)zoomableName.c_str(), VImage::option()->set( "depth", VIPS_FOREIGN_DZ_DEPTH_ONETILE )->set( "tile-size", 256 )->set( "overlap", false )->set( "strip", true ) );
+          }
+          else
+          {
+            image.extract_area(get<1>(cropData[current]), get<2>(cropData[current]), size, size).resize((double)newSize/(double)size).rot(rotAngle[get<3>(cropData[current])]).dzsave((char *)zoomableName.c_str(), VImage::option()->set( "depth", VIPS_FOREIGN_DZ_DEPTH_ONETILE )->set( "tile-size", 256 )->set( "overlap", false )->set( "strip", true ) );
+          }
           progressbar_inc( generatingZoomables );
         }
         else

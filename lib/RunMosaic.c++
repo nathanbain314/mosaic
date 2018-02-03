@@ -9,13 +9,15 @@ int main( int argc, char **argv )
   {
     CmdLine cmd("Creates an image mosaic.", ' ', "2.0");
 
-    ValueArg<string> fileArg( "f", "file", "File of image data to save or load", false, " ", "string", cmd);
+    ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
     ValueArg<int> imageTileArg( "i", "imageTileSize", "Tile size for generating image", false, 0, "int", cmd);
 
     ValueArg<int> mosaicTileArg( "m", "mosaicTileSize", "Maximum tile size for generating mosaic", false, 0, "int", cmd);
 
     SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
+
+    SwitchArg flipArg( "f", "flip", "Flip each image to create twice as many images", cmd, false );
 
     SwitchArg spinArg( "s", "spin", "Rotate each image to create four times as many images", cmd, false );
 
@@ -39,6 +41,7 @@ int main( int argc, char **argv )
     int repeat                        = repeatArg.getValue();
     int numHorizontal                 = numberArg.getValue();
     bool trueColor                    = colorArg.getValue();
+    bool flip                         = flipArg.getValue();
     int spin                          = (spinArg.getValue() ? 4:1);
     int cropStyle                     = cropStyleArg.getValue();
     int mosaicTileSize                = mosaicTileArg.getValue();
@@ -110,6 +113,7 @@ int main( int argc, char **argv )
         for( int i = 0; i < numImages; ++i )
         {
           int strLen, cropX, cropY, rot;
+          bool flip;
           string str;
           data.read((char *)&strLen, sizeof(int));
           char* temp = new char[strLen+1];
@@ -120,8 +124,9 @@ int main( int argc, char **argv )
           data.read((char *)&cropX, sizeof(int));
           data.read((char *)&cropY, sizeof(int));
           data.read((char *)&rot, sizeof(int));
+          data.read((char *)&flip, sizeof(bool));
 
-          cropData.push_back(make_tuple(str,cropX,cropY,rot));
+          cropData.push_back(make_tuple(str,cropX,cropY,rot,flip));
         }
 
         mosaicTileData.resize( numImages );
@@ -154,7 +159,7 @@ int main( int argc, char **argv )
       {
         string imageDirectory = inputDirectory[i];
         if( imageDirectory.back() != '/' ) imageDirectory += '/';
-        generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileSize, imageTileSize, isDeepZoom, spin, cropStyle );
+        generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileSize, imageTileSize, isDeepZoom, spin, cropStyle, flip );
       }
 
       numImages = mosaicTileData.size();
@@ -183,6 +188,7 @@ int main( int argc, char **argv )
           data.write((char *)&get<1>(cropData[i]),sizeof(int));
           data.write((char *)&get<2>(cropData[i]),sizeof(int));
           data.write((char *)&get<3>(cropData[i]),sizeof(int));
+          data.write((char *)&get<4>(cropData[i]),sizeof(bool));
         }
 
         for( int i = 0; i < numImages; ++i )
