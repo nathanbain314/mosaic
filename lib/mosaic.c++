@@ -1,6 +1,6 @@
 #include "mosaic.h"
 
-void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude, int spin, int cropStyle, bool flip )
+void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude, bool spin, int cropStyle, bool flip )
 {
   DIR *dir;
   struct dirent *ent;
@@ -137,23 +137,23 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
             if(different) newImage2 = image2.extract_area(ii*imageTileWidth/mosaicTileWidth,0,imageTileWidth,imageTileWidth);
           }
 
-          for( int ff = 0; ff <= flip; ++ff)
+          for( int ff = flip; ff >= 0; --ff)
           {
-            if(ff)
+            if(flip)
             {
               newImage = newImage.flip(VIPS_DIRECTION_HORIZONTAL);
               if( different ) newImage2 = newImage2.flip(VIPS_DIRECTION_HORIZONTAL);
             }
 
-            for( int jj = 0; jj < spin; ++jj )
+            for( int jj = (spin ? 3:0); jj >= 0; --jj )
             {
-              if(jj) newImage = newImage.rot90();
+              if(spin) newImage = newImage.rot90();
               c1 = (unsigned char *)newImage.data();
               mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
 
               if( different )
               {
-                if(jj) newImage2 = newImage2.rot90();
+                if(spin) newImage2 = newImage2.rot90();
                 c2 = (unsigned char *)newImage2.data();
                 imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
               }
@@ -165,23 +165,23 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
       }
       else
       {
-        for( int ff = 0; ff <= flip; ++ff)
+        for( int ff = flip; ff >= 0; --ff)
         {
-          if(ff)
+          if(flip)
           {
             image = image.flip(VIPS_DIRECTION_HORIZONTAL);
             if( different ) image2 = image2.flip(VIPS_DIRECTION_HORIZONTAL);
           }
 
-          for( int jj = 0; jj < spin; ++jj )
+          for( int jj = (spin ? 3:0); jj >= 0; --jj )
           {
-            if(jj) image = image.rot90();
+            if(spin) image = image.rot90();
             c1 = (unsigned char *)image.data();
             mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
 
             if( different )
             {
-              if(jj) image2 = image2.rot90();
+              if(spin) image2 = image2.rot90();
               c2 = (unsigned char *)image2.data();
               imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
             }
@@ -498,7 +498,7 @@ void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< i
 
 void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cropData, int numUnique, string outputImage, ofstream& htmlFile )
 {
-  VipsAngle rotAngle[4] = {VIPS_ANGLE_D0,VIPS_ANGLE_D90,VIPS_ANGLE_D180,VIPS_ANGLE_D270};
+  VipsAngle rotAngle[4] = {VIPS_ANGLE_D0,VIPS_ANGLE_D270,VIPS_ANGLE_D180,VIPS_ANGLE_D90};
 
   ostringstream levelData;
 

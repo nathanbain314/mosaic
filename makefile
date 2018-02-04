@@ -1,4 +1,4 @@
-CXX += -std=c++11 -stdlib=libc++ -O3 -g
+CXX += -std=c++11 -O3 -g
 
 SRC = lib
 INCLUDE = include

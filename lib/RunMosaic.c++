@@ -42,7 +42,7 @@ int main( int argc, char **argv )
     int numHorizontal                 = numberArg.getValue();
     bool trueColor                    = colorArg.getValue();
     bool flip                         = flipArg.getValue();
-    int spin                          = (spinArg.getValue() ? 4:1);
+    bool spin                         = spinArg.getValue();
     int cropStyle                     = cropStyleArg.getValue();
     int mosaicTileSize                = mosaicTileArg.getValue();
     int imageTileSize                 = imageTileArg.getValue();
