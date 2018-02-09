@@ -1,5 +1,253 @@
 #include "mosaic.h"
 
+void generateRotationalThumbnails( string imageDirectory, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double scale, double renderScale, int angleOffset )
+{
+  DIR *dir;
+  struct dirent *ent;
+  string str;
+
+  int num_images = 0;
+
+  vector< string > names;
+
+  cout << "Reading directory " << imageDirectory << endl;
+
+  // Count the number of valid image files in the directory
+  if ((dir = opendir (imageDirectory.c_str())) != NULL) 
+  {
+    while ((ent = readdir (dir)) != NULL)
+    {   
+      if( ent->d_name[0] != '.' && vips_foreign_find_load( string( imageDirectory + ent->d_name ).c_str() ) != NULL )
+      {
+        names.push_back( imageDirectory + ent->d_name );
+        cout << "\rFound " << ++num_images << " images " << flush;
+      }
+    }
+  }
+
+  cout << endl;
+
+  progressbar *processing_images = progressbar_new("Processing images", num_images*360/angleOffset);
+  unsigned char *testData, *maskData;
+
+  // Iterate through all images in directory
+  for( int i = 0; i < num_images; ++i )
+  {
+    try
+    {
+      str = names[i];
+
+      VImage image = VImage::vipsload( (char *)str.c_str() );
+      VImage white = VImage::black(image.width(),image.height()).invert();
+
+      if( image.bands() == 1 )
+      {
+        image = image.bandjoin(image).bandjoin(image);
+      }
+      else if( image.bands() == 2 )
+      {
+        VImage alpha = image.extract_band(3);
+        image = image.flatten().bandjoin(image).bandjoin(image).bandjoin(alpha);
+      }
+
+      for( double angle = 0; angle < 360; angle += angleOffset )
+      {
+        progressbar_inc( processing_images );
+
+        int width = image.width();
+        int height = image.height();
+
+        VImage testImage = image.similarity(VImage::option()->set("scale",scale)->set("angle",angle));
+        VImage mask = white.similarity(VImage::option()->set("scale",scale)->set("angle",angle));
+
+        width = testImage.width();
+        height = testImage.height();
+
+        if( image.bands() == 4 )
+        {
+          mask = testImage.extract_band(3);
+          
+          testImage = testImage.flatten();
+        }
+
+        testData = ( unsigned char * )testImage.data();
+        maskData = ( unsigned char * )mask.data();
+
+        images.push_back( vector< unsigned char >(testData, testData + (3*width*height)));
+        masks.push_back( vector< unsigned char >(maskData, maskData + (width*height)));
+        dimensions.push_back( pair< int, int >(width,height) );
+
+        width = image.width();
+        height = image.height();
+
+        testImage = image.similarity(VImage::option()->set("scale",renderScale)->set("angle",angle));
+        mask = white.similarity(VImage::option()->set("scale",renderScale)->set("angle",angle));
+
+        width = testImage.width();
+        height = testImage.height();
+
+        if( image.bands() == 4 )
+        {
+          mask = testImage.extract_band(3);
+          
+          testImage = testImage.flatten();
+        }
+
+        testData = ( unsigned char * )testImage.data();
+        maskData = ( unsigned char * )mask.data();
+
+        images.push_back( vector< unsigned char >(testData, testData + (3*width*height)));
+        masks.push_back( vector< unsigned char >(maskData, maskData + (width*height)));
+        dimensions.push_back( pair< int, int >(width,height) );
+      }
+    }
+    catch (...)
+    {
+    }
+  }
+
+  progressbar_finish( processing_images );
+}
+
+void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int numIter )
+{
+  VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );
+
+  if( image.bands() == 1 )
+  {
+    image = image.bandjoin(image).bandjoin(image);
+  }
+  if( image.bands() == 4 )
+  {
+    image = image.flatten();
+  }
+
+  int imageWidth = image.width();
+  int imageHeight = image.height();
+
+  unsigned char * imageData = ( unsigned char * )image.data();
+
+  VImage output = VImage::black(ceil(imageWidth*resize),ceil(imageHeight*resize),VImage::option()->set("bands",3));//.invert();
+  VImage computeMask = VImage::black(imageWidth,imageHeight).invert();
+  VImage outputMask = VImage::black(ceil(imageWidth*resize),ceil(imageHeight*resize));
+  unsigned char * outputData = ( unsigned char * )output.data();
+  unsigned char * computeMaskData = ( unsigned char * )computeMask.data();
+  unsigned char * outputMaskData = ( unsigned char * )outputMask.data();
+
+  int outputWidth = output.width();
+  int outputHeight = output.height();
+
+  progressbar *processing_images = progressbar_new("Building image", numIter);
+
+  for( int inc = 0; inc < numIter; ++inc )
+  {
+    int y = rand()%(imageHeight);
+    int x = rand()%(imageWidth);
+  
+    progressbar_inc( processing_images );
+
+    int bestImage = -1;
+    double bestDifference = DBL_MAX;
+
+    for( int k = 0; k < images.size(); k+=2 )
+    {
+      int width = dimensions[k].first;
+      int height = dimensions[k].second;
+
+      double difference = 0;
+      double usedPixels = 0;
+
+      for( int i = 0, p = 0; i < height; ++i )
+      {
+        for( int j = 0; j < width; ++j, ++p )
+        {
+          if( masks[k][p] == 0 ) continue;
+
+          int ix = x + j - width/2;
+          int iy = y + i - height/2;
+
+          if( (ix < 0) || (ix > imageWidth-1) || (iy < 0) || (iy > imageHeight-1) ) continue;
+
+          if( computeMaskData[(iy*imageWidth+ix)] == 0 ) continue;
+
+          ++usedPixels;
+
+          unsigned char ir = imageData[3*(iy*imageWidth+ix)+0];
+          unsigned char ig = imageData[3*(iy*imageWidth+ix)+1];
+          unsigned char ib = imageData[3*(iy*imageWidth+ix)+2];
+
+          unsigned char tr = images[k][3*p+0];
+          unsigned char tg = images[k][3*p+1];
+          unsigned char tb = images[k][3*p+2];
+
+          difference += (ir-tr)*(ir-tr) + (ig-tg)*(ig-tg) + (ib-tb)*(ib-tb);
+        }
+      }
+
+      if( difference/usedPixels < bestDifference )
+      {
+        bestDifference = difference/usedPixels;
+        bestImage = k;
+      }
+    }
+
+    if( bestImage == -1 ) continue;
+
+    int width = dimensions[bestImage].first;
+    int height = dimensions[bestImage].second;
+
+    for( int i = 0, p = 0; i < height; ++i )
+    {
+      for( int j = 0; j < width; ++j, ++p )
+      {
+        if( masks[bestImage][p] == 0 ) continue;
+
+        int ix = x + j - width/2;
+        int iy = y + i - height/2;
+
+        if( (ix < 0) || (ix > imageWidth-1) || (iy < 0) || (iy > imageHeight-1) ) continue;
+
+        computeMaskData[(iy*imageWidth+ix)] = max((int)computeMaskData[(iy*imageWidth+ix)] - (int)masks[bestImage][p],0);
+      }
+    }
+
+    width = dimensions[bestImage+1].first;
+    height = dimensions[bestImage+1].second;
+
+    for( int i = 0, p = 0; i < height; ++i )
+    {
+      for( int j = 0; j < width; ++j, ++p )
+      {
+        if( masks[bestImage+1][p] == 0 ) continue;
+
+        int ix = x*resize + j - width/2;
+        int iy = y*resize + i - height/2;
+
+        if( (ix < 0) || (ix > outputWidth-1) || (iy < 0) || (iy > outputHeight-1) ) continue;
+
+        if( outputMaskData[(iy*outputWidth+ix)] == 255 ) continue;
+
+        outputData[3*(iy*outputWidth+ix)+0] = min(outputData[3*(iy*outputWidth+ix)+0]+int((double)(255-outputMaskData[(iy*outputWidth+ix)])*(double)images[bestImage+1][3*p+0]/255.0),255);
+        outputData[3*(iy*outputWidth+ix)+1] = min(outputData[3*(iy*outputWidth+ix)+1]+int((double)(255-outputMaskData[(iy*outputWidth+ix)])*(double)images[bestImage+1][3*p+1]/255.0),255);
+        outputData[3*(iy*outputWidth+ix)+2] = min(outputData[3*(iy*outputWidth+ix)+2]+int((double)(255-outputMaskData[(iy*outputWidth+ix)])*(double)images[bestImage+1][3*p+2]/255.0),255);
+        outputMaskData[(iy*outputWidth+ix)] = min(255,(int)masks[bestImage+1][p]+(int)outputMaskData[(iy*outputWidth+ix)]);
+
+      }
+    }
+  }
+
+  progressbar_finish( processing_images );
+
+  if( vips_foreign_find_save( outputImage.c_str() ) != NULL )
+  {
+    output.vipssave((char *)outputImage.c_str());
+  }
+  else
+  {
+    output.dzsave((char *)outputImage.c_str());
+  }
+}
+
 void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude, bool spin, int cropStyle, bool flip )
 {
   DIR *dir;

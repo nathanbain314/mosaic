@@ -4,7 +4,7 @@ SRC = lib
 INCLUDE = include
 OBJDIR = build
 OUTDIR = bin
-EXECUTABLE = $(OUTDIR)/RunMosaic $(OUTDIR)/RunContinuous
+EXECUTABLE = $(OUTDIR)/RunMosaic $(OUTDIR)/RunRotationalMosaic $(OUTDIR)/RunContinuous
 
 CFLAGS += -I$(INCLUDE) -Wno-everything
 LDLIBS = -lncurses
