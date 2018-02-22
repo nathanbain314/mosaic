@@ -42,10 +42,10 @@ int main( int argc, char **argv )
     {
       string imageDirectory = inputDirectory[i];
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      generateRotationalThumbnails( imageDirectory, images, masks, dimensions, imageScale, renderScale, angleOffset );
+      generateRotationalThumbnails( imageDirectory, images, masks, dimensions, imageScale, renderScale );
     }
 
-    buildRotationalImage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, numIter );
+    buildRotationalImage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, numIter, angleOffset );
   }
   catch (ArgException &e)  // catch any exceptions
   {
