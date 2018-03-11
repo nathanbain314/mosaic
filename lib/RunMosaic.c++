@@ -254,7 +254,7 @@ int main( int argc, char **argv )
 
     for( int i = 0; i < inputImages.size(); ++i )
     {
-      progressbar *buildingMosaic = progressbar_new("Building mosaic", (numVertical/3)*(numHorizontal/3) );
+      ProgressBar *buildingMosaic = new ProgressBar((numVertical/3)*(numHorizontal/3), "Building mosaic");
 
       if( trueColor  )
       {
@@ -265,7 +265,7 @@ int main( int argc, char **argv )
         numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileSize );
       }
 
-      progressbar_finish( buildingMosaic );
+      cout << endl;
 
       if( isDeepZoom )
       {

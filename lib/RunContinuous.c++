@@ -64,7 +64,7 @@ int main( int argc, char **argv )
       averages.push_back( { (unsigned char)(rv/tileWidthSqr), (unsigned char)(gv/tileWidthSqr), (unsigned char)(bv/tileWidthSqr) } );
     }
 
-    progressbar *buildingMosaic = progressbar_new("Building mosaics", numImages );
+    ProgressBar *buildingMosaic = new ProgressBar(numImages, "Building mosaic");
 
     if( trueColor )
     {
@@ -85,7 +85,7 @@ int main( int argc, char **argv )
       for( int n = 0; n < numImages; ++n )
       {
         generateMosaic( lab, mosaics[n], get<0>(cropData[n]), NULL, repeat, true, tileWidth*64 );
-        progressbar_inc( buildingMosaic );
+        buildingMosaic->Increment();
       }
     }
     else
@@ -105,12 +105,13 @@ int main( int argc, char **argv )
       for( int n = 0; n < numImages; ++n )
       {
         generateMosaic( mat_index, mosaics[n], get<0>(cropData[n]), NULL, repeat, true, tileWidth*64 );
-        progressbar_inc( buildingMosaic );
+        buildingMosaic->Increment();
       }
     }
 
-    progressbar_finish( buildingMosaic );
-    progressbar *generateAverages = progressbar_new("Generating averages", numImages * 2 );
+    cout << endl;
+
+    ProgressBar *generateAverages = new ProgressBar(numImages * 2, "Generating averages");
 
     for( int n = 0; n < numImages; ++n )
     {
@@ -143,7 +144,7 @@ int main( int argc, char **argv )
 
       averages2.push_back( avg );
 
-      progressbar_inc( generateAverages );
+      generateAverages->Increment();
     }
 
     for( int n = 0; n < numImages; ++n )
@@ -164,9 +165,10 @@ int main( int argc, char **argv )
 
       images.push_back( VImage::new_from_memory( data[n], 49152, 128, 128, 3, VIPS_FORMAT_UCHAR ) );
       
-      progressbar_inc( generateAverages );
+      generateAverages->Increment();
     }
-    progressbar_finish( generateAverages );
+
+    cout << endl;
 
     ofstream htmlFile(outputDirectory.substr(0, outputDirectory.size()-1).append(".html").c_str());
 

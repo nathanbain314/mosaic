@@ -2,7 +2,7 @@
 #include <vector>
 #include <cmath>
 #include <climits>
-#include <unistd.h>
+#include <dirent.h>
 #include <future>
 #include <fstream>
 #include <algorithm>
@@ -14,7 +14,7 @@
 #include <vips/vips8>
 #include <nanoflann.hpp>
 #include "KDTreeVectorOfVectorsAdaptor.h"
-#include "progressbar.h"
+#include "progress_bar.hpp"
 
 using namespace nanoflann;
 using namespace vips;
@@ -31,9 +31,9 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
 pair< int, double > computeBest( vector< vector< float > > &imageData, vector< float > &d, int start, int end, int tileWidth, vector< vector< int > > &mosaic, int i, int j, int repeat );
 
-int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat = 0, bool square = false, int resize = 0 );
+int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat = 0, bool square = false, int resize = 0 );
 
-int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat = 0, bool square = false, int resize = 0 );
+int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat = 0, bool square = false, int resize = 0 );
 
 void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< int > > &mosaic, string outputImage, int tileWidth );
 

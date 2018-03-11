@@ -1,8 +1,27 @@
 # mosaic
 This is a tool for building photomosaic images, high resolution zoomable photomosaics, and infinite continuous photomosaics.
 
-[Libvips](http://www.vips.ecs.soton.ac.uk/index.php?title=Libvips) has to be installed in order to use this program.
-There are two executables that will be created: RunMosaic and RunContinuous.
+# Building
+## Unix
+Install [libvips](https://github.com/jcupitt/libvips) and [cmake](https://cmake.org).
+Then you can compile the program.
+
+  cmake .
+  make
+
+## Windows
+Install [mingw-6w4](http://mingw-w64.org/doku.php/download/mingw-builds). At the screen with the various options for installing, choose **x86_64** as the architecture.
+Install [cmake](https://cmake.org/download/) , and at the screen where gives choices adding it to the path, make sure to add it to the system path.
+Download the libvips w64 binaries from the vips [download page](https://github.com/jcupitt/libvips/releases) and extract it.
+Open up a MinGW-W64 terminal. 
+Set an environment variable named **VIPS_INCLUDE** to be the location of the libvips folder and add the binary folder to the system path
+
+  set VIPS_INCLUDE=C:\Users\nathanbain314\Downloads\vips-dev-w64-all-8.6.3\vips-dev-8.6
+  set PATH=%PATH%;C:\Users\nathanbain314\Downloads\vips-dev-w64-all-8.6.3\vips-dev-8.6\bin
+
+Then compile the progam
+  cmake . -G "MinGW Makefiles"
+  mingw32-make
 
 # RunMosaic
 This creates a photomosaic and saves it as either a single image or a zoomable image.

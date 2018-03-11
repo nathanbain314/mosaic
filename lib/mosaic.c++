@@ -19,6 +19,7 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
     {   
       if( ent->d_name[0] != '.' && vips_foreign_find_load( string( imageDirectory + ent->d_name ).c_str() ) != NULL )
       {
+        // Saves the full directory position of valid images
         names.push_back( imageDirectory + ent->d_name );
         cout << "\rFound " << ++num_images << " images " << flush;
       }
@@ -27,7 +28,7 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
 
   cout << endl;
 
-  progressbar *processing_images = progressbar_new("Processing images", num_images);
+  ProgressBar *processing_images = new ProgressBar(num_images, "Processing images");
   unsigned char *testData, *maskData;
 
   // Iterate through all images in directory
@@ -37,9 +38,11 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
     {
       str = names[i];
 
+      // Load image and create white one band image of the same size
       VImage image = VImage::vipsload( (char *)str.c_str() );
       VImage white = VImage::black(image.width(),image.height()).invert();
 
+      // Turn grayscale images into 3 band or 4 band images
       if( image.bands() == 1 )
       {
         image = image.bandjoin(image).bandjoin(image);
@@ -50,17 +53,19 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
         image = image.flatten().bandjoin(image).bandjoin(image).bandjoin(alpha);
       }
 
-      progressbar_inc( processing_images );
+      processing_images->Increment();
 
       int width = image.width();
       int height = image.height();
 
+      // Create image and mask of scale size
       VImage testImage = image.similarity(VImage::option()->set("scale",scale));
       VImage mask = white.similarity(VImage::option()->set("scale",scale));
 
       width = testImage.width();
       height = testImage.height();
 
+      // Extract mask of alpha image
       if( image.bands() == 4 )
       {
         mask = testImage.extract_band(3);
@@ -68,6 +73,7 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
         testImage = testImage.flatten();
       }
 
+      // Save data to vector
       testData = ( unsigned char * )testImage.data();
       maskData = ( unsigned char * )mask.data();
 
@@ -78,6 +84,7 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
       width = image.width();
       height = image.height();
 
+      // Do the same for image of renderscale size
       testImage = image.similarity(VImage::option()->set("scale",renderScale));
       mask = white.similarity(VImage::option()->set("scale",renderScale));
 
@@ -103,7 +110,7 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
     }
   }
 
-  progressbar_finish( processing_images );
+  cout << endl;
 }
 
 double cosAngle, sinAngle, halfWidth, halfHeight;
@@ -122,6 +129,7 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
 {
   VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );
 
+  // Converts 1 and 4 band images to a 3 band image
   if( image.bands() == 1 )
   {
     image = image.bandjoin(image).bandjoin(image);
@@ -136,90 +144,116 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
 
   unsigned char * imageData = ( unsigned char * )image.data();
 
+  // Scaled output sizes
   int outputWidth = ceil(imageWidth*resize);
   int outputHeight = ceil(imageHeight*resize);
 
+  // Size of output data
   unsigned long long outputSize = (unsigned long long)outputWidth*(unsigned long long)outputHeight*3ULL;
 
+  // Create black images of output and masks
   unsigned char * outputData = ( unsigned char * )calloc (outputSize,sizeof(unsigned char));
   unsigned char * computeMaskData = ( unsigned char * )calloc (imageWidth*imageHeight,sizeof(unsigned char));
   unsigned char * outputMaskData = ( unsigned char * )calloc ((unsigned long long)outputWidth*(unsigned long long)outputHeight,sizeof(unsigned char));
 
-  progressbar *processing_images = progressbar_new("Building image", numIter);
+  ProgressBar *processing_images = new ProgressBar(numIter, "Building image");
 
+  // Run for every iteration
   for( int inc = 0; inc < numIter; ++inc )
   {
+    // Place image at random point
     int y = rand()%(imageHeight);
     int x = rand()%(imageWidth);
   
-    progressbar_inc( processing_images );
+    processing_images->Increment();
 
     int bestImage = -1;
     double bestDifference = DBL_MAX, bestAngle = 0;
 
+    // Run through every image 
     for( int k = 0; k < images.size(); k+=2 )
     {
+      // Rotate image for every angleOffset angles
       for( double a = 0; a < 360; a += angleOffset )
       {
+        // Convert to radians
         double angle = a * 3.14159265/180.0;
         int width = dimensions[k].first;
         int height = dimensions[k].second;
 
+        // Compute data for point rotation
         cosAngle = cos(angle);
         sinAngle = sin(angle);
         halfWidth = (double)width/2.0;
         halfHeight = (double)height/2.0;
 
+        // Conpute side offset of rotated image from regular image
         int xOffset = max( rotateX(0,0), max( rotateX(width,0), max( rotateX(0,height), rotateX(width,height) ) ) ) - width;
         int yOffset = max( rotateY(0,0), max( rotateY(width,0), max( rotateY(0,height), rotateY(width,height) ) ) ) - height;
 
+        // New width and height of rotated image
         int newWidth = width + 2*xOffset;
         int newHeight = height + 2*yOffset;
 
         double difference = 0;
         double usedPixels = 0;
 
+        // New data for point rotation in reverse direction
         cosAngle = cos(-angle);
         sinAngle = sin(-angle);
         halfWidth = (double)newWidth/2.0;
         halfHeight = (double)newHeight/2.0;
 
+        // Traverse data for rotated image to find difference from input image
         for( int i = 0; i < newHeight; ++i )
         {
           for( int j = 0; j < newWidth; ++j )
           {
+            // New x and y of rotated image point
             int newX = rotateX(j,i) - xOffset;
             int newY = rotateY(j,i) - yOffset;
 
+            // Make sure that the point is within the image
             if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
 
+            // Point in image
             int p = width*newY + newX;
 
+            // Make sure that the point is not transparent
             if( masks[k][p] == 0 ) continue;
 
+            // Point in input image
             int ix = x + j - newWidth/2;
             int iy = y + i - newHeight/2;
 
+            // Make sure that the point is within the input image
             if( (ix < 0) || (ix > imageWidth-1) || (iy < 0) || (iy > imageHeight-1) ) continue;
 
+            // Index of point in input image
             unsigned long long index = (unsigned long long)iy*(unsigned long long)imageWidth+(unsigned long long)ix;
 
+            // Make sure the the point is not fully colored
             if( computeMaskData[index] == 255 ) continue;
 
+            // Update the number of pixels that are used
             ++usedPixels;
 
+            // Get the input image rgb values
             unsigned char ir = imageData[3ULL*index+0ULL];
             unsigned char ig = imageData[3ULL*index+1ULL];
             unsigned char ib = imageData[3ULL*index+2ULL];
 
+            // Get the image rgb values
             unsigned char tr = images[k][3*p+0];
             unsigned char tg = images[k][3*p+1];
             unsigned char tb = images[k][3*p+2];
 
+            // Compute the sum-of-squares for color difference
             difference += (ir-tr)*(ir-tr) + (ig-tg)*(ig-tg) + (ib-tb)*(ib-tb);
           }
         }
 
+        // If the image is more similar then choose this one as the best image and angle
         if( difference/usedPixels < bestDifference )
         {
           bestDifference = difference/usedPixels;
@@ -229,8 +263,10 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
       }
     }
 
+    // If no image was chosen then skip
     if( bestImage == -1 ) continue;
 
+    // Set the angle and offsets like before
     int width = dimensions[bestImage].first;
     int height = dimensions[bestImage].second;
 
@@ -250,6 +286,7 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
     halfWidth = (double)newWidth/2.0;
     halfHeight = (double)newHeight/2.0;
 
+    // Set the mask value for the input image mask
     for( int i = 0; i < newHeight; ++i )
     {
       for( int j = 0; j < newWidth; ++j )
@@ -274,6 +311,7 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
       }
     }
 
+    // Set the values for the output image
     width = dimensions[bestImage+1].first;
     height = dimensions[bestImage+1].second;
 
@@ -296,12 +334,15 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
     x*=resize;
     y*=resize;
 
+    // Render the image onto the output image
     for( int i = 0; i < newHeight; ++i )
     {
       for( int j = 0; j < newWidth; ++j )
       {
         int r=0, g=0, b=0, m=0;
         int used = 0;
+
+        //  Get the average of the rotated pixels 1/2 above, below, and to the sides for the average to get be a better color
         for( double k = -1; k <= 1; k += 2 )
         {
           int newX = rotateX((double)j+k/2.0,i) - xOffset;
@@ -344,33 +385,42 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
         m+=masks[bestImage+1][p];
         ++used;
 
+        // Divide by number of used pixels to get average color
         r/=used;
         g/=used;
         b/=used;
         m/=used;
 
+        // Make sure that image pixel is not transparent
         if( masks[bestImage+1][p] == 0 ) continue;
 
         int ix = x + j - newWidth/2;
         int iy = y + i - newHeight/2;
 
+        // Make sure that pixel is inside image
         if( (ix < 0) || (ix > outputWidth-1) || (iy < 0) || (iy > outputHeight-1) ) continue;
 
+        // Set index
         unsigned long long index = (unsigned long long)iy*(unsigned long long)outputWidth+(unsigned long long)ix;
 
+        // Make sure that output pixel is transparent
         if( outputMaskData[index] == 255 ) continue;
 
+        // Set output colors
         outputData[3ULL*index+0ULL] = min(outputData[3ULL*index+0ULL]+int((double)(255-outputMaskData[index])*(double)r/255.0),255);
         outputData[3ULL*index+1ULL] = min(outputData[3ULL*index+1ULL]+int((double)(255-outputMaskData[index])*(double)g/255.0),255);
         outputData[3ULL*index+2ULL] = min(outputData[3ULL*index+2ULL]+int((double)(255-outputMaskData[index])*(double)b/255.0),255);
+        
+        // Set output transparency mask
         outputMaskData[index] = min(255,m+(int)outputMaskData[index]);
 
       }
     }
   }
 
-  progressbar_finish( processing_images );
+  cout << endl;
 
+  // Save image as static image or zoomable image
   if( vips_foreign_find_save( outputImage.c_str() ) != NULL )
   {
     VImage::new_from_memory( outputData, outputSize, outputWidth, outputHeight, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
@@ -378,20 +428,28 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
   else
   {
     VImage::new_from_memory( outputData, outputSize, outputWidth, outputHeight, 3, VIPS_FORMAT_UCHAR ).dzsave((char *)outputImage.c_str());
+  
+    // Generate html file to view deep zoom image
+    ofstream htmlFile(string(outputImage).append(".html").c_str());
+    htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<style>\nhtml,\nbody,\n#rotationalMosaic\n{\nposition: fixed;\nleft: 0;\ntop: 0;\nwidth: 100%;\nheight: 100%;\n}\n</style>\n\n<div id=\"rotationalMosaic\"></div>\n\n<script>\nvar viewer = OpenSeadragon({\nid: 'rotationalMosaic',\nprefixUrl: 'icons/',\ntileSources:   \"" + outputImage + ".dzi\",\nminZoomImageRatio: 0,\nmaxZoomImageRatio: 1\n});\n</script>\n</body>\n</html>";
+    htmlFile.close();
   }
 }
 
 void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude, bool spin, int cropStyle, bool flip )
 {
+  // Used for reading directory
   DIR *dir;
   struct dirent *ent;
   string str;
 
+  // Used for processing image
   int size, xOffset, yOffset, width, height, mosaicTileArea = mosaicTileWidth*mosaicTileWidth*3, imageTileArea = imageTileWidth*imageTileWidth*3;
   bool different = mosaicTileWidth != imageTileWidth;
 
   unsigned char *c1, *c2;
 
+  // Minimum size allowed: must be at least as large as mosaicTileWidth and imageTileWidth, and 256 if exclude is set
   int minAllow = exclude ? max(256,max(mosaicTileWidth,imageTileWidth)) : max(mosaicTileWidth,imageTileWidth);
 
   int num_images = 0;
@@ -415,20 +473,22 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
   cout << endl;
 
-  progressbar *processing_images = progressbar_new("Processing images", num_images);
+  ProgressBar *processing_images = new ProgressBar(num_images, "Processing images");
 
   // Iterate through all images in directory
   for( int i = 0; i < num_images; ++i )
   {
-    progressbar_inc( processing_images );
+    processing_images->Increment();
     try
     {
       str = names[i];
 
+      // Get the width, height, and smallest and largest sizes
       width = VImage::new_memory().vipsload( (char *)str.c_str() ).width();
       height = VImage::new_memory().vipsload( (char *)str.c_str() ).height();
       int minSize = min(width,height);
       int maxSize = max(width,height);
+      // Whether the a square is offset vertically or not
       bool vertical = width < height;
 
       if( minSize < minAllow )
@@ -436,32 +496,41 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
         continue;
       }
 
+      // Width of shrunk images
       int sw = floor((double)maxSize*((double)mosaicTileWidth/(double)minSize));
       int lw = floor((double)maxSize*((double)imageTileWidth/(double)minSize));
 
       VImage image2, image;
       
+      // Shrink the image and crop based on cropping style
       switch( cropStyle )
       {
+        // Crop the middle square
         case 0:
           image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN ));
           break;
+        // Crop the square with the most entropy
         case 1:
           image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN ));
           break;
+        // Crop the square most likely to 
         case 2:
           image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
           break;
+        // Shrink the image to be cropped later
         case 3:
+          // In order to crop image multiple times, gifs need to be cached with 16x16 tiles, and averything else needs to be cached with the full image
           image = vips_foreign_is_a("gifload",(char *)str.c_str()) ? 
                   VImage::thumbnail((char *)str.c_str(),ceil((double)maxSize*((double)mosaicTileWidth/(double)minSize)),VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",16)->set("tile_height",16)) : 
                   VImage::thumbnail((char *)str.c_str(),ceil((double)maxSize*((double)mosaicTileWidth/(double)minSize)),VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",ceil((double)width*((double)mosaicTileWidth/(double)minSize)))->set("tile_height",ceil((double)height*((double)mosaicTileWidth/(double)minSize))));
           break;
       }
 
+      // Offset of crop
       xOffset = min(-(int)image.xoffset(),sw - mosaicTileWidth);
       yOffset = min(-(int)image.yoffset(),sw - mosaicTileWidth);
 
+      // Convert image to 3 band image
       if( image.bands() == 1 )
       {
         image = image.bandjoin(image).bandjoin(image);
@@ -471,6 +540,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
         image = image.flatten();
       }
 
+      // If the mosaicTileWidth and imageTileWidth are different then shrink and crop again
       if( different )
       {
         switch( cropStyle )
@@ -501,12 +571,15 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
         }
       }
 
+      // If cropStyle is 3 then crop every possible square
       if( cropStyle == 3 )
       {
+        // For every possible square
         for( int ii = sw - mosaicTileWidth; ii >= 0; --ii )
         {
           VImage newImage, newImage2;
 
+          // Crop it correctly if it is a vertical or horizontal image
           if( vertical )
           {
             newImage = image.extract_area(0,ii,mosaicTileWidth,mosaicTileWidth);
@@ -518,6 +591,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
             if(different) newImage2 = image2.extract_area(ii*imageTileWidth/mosaicTileWidth,0,imageTileWidth,imageTileWidth);
           }
 
+          // Mirror the image if flip is set
           for( int ff = flip; ff >= 0; --ff)
           {
             if(flip)
@@ -526,10 +600,15 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
               if( different ) newImage2 = newImage2.flip(VIPS_DIRECTION_HORIZONTAL);
             }
 
+            // Rotate the image 4 times if spin is set
             for( int jj = (spin ? 3:0); jj >= 0; --jj )
             {
               if(spin) newImage = newImage.rot90();
+
+              // Get the image data
               c1 = (unsigned char *)newImage.data();
+
+              // Push the data onto the vector
               mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
 
               if( different )
@@ -539,13 +618,16 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
                 imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
               }
 
+              // Save the data detailing the image name, crop offset, mirror status, and rotation
               cropData.push_back( make_tuple(str,vertical?0:ii*minSize/mosaicTileWidth,vertical?ii*minSize/mosaicTileWidth:0,jj,ff) );
             }
           }
         }
       }
+      // Otherwise just save the image
       else
       {
+        // Mirror the image if flip is set
         for( int ff = flip; ff >= 0; --ff)
         {
           if(flip)
@@ -554,10 +636,15 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
             if( different ) image2 = image2.flip(VIPS_DIRECTION_HORIZONTAL);
           }
 
+          // Rotate the image 4 times if spin is set
           for( int jj = (spin ? 3:0); jj >= 0; --jj )
           {
             if(spin) image = image.rot90();
+
+            // Get the image data
             c1 = (unsigned char *)image.data();
+
+            // Push the data onto the vector
             mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
 
             if( different )
@@ -567,6 +654,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
               imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
             }
 
+            // Save the data detailing the image name, crop offset, mirror status, and rotation
             cropData.push_back( make_tuple(str,xOffset*minSize/mosaicTileWidth,yOffset*minSize/mosaicTileWidth,jj,ff) );
           }
         }
@@ -577,40 +665,54 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
     }
   }
 
-  progressbar_finish( processing_images );
+  cout << endl;
 }
 
-int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int width, int numHorizontal, int numVertical, progressbar* buildingMosaic )
+int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic )
 {
+  // Whether to update progressbar
   bool show = !(blockX+blockY);
 
+  // Vector lab tile data
   vector< float > d(tileWidth*tileWidth*3);
 
   int num_images = imageData.size();
 
+  // For every index
   for( int p = 0; p < indices.size(); ++p )
   {
-    if(show) progressbar_inc( buildingMosaic );
+    // Get position of tile
     int i = indices[p] / blockWidth;
     int j = indices[p] % blockWidth;
     
+    // Skip if outside of the array
     if( i >= blockHeight || j >= blockWidth ) continue;
     
+    // Update progressbar if necessary
+    if(show) buildingMosaic->Increment();
+
+    // Add offset position
     i += blockY;
     j += blockX;
 
+    // Start and end of tiles to check for repeating images
     int xEnd = ( (j+repeat+1<(int)mosaic[0].size()) ? j+repeat+1 : mosaic[0].size() );
     int yEnd = ( (i+repeat+1<(int)mosaic.size()) ? i+repeat+1 : mosaic.size() );
 
+    // Extract rgb data of tile from image and convert to lab data
     for( int y = 0, n = 0; y < tileWidth; ++y )
     {
       for( int x = 0; x < tileWidth; ++x, n+=3 )
       {
+        // Index of pixel
         int l = ( ( i * tileWidth + y ) * width + j * tileWidth + x ) * 3;
         
         float r,g,b;
+        // Convert rgb to rgb16
         vips_col_sRGB2scRGB_16(c[l],c[l+1],c[l+2], &r,&g,&b );
+        // Convert rgb16 to xyz
         vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
+        // Convert xyz to lab
         vips_col_XYZ2Lab( r, g, b, &d[n], &d[n+1], &d[n+2] );
       }
     }
@@ -618,16 +720,20 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
     int best = 0;
     double difference = DBL_MAX;
 
+    // Iterate through every image and find the most similar one
     for( int k = 0; k < num_images; ++k )
     {
+      // Check if image already exists within repeat blocks of tile
       if( repeat > 0 )
       {
         bool valid = true;
 
+        // Break early if match found
         for( int y = (i-repeat > 0) ? i-repeat : 0; valid && y < yEnd; ++y )
         {
           for( int x = (j-repeat > 0) ? j-repeat : 0; valid && x < xEnd; ++x )
           {
+            // Skip if is current tile
             if(  y == i && x == j ) continue;
             if( mosaic[y][x] == k )
             {
@@ -636,23 +742,29 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
           }
         }
 
+        // Skip current image if it was found
         if( !valid ) continue;
       }
 
+      // Compute sum of color differences
       double sum = 0;
       for( int l = 0; l < tileWidth*tileWidth*3; l+=3 )
       {
         sum += vips_col_dE00( imageData[k][l], imageData[k][l+1], imageData[k][l+2], d[l], d[l+1], d[l+2] );
       }
 
+      // Update for best color difference
       if( sum < difference )
       {
         difference = sum;
         best = k;
       }
     }
+
+    // Set mosaic tile data
     mosaic[i][j] = best;
 
+    // Set the best image as being used
     used[ best ] = true;
   }
 
@@ -660,12 +772,15 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
 }
 
 // Takes a vector of image thumbnails, input image and number of images per row and creates output image
-int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat, bool square, int resize )
+int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize )
 {
+  // Whether to show progressbar
   bool show = ( buildingMosaic != NULL );
 
+  // Load input image
   VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );//.colourspace( VIPS_INTERPRETATION_LAB );
 
+  // Convert to a three band image
   if( image.bands() == 1 )
   {
     image = image.bandjoin(image).bandjoin(image);
@@ -675,37 +790,50 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
     image = image.flatten();
   }
 
+  // Crop out the middle square if specified
   if(square)
   {
     image = (image.width() < image.height()) ? image.extract_area(0, (image.height()-image.width())/2, image.width(), image.width()) :
                                                image.extract_area((image.width()-image.height())/2, 0, image.height(), image.height());
   }
 
+  // Resize the image for correct mosaic tile size
   if( resize != 0 ) image = image.resize( (double)resize / (double)(image.width()) );
 
   int width = image.width();
 
+  // Get image data
   unsigned char * c = ( unsigned char * )image.data();
 
+  // Get number of horizontal and vertical tiles
   int numHorizontal = mosaic[0].size();
   int numVertical = mosaic.size();
 
+  // Data about tile size
   int tileWidth = width / numHorizontal;
   int tileArea = tileWidth*tileWidth*3;
 
+  // Number of images to check against
   int num_images = imageData.size();
 
+  // Whether an image was used or not
   vector< bool > used( num_images, false );
 
+  // Number of threads for multithreading: needs to be a square number
   int threads = 9;
   int sqrtThreads = sqrt(threads);
 
+  // Totat number of tiles in block
   int total = ceil((double)numVertical/(double)sqrtThreads)*ceil((double)numHorizontal/(double)sqrtThreads);
 
+  // Create list of numbers in thread block
   vector< int > indices( total );
   iota( indices.begin(), indices.end(), 0 );
+
+  // Shuffle the points so that patterens do not form
   if( repeat > 0 ) shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
 
+  // Break mosaic into blocks and find best matching tiles inside each block on a different thread
   future< int > ret[threads];
 
   for( int i = 0, k = 0; i < sqrtThreads; ++i )
@@ -716,34 +844,47 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
     }
   }
 
+  // Wait for threads to finish
   for( int k = 0; k < threads; ++k )
   {
     ret[k].get();
   }
 
+  // Get total number of different images used
   return accumulate(used.begin(), used.end(), 0);
 }
 
-int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int width, int numHorizontal, int numVertical, progressbar* buildingMosaic )
+int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic )
 {
+  // Whether to update progressbar
   bool show = !(blockX+blockY);
 
+  // Number of closest images to search for
   int searchSize = max( 1, 4*repeat*(repeat+1)+1 );
+  // Color difference of images
   int *out_dist_sqr = new int[searchSize];
 
+  // Vector rgb tile data
   vector< int > d(tileWidth*tileWidth*3);
 
+  // For every index
   for( int p = 0; p < indices.size(); ++p )
   {
-    if(show) progressbar_inc( buildingMosaic );
+    // Get position of tile
     int i = indices[p] / blockWidth;
     int j = indices[p] % blockWidth;
     
+    // Skip if outside of the array
     if( i >= blockHeight || j >= blockWidth ) continue;
     
+    // Update progressbar if necessary
+    if(show) buildingMosaic->Increment();
+
+    // Add offset position
     i += blockY;
     j += blockX;
 
+    // Get rgb data about tile and save in vector
     for( int y = 0, n = 0; y < tileWidth; ++y )
     {
       for( int x = 0; x < tileWidth; ++x, n+=3 )
@@ -755,13 +896,16 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
       }
     }
 
+    // Start and end of tiles to check for repeating images
     int xEnd = ( (j+repeat+1<numHorizontal) ? j+repeat+1 : numHorizontal );
     int yEnd = ( (i+repeat+1<numVertical) ? i+repeat+1 : numVertical );
 
+    // Compute nearest neighbor search
     vector< size_t > ret_index( searchSize );
 
     mat_index.query( &d[0], searchSize, ret_index.data(), &out_dist_sqr[0] );
 
+    // Check less similar images until an image not in the surrounding tiles is found
     if( searchSize > 1 )
     {
       for( int y = (i-repeat > 0) ? i-repeat : 0; y < yEnd; ++y )
@@ -774,8 +918,11 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
         }
       }
     }
+
+    // Set mosaic tile data
     mosaic[i][j] = ret_index[0];
 
+    // Set the best image as being used
     used[ ret_index[0] ] = true;
   }
 
@@ -784,14 +931,18 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
   return 0;
 }
 
-int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, string inputImage, progressbar *buildingMosaic, int repeat, bool square, int resize )
+int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize )
 {
+  // Whether to show progressbar
   bool show = ( buildingMosaic != NULL );
 
+  // Number of images to check against
   int num_images = mat_index.kdtree_get_point_count();
 
+  // Load input image
   VImage image = VImage::vipsload( (char *)inputImage.c_str() );
 
+  // Convert to a three band image
   if( image.bands() == 1 )
   {
     image = image.bandjoin(image).bandjoin(image);
@@ -801,35 +952,47 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
     image = image.flatten();
   }
 
+  // Crop out the middle square if specified
   if(square)
   {
     image = (image.width() < image.height()) ? image.extract_area(0, (image.height()-image.width())/2, image.width(), image.width()) :
                                                image.extract_area((image.width()-image.height())/2, 0, image.height(), image.height());
   }
 
+  // Resize the image for correct mosaic tile size
   if( resize != 0 ) image = image.resize( (double)resize / (double)(image.width()) );
 
   int width = image.width();
 
+  // Get image data
   unsigned char * c = ( unsigned char * )image.data();
 
+  // Get number of horizontal and vertical tiles
   int numHorizontal = mosaic[0].size();
   int numVertical = mosaic.size();
 
+  // Data about tile size
   int tileWidth = width / numHorizontal;
   int tileArea = tileWidth*tileWidth*3;
 
+  // Whether an image was used or not
   vector< bool > used( num_images, false );
 
+  // Number of threads for multithreading: needs to be a square number
   int threads = 9;
   int sqrtThreads = sqrt(threads);
 
+  // Totat number of tiles in block
   int total = ceil((double)numVertical/(double)sqrtThreads)*ceil((double)numHorizontal/(double)sqrtThreads);
 
+  // Create list of numbers in thread block
   vector< int > indices( total );
   iota( indices.begin(), indices.end(), 0 );
+
+  // Shuffle the points so that patterens do not form
   if( repeat > 0 ) shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
 
+  // Break mosaic into blocks and find best matching tiles inside each block on a different thread
   future< int > ret[threads];
 
   for( int i = 0, k = 0; i < sqrtThreads; ++i )
@@ -840,11 +1003,13 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
     }
   }
 
+  // Wait for threads to finish
   for( int k = 0; k < threads; ++k )
   {
     ret[k].get();
   }
 
+  // Get total number of different images used
   return accumulate(used.begin(), used.end(), 0);
 }
 
@@ -852,18 +1017,24 @@ void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< i
 {
   cout << "Generating image " << outputImage << endl;
 
+  // Dimensions of mosaic
   int width = mosaic[0].size();
-  int height = mosaic.size(); 
+  int height = mosaic.size();
+
+  // Create output image data 
   unsigned char *data = new unsigned char[width*height*tileWidth*tileWidth*3];
 
+  // Itereate through everty tile
   for( int i = 0; i < height; ++i )
   {
     for( int j = 0; j < width; ++j )
     {
+      // Iterate through every pixel in tile
       for( int y = 0; y < tileWidth; ++y )
       {
         for( int x = 0; x < tileWidth; ++x )
         {
+          // Save the image data to the output tile
           data[ 3 * ( width * tileWidth * ( i * tileWidth + y ) + j * tileWidth + x ) ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)];
           data[ 3 * ( width * tileWidth * ( i * tileWidth + y ) + j * tileWidth + x ) + 1 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+1];
           data[ 3 * ( width * tileWidth * ( i * tileWidth + y ) + j * tileWidth + x ) + 2 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+2];
@@ -872,38 +1043,51 @@ void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< i
     }
   }
 
+  // Save data to output image
   VImage::new_from_memory( data, width*height*tileWidth*tileWidth*3, width*tileWidth, height*tileWidth, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
 
+  // Free the data
   delete [] data;
 }
 
 void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cropData, int numUnique, string outputImage, ofstream& htmlFile )
 {
+  // Rotation angles
   VipsAngle rotAngle[4] = {VIPS_ANGLE_D0,VIPS_ANGLE_D270,VIPS_ANGLE_D180,VIPS_ANGLE_D90};
 
   ostringstream levelData;
 
+  // Mosaic dimension data
   int width = mosaic[0].size();
   int height = mosaic.size();
 
   int numHorizontal = width;
   int numVertical = height;
+
+  // Number of levels required to generate
   int maxZoomablesLevel = INT_MIN;
   int minZoomablesLevel = INT_MAX;
 
+  // How many contructed levels there will be
   int level = (int)ceil( log2((width > height) ? width : height ) ) + 6;
+
+  // Used for first pass
   bool first = true;
 
+  // Output zoomable directory name
   string outputDirectory = string( outputImage + "zoom/" );
 
+  // Create output zoomable directory
   g_mkdir(outputDirectory.c_str(), 0777);
 
+  // Vector for output information for html file
   vector< string > mosaicStrings;
 
-  progressbar *generatingZoomables = progressbar_new("Generating zoomables", numUnique);
+  ProgressBar *generatingZoomables = new ProgressBar(numUnique, "Generating zoomables");
 
   levelData << "var levelData = [";
 
+  // Generate deep zoom images for each used image
   {
     ostringstream currentMosaic;
     vector< int > alreadyDone;
@@ -917,6 +1101,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
       {
         int current = mosaic[i][j];
 
+        // Skip this image if it has already been processed
         bool skip = false;
         int k = 0;
         for( ; k < numTiles; ++k )
@@ -928,20 +1113,27 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
           }
         }
 
+        // If the image has not been processed then convert it to a deep zoom image
         if( !skip )
         {
+          // Update that this image has been processed
           alreadyDone.push_back( current );
+
+          // Update the mosaic to have the ID for this image
           mosaic[i][j] = numTiles++;
 
+          // Load image
           VImage image = VImage::vipsload( (char *)(get<0>(cropData[current])).c_str() );
 
-          // Find the width of the largest square
+          // Find the width of the largest square inside image
           int width = image.width();
           int height = image.height();
           int size = min( width, height );
-            
+          
+          // Logarithm of square size
           int log = round( log2( size ) );
 
+          // Number of levels to generate
           if( numTiles > 1 ) levelData << ","; 
           levelData << (log-8);
 
@@ -953,21 +1145,26 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
           // Build the zoomable image if necessary 
           string zoomableName = outputDirectory + to_string(mosaic[i][j]);
 
+          // Extract square, flip, and rotate based on cropdata, and then save as a deep zoom image
           if( get<4>(cropData[current]) )
           {
             image.extract_area(get<1>(cropData[current]), get<2>(cropData[current]), size, size).resize((double)newSize/(double)size).flip(VIPS_DIRECTION_HORIZONTAL).rot(rotAngle[get<3>(cropData[current])]).dzsave((char *)zoomableName.c_str(), VImage::option()->set( "depth", VIPS_FOREIGN_DZ_DEPTH_ONETILE )->set( "tile-size", 256 )->set( "overlap", false )->set( "strip", true ) );
           }
+          // Do not flip if flip value is not set
           else
           {
             image.extract_area(get<1>(cropData[current]), get<2>(cropData[current]), size, size).resize((double)newSize/(double)size).rot(rotAngle[get<3>(cropData[current])]).dzsave((char *)zoomableName.c_str(), VImage::option()->set( "depth", VIPS_FOREIGN_DZ_DEPTH_ONETILE )->set( "tile-size", 256 )->set( "overlap", false )->set( "strip", true ) );
           }
-          progressbar_inc( generatingZoomables );
+          generatingZoomables->Increment();
         }
+        // Otherwise set the mosaic value to the ID for the image
         else
         {
           mosaic[i][j] = k;
         }
+        // Save the mosaic ID for the html file
         currentMosaic << mosaic[i][j];
+        // Put a comma if there are more
         if( j < width - 1 ) currentMosaic << ","; 
       }
       currentMosaic << "]";
@@ -977,13 +1174,15 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
     mosaicStrings.push_back(currentMosaic.str());
   }
 
-  progressbar_finish( generatingZoomables );
-  progressbar *generatingLevels = progressbar_new("Generating levels", height);
+  cout << endl;
+  ProgressBar *generatingLevels = new ProgressBar(height, "Generating levels");
 
   levelData << "];";
 
+  // Grab four tiles, join them together, shrink by two in each dimension until the output is only a pixel big
   for( ; level >= 0; --level )
-  { 
+  {
+    // Vector for whether these four images have been processed yet
     vector< vector< int > > alreadyDone;
     int numTiles = 0;
 
@@ -995,12 +1194,15 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
     directory << outputDirectory;
     g_mkdir(image.str().c_str(), 0777);
 
+    // Go through every 2 by 2 images
     for( int i = 1; i < height; i+=2 )
     {
       for( int j = 1; j < width; j+=2 )
       {
+        // Vector of current images
         vector< int > current = { mosaic[i-1][j-1], mosaic[i-1][j], mosaic[i][j-1], mosaic[i][j] };
 
+        // Check whether 4 images have been processed yet
         bool skip = false;
         int k = 0;
         for( ; k < numTiles; ++k )
@@ -1012,10 +1214,12 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
           }
         }
 
+        // Join four images, shrink my two, and save
         if( !skip )
         {
           alreadyDone.push_back( current );
 
+          // If first pass load from zoomable image directory
           if( first )
           {
             (VImage::jpegload((char *)directory.str().append(to_string(mosaic[i-1][j-1])+"_files/0/0_0.jpeg").c_str(), VImage::option()->set( "shrink", 2)).
@@ -1024,6 +1228,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
             join(VImage::jpegload((char *)directory.str().append(to_string(mosaic[i][j])+"_files/0/0_0.jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL),VIPS_DIRECTION_VERTICAL).
             jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
           }
+          // Otherwise load from tile level directory
           else
           {
             (VImage::jpegload((char *)input.str().append(to_string(mosaic[i-1][j-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
@@ -1033,20 +1238,25 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
             jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
           }
 
+          // The mosaic shrinks as well
           mosaic[i/2][j/2] = numTiles++;
         }
         else
         {
+          // Save the ID of the image if it has been shrunk already
           mosaic[i/2][j/2] = k;
         }
       }
-      progressbar_inc( generatingLevels );
+      generatingLevels->Increment();
     }
 
+    // Edge cases with only two images
     if(width%2 == 1)
     {
+      // Clear list of images already processed incase edge cases create incorrect duplicates
       int prevTileSize = numTiles;
       alreadyDone.clear();
+
       for(int j = 1; j < height; j+=2)
       {
         vector< int > current = { mosaic[j-1][width-1], mosaic[j][width-1] };
@@ -1133,6 +1343,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
       }
     }
 
+    // Edge case for bottom corner
     if(width%2 == 1 && height%2 == 1)
     {
       mosaic[height/2][width/2] = numTiles;
@@ -1171,7 +1382,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
     first = false;
   }
 
-  progressbar_finish( generatingLevels );
+  cout << endl;
 
   htmlFile << levelData.str() << endl;
 
@@ -1208,7 +1419,7 @@ void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VI
     ostringstream currentMosaic;
     currentMosaic << "[";
 
-    progressbar *generatingLevels = progressbar_new("Generating level 5", numImages);
+    ProgressBar *generatingLevels = new ProgressBar(numImages, "Generating level 5");
 
     for( int n = 0; n < numImages; ++n )
     {
@@ -1262,10 +1473,10 @@ void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VI
           }
         }
       }
-      progressbar_inc( generatingLevels );
+      generatingLevels->Increment();
     }
 
-    progressbar_finish( generatingLevels );
+    cout << endl;
 
     currentMosaic << "]\n";
 
@@ -1278,7 +1489,7 @@ void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VI
     currentMosaic << "[";
 
     string progressString = "Generating level "+ to_string(l);
-    progressbar *generatingLevels = progressbar_new(progressString.c_str(), numImages);
+    ProgressBar *generatingLevels = new ProgressBar(numImages, progressString.c_str());
 
     size = size >> 1;
     for( int n = 0; n < numImages; ++n )
@@ -1332,10 +1543,10 @@ void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VI
           }
         }
       }
-      progressbar_inc( generatingLevels );
+      generatingLevels->Increment();
     }
 
-    progressbar_finish( generatingLevels );
+    cout << endl;
 
     currentMosaic << "]\n";
     mosaicStrings.push_back( currentMosaic.str() );
