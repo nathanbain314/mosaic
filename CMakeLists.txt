@@ -18,7 +18,7 @@ file(GLOB SOURCE_FILES lib/mosaic.c++ lib/progress_bar.c++)
 set( EXECUTABLES RunMosaic RunRotationalMosaic RunContinuous )
 
 set (CMAKE_CXX_STANDARD 11)
-set(VIPS_LDFLAGS pthreads ${VIPS_LDFLAGS})
+set(VIPS_LDFLAGS pthread ${VIPS_LDFLAGS})
 
 foreach( EXECUTABLE ${EXECUTABLES} )
     add_executable( ${EXECUTABLE} lib/${EXECUTABLE}.c++ ${SOURCE_FILES} )
