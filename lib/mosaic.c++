@@ -900,10 +900,24 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
     int xEnd = ( (j+repeat+1<numHorizontal) ? j+repeat+1 : numHorizontal );
     int yEnd = ( (i+repeat+1<numVertical) ? i+repeat+1 : numVertical );
 
-    // Compute nearest neighbor search
-    vector< size_t > ret_index( searchSize );
+    // Set how many nearest neighbors should be found
+    int currentSearchSize = 1;
 
-    mat_index.query( &d[0], searchSize, ret_index.data(), &out_dist_sqr[0] );
+    if( searchSize > 1 )
+    {
+      for( int y = (i-repeat > 0) ? i-repeat : 0; y < yEnd; ++y )
+      {
+        for( int x = (j-repeat > 0) ? j-repeat : 0; x < xEnd; ++x )
+        {
+          if( mosaic[y][x] >= 0 && ( y != i && x != j ) ) ++currentSearchSize;
+        }
+      }
+    }
+
+    // Compute nearest neighbor search
+    vector< size_t > ret_index( currentSearchSize );
+
+    mat_index.query( &d[0], currentSearchSize, ret_index.data(), &out_dist_sqr[0] );
 
     // Check less similar images until an image not in the surrounding tiles is found
     if( searchSize > 1 )
@@ -912,7 +926,7 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
       {
         for( int x = (j-repeat > 0) ? j-repeat : 0; x < xEnd; ++x )
         {
-          if(  y == i && x == j ) continue;
+          if( mosaic[y][x] < 0 || ( y == i && x == j ) ) continue;
           vector< size_t >::iterator position = find(ret_index.begin(), ret_index.end(), mosaic[y][x]);
           if (position != ret_index.end()) ret_index.erase(position);
         }
