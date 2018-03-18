@@ -859,10 +859,8 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
   // Whether to update progressbar
   bool show = !(blockX+blockY);
 
-  // Number of closest images to search for
-  int searchSize = max( 1, 4*repeat*(repeat+1)+1 );
   // Color difference of images
-  int *out_dist_sqr = new int[searchSize];
+  int out_dist_sqr;
 
   // Vector rgb tile data
   vector< int > d(tileWidth*tileWidth*3);
@@ -896,51 +894,69 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
       }
     }
 
-    // Start and end of tiles to check for repeating images
-    int xEnd = ( (j+repeat+1<numHorizontal) ? j+repeat+1 : numHorizontal );
-    int yEnd = ( (i+repeat+1<numVertical) ? i+repeat+1 : numVertical );
+    size_t ret_index;
 
-    // Set how many nearest neighbors should be found
-    int currentSearchSize = 1;
-
-    if( searchSize > 1 )
+    if( repeat > 0 )
     {
-      for( int y = (i-repeat > 0) ? i-repeat : 0; y < yEnd; ++y )
+      vector< vector< int > > newData = mat_index.m_data;
+      set< int > eraseData;
+
+      // Outside of square so that closer images are not the same
+      for( int r = 1; r <= repeat; ++r )
       {
-        for( int x = (j-repeat > 0) ? j-repeat : 0; x < xEnd; ++x )
+        for( int p1 = -r; eraseData.size() < newData.size()-1 && p1 <= r; ++p1 )
         {
-          if( mosaic[y][x] >= 0 && ( y != i && x != j ) ) ++currentSearchSize;
+          if( j+p1 >= 0 && j+p1 < numHorizontal && i-r >= 0 && mosaic[i-r][j+p1] >= 0 ) eraseData.insert(mosaic[i-r][j+p1]);
+        }
+
+        for( int p1 = -r; eraseData.size() < newData.size()-1 && p1 <= r; ++p1 )
+        {
+          if( j+p1 >= 0 && j+p1 < numHorizontal && i+r < numVertical && mosaic[i+r][j+p1] >= 0 ) eraseData.insert(mosaic[i+r][j+p1]);
+        }
+
+        for( int p1 = -r+1; eraseData.size() < newData.size()-1 && p1 < r; ++p1 )
+        {
+          if( i+p1 >= 0 && i+p1 < numVertical && j-r >= 0 && mosaic[i+p1][j-r] >= 0 ) eraseData.insert(mosaic[i+p1][j-r]);
+        }
+
+        for( int p1 = -r+1; eraseData.size() < newData.size()-1 && p1 < r; ++p1 )
+        {
+          if( i+p1 >= 0 && i+p1 < numVertical && j+r < numHorizontal && mosaic[i+p1][j+r] >= 0 ) eraseData.insert(mosaic[i+p1][j+r]);
+        }
+      }
+
+      for (set<int>::reverse_iterator it = eraseData.rbegin(); it != eraseData.rend(); ++it)
+      {
+        newData.erase(newData.begin() + *it);
+      }
+
+      my_kd_tree_t newTree(newData[0].size(), newData, 10 );
+
+      newTree.query( &d[0], 1, &ret_index, &out_dist_sqr );
+
+      for (set<int>::iterator it = eraseData.begin(); it != eraseData.end(); ++it)
+      {
+        if( ret_index >= *it )
+        {
+          ++ret_index;
+        }
+        else
+        {
+          break;
         }
       }
     }
-
-    // Compute nearest neighbor search
-    vector< size_t > ret_index( currentSearchSize );
-
-    mat_index.query( &d[0], currentSearchSize, ret_index.data(), &out_dist_sqr[0] );
-
-    // Check less similar images until an image not in the surrounding tiles is found
-    if( searchSize > 1 )
+    else
     {
-      for( int y = (i-repeat > 0) ? i-repeat : 0; y < yEnd; ++y )
-      {
-        for( int x = (j-repeat > 0) ? j-repeat : 0; x < xEnd; ++x )
-        {
-          if( mosaic[y][x] < 0 || ( y == i && x == j ) ) continue;
-          vector< size_t >::iterator position = find(ret_index.begin(), ret_index.end(), mosaic[y][x]);
-          if (position != ret_index.end()) ret_index.erase(position);
-        }
-      }
+      mat_index.query( &d[0], 1, &ret_index, &out_dist_sqr );
     }
 
     // Set mosaic tile data
-    mosaic[i][j] = ret_index[0];
+    mosaic[i][j] = ret_index;
 
     // Set the best image as being used
-    used[ ret_index[0] ] = true;
+    used[ ret_index ] = true;
   }
-
-  delete [] out_dist_sqr;
 
   return 0;
 }
