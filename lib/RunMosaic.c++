@@ -86,14 +86,7 @@ int main( int argc, char **argv )
     int width = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).width();
     int height = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).height();
 
-    if( mosaicTileWidth > 0 )
-    {
-      mosaicTileWidth = min( mosaicTileWidth, width/numHorizontal );
-    }
-    else
-    {
-      mosaicTileWidth = width/numHorizontal;
-    }
+    if( mosaicTileWidth == 0 ) mosaicTileWidth = width/numHorizontal;
     if( imageTileWidth == 0 ) imageTileWidth = mosaicTileWidth;
     if( mosaicTileHeight == 0 ) mosaicTileHeight = mosaicTileWidth;
 
@@ -232,8 +225,6 @@ int main( int argc, char **argv )
     int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
     int numUnique = 0;
 
-    vector< vector< int > > mosaic( numVertical, vector< int >( numHorizontal, -1 ) );
-
     vector< vector< int > > d;
     vector< vector< float > > lab;
 
@@ -276,6 +267,8 @@ int main( int argc, char **argv )
 
     for( int i = 0; i < inputImages.size(); ++i )
     {
+      vector< vector< int > > mosaic( numVertical, vector< int >( numHorizontal, -1 ) );
+
       ProgressBar *buildingMosaic = new ProgressBar((numVertical/3)*(numHorizontal/3), "Building mosaic");
 
       if( trueColor  )

@@ -1278,45 +1278,141 @@ void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< i
   int width = mosaic[0].size();
   int height = mosaic.size();
 
-  // Create output image data 
-  unsigned char *data = new unsigned char[width*height*tileWidth*tileHeight*3];
-
-  // Itereate through everty tile
-  for( int i = 0; i < height; ++i )
-  {
-    for( int j = 0; j < width; ++j )
-    {
-      // Iterate through every pixel in tile
-      for( int y = 0; y < tileHeight; ++y )
-      {
-        for( int x = 0; x < tileWidth; ++x )
-        {
-          // Save the image data to the output tile
-          data[ 3 * ( width * tileWidth * ( i * tileHeight + y ) + j * tileWidth + x ) ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)];
-          data[ 3 * ( width * tileWidth * ( i * tileHeight + y ) + j * tileWidth + x ) + 1 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+1];
-          data[ 3 * ( width * tileWidth * ( i * tileHeight + y ) + j * tileWidth + x ) + 2 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+2];
-        }
-      }
-    }
-  }
-
   // Save data to output image
   if( vips_foreign_find_save( outputImage.c_str() ) != NULL )
   {
+    // Create output image data 
+    unsigned char *data = new unsigned char[width*height*tileWidth*tileHeight*3];
+
+    // Itereate through everty tile
+    for( int i = 0; i < height; ++i )
+    {
+      for( int j = 0; j < width; ++j )
+      {
+        // Iterate through every pixel in tile
+        for( int y = 0; y < tileHeight; ++y )
+        {
+          for( int x = 0; x < tileWidth; ++x )
+          {
+            // Save the image data to the output tile
+            data[ 3 * ( width * tileWidth * ( i * tileHeight + y ) + j * tileWidth + x ) ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)];
+            data[ 3 * ( width * tileWidth * ( i * tileHeight + y ) + j * tileWidth + x ) + 1 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+1];
+            data[ 3 * ( width * tileWidth * ( i * tileHeight + y ) + j * tileWidth + x ) + 2 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+2];
+          }
+        }
+      }
+    }
+
     VImage::new_from_memory( data, width*height*tileWidth*tileHeight*3, width*tileWidth, height*tileHeight, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
+
+    // Free the data
+    delete [] data;
   }
   else
   {
-    VImage::new_from_memory( data, width*height*tileWidth*tileHeight*3, width*tileWidth, height*tileHeight, 3, VIPS_FORMAT_UCHAR ).dzsave((char *)outputImage.c_str());
+    int level = (int)ceil(log2( max(width*tileWidth,height*tileHeight) ) );
+
+    if( outputImage.back() == '/' ) outputImage = outputImage.substr(0, outputImage.size()-1);
+
+    g_mkdir(string(outputImage).append("_files/").c_str(), 0777);
+    g_mkdir(string(outputImage).append("_files/").append(to_string(level)).c_str(), 0777);
+
+    for( int i = 0; i < height*tileHeight; i+=256 )
+    {
+      for( int j = 0; j < width*tileWidth; j+=256 )
+      {
+        int thisTileWidth = min( width*tileWidth - j, 256);
+        int thisTileHeight = min( height*tileHeight - i, 256);
+
+        unsigned char *data = new unsigned char[thisTileWidth*thisTileHeight*3];
+
+        for( int k = 0, p = 0; k < thisTileHeight; ++k )
+        {
+          for( int l = 0; l < thisTileWidth; ++l, p+=3 )
+          {
+            int x = (j+l)%tileWidth;
+            int y = (i+k)%tileHeight;
+
+            int tileX = (j+l)/tileWidth;
+            int tileY = (i+k)/tileHeight;
+
+            data[p+0] = imageData[mosaic[tileY][tileX]][3*(y*tileWidth+x)+0];
+            data[p+1] = imageData[mosaic[tileY][tileX]][3*(y*tileWidth+x)+1];
+            data[p+2] = imageData[mosaic[tileY][tileX]][3*(y*tileWidth+x)+2];
+          }
+        }
+
+        VImage::new_from_memory( data, thisTileWidth*thisTileHeight*3, thisTileWidth, thisTileHeight, 3, VIPS_FORMAT_UCHAR ).jpegsave((char *)string(outputImage).append("_files/"+to_string(level)+"/"+to_string(j/256)+"_"+to_string(i/256)+".jpeg").c_str(),VImage::option()->set( "optimize_coding", true )->set( "strip", true ));
+
+        delete [] data;
+      }
+    }
+
+    int sizeWidth = ( floor( sqrt( width*tileWidth ) ) < sqrt( width*tileWidth ) ) ? ( (int)sqrt(width*tileWidth) )<<1 : (int)sqrt(width*tileWidth);
+    int sizeHeight = ( floor( sqrt( height*tileHeight ) ) < sqrt( height*tileHeight ) ) ? ( (int)sqrt(height*tileHeight) )<<1 : (int)sqrt(height*tileHeight);
+
+    ofstream dzi_file;
+    dzi_file.open(string(outputImage).append(".dzi").c_str());
+    dzi_file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << endl;
+    dzi_file << "<Image xmlns=\"http://schemas.microsoft.com/deepzoom/2008\" Format=\"jpeg\" Overlap=\"0\" TileSize=\"256\">" << endl;
+    dzi_file << "    <Size Height=\"" << height*tileHeight << "\" Width=\"" << width*tileWidth << "\"/>" << endl;
+    dzi_file << "</Image>" << endl;
+    dzi_file.close();
+
+    width = (int)ceil((double)(width*tileWidth)/ 128.0 );
+    height = (int)ceil((double)(height*tileHeight)/ 128.0 );
+
+    for( ; level > 0; --level )
+    {
+      width = (int)ceil((double)width/ 2.0 );
+      height = (int)ceil((double)height/ 2.0 );
+
+      string current = string(outputImage).append("_files/"+to_string(level-1)+"/");
+      string upper = string(outputImage).append("_files/"+to_string(level)+"/");
+
+      g_mkdir((char *)current.c_str(), 0777);
+
+      for(int i = 1; i < width; i+=2)
+      {
+        for(int j = 1; j < height; j+=2)
+        {
+          (VImage::jpegload((char *)string(upper).append(to_string(i-1)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+          join(VImage::jpegload((char *)string(upper).append(to_string(i)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
+          join(VImage::jpegload((char *)string(upper).append(to_string(i-1)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+          join(VImage::jpegload((char *)string(upper).append(to_string(i)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL),VIPS_DIRECTION_VERTICAL).
+          jpegsave((char *)string(current).append(to_string(i>>1)+"_"+to_string(j>>1)+".jpeg").c_str() );
+        }
+      }
+      if(width%2 == 1)
+      {
+        for(int j = 1; j < height; j+=2)
+        {
+          (VImage::jpegload((char *)string(upper).append(to_string(width-1)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+          join(VImage::jpegload((char *)string(upper).append(to_string(width-1)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_VERTICAL)).
+          jpegsave((char *)string(current).append(to_string(width>>1)+"_"+to_string(j>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+        }
+      }
+      if(height%2 == 1)
+      {
+        for(int j = 1; j < width; j+=2)
+        {
+          (VImage::jpegload((char *)string(upper).append(to_string(j-1)+"_"+to_string(height-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+          join(VImage::jpegload((char *)string(upper).append(to_string(j)+"_"+to_string(height-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
+          jpegsave((char *)string(current).append(to_string(j>>1)+"_"+to_string(height>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+        }
+      }
+      if(width%2 == 1 && height%2 == 1)
+      {
+          VImage::jpegload((char *)string(upper).append(to_string(width-1)+"_"+to_string(height-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+          jpegsave((char *)string(current).append(to_string(width>>1)+"_"+to_string(height>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
+      }
+    }
   
     // Generate html file to view deep zoom image
     ofstream htmlFile(string(outputImage).append(".html").c_str());
     htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<style>\nhtml,\nbody,\n#rotationalMosaic\n{\nposition: fixed;\nleft: 0;\ntop: 0;\nwidth: 100%;\nheight: 100%;\n}\n</style>\n\n<div id=\"rotationalMosaic\"></div>\n\n<script>\nvar viewer = OpenSeadragon({\nid: 'rotationalMosaic',\nprefixUrl: 'icons/',\ntileSources:   \"" + outputImage + ".dzi\",\nminZoomImageRatio: 0,\nmaxZoomImageRatio: 1\n});\n</script>\n</body>\n</html>";
     htmlFile.close();
   }
-
-  // Free the data
-  delete [] data;
 }
 
 void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cropData, int numUnique, string outputImage, ofstream& htmlFile )
