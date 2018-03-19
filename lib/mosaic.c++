@@ -436,7 +436,7 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
   }
 }
 
-void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude, bool spin, int cropStyle, bool flip )
+void generateSquareThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude, bool spin, int cropStyle, bool flip )
 {
   // Used for reading directory
   DIR *dir;
@@ -668,13 +668,236 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
   cout << endl;
 }
 
-int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic )
+void generateThumbnails( vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int cropStyle, bool flip )
+{
+  // Used for reading directory
+  DIR *dir;
+  struct dirent *ent;
+  string str;
+
+  // Used for processing image
+  int size, xOffset, yOffset, width, height, mosaicTileArea = mosaicTileWidth*mosaicTileHeight*3, imageTileArea = imageTileWidth*imageTileHeight*3;
+  bool different = mosaicTileWidth != imageTileWidth;
+
+  unsigned char *c1, *c2;
+
+  // Minimum size allowed: must be at least as large as mosaicTileWidth and imageTileWidth, and 256 if exclude is set
+  int minWidth = max(mosaicTileWidth,imageTileWidth);
+  int minHeight = max(mosaicTileHeight,imageTileHeight);
+
+  int num_images = 0;
+
+  vector< string > names;
+
+  cout << "Reading directory " << imageDirectory << endl;
+
+  // Count the number of valid image files in the directory
+  if ((dir = opendir (imageDirectory.c_str())) != NULL) 
+  {
+    while ((ent = readdir (dir)) != NULL)
+    {   
+      if( ent->d_name[0] != '.' && vips_foreign_find_load( string( imageDirectory + ent->d_name ).c_str() ) != NULL )
+      {
+        names.push_back( imageDirectory + ent->d_name );
+        cout << "\rFound " << ++num_images << " images " << flush;
+      }
+    }
+  }
+
+  cout << endl;
+
+  ProgressBar *processing_images = new ProgressBar(num_images, "Processing images");
+
+  // Iterate through all images in directory
+  for( int i = 0; i < num_images; ++i )
+  {
+    processing_images->Increment();
+    try
+    {
+      str = names[i];
+
+      // Get the width, height, and smallest and largest sizes
+      width = VImage::new_memory().vipsload( (char *)str.c_str() ).width();
+      height = VImage::new_memory().vipsload( (char *)str.c_str() ).height();
+      double widthRatio = (double)width/(double)mosaicTileWidth;
+      double heightRatio = (double)height/(double)mosaicTileHeight;
+      double minRatio = min(widthRatio,heightRatio);
+      double maxRatio = max(widthRatio,heightRatio);
+      // Whether the a square is offset vertically or not
+      bool vertical = (double)width/(double)mosaicTileWidth < (double)height/(double)mosaicTileHeight;
+
+      if( width < minWidth || height < minHeight )
+      {
+        continue;
+      }
+
+      VImage image2, image;
+
+      // Shrink the image and crop based on cropping style
+      switch( cropStyle )
+      {
+        // Crop the middle square
+        case 0:
+          image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN ));
+          break;
+        // Crop the square with the most entropy
+        case 1:
+          image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN ));
+          break;
+        // Crop the square most likely to 
+        case 2:
+          image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
+          break;
+        // Shrink the image to be cropped later
+        case 3:
+          // In order to crop image multiple times, gifs need to be cached with 16x16 tiles, and averything else needs to be cached with the full image
+          image = vips_foreign_is_a("gifload",(char *)str.c_str()) ? 
+                  VImage::thumbnail((char *)str.c_str(),ceil(maxRatio/minRatio*(double)mosaicTileWidth),VImage::option()->set( "height", ceil(maxRatio/minRatio*(double)mosaicTileHeight) )->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",16)->set("tile_height",16)) : 
+                  VImage::thumbnail((char *)str.c_str(),ceil(maxRatio/minRatio*(double)mosaicTileWidth),VImage::option()->set( "height", ceil(maxRatio/minRatio*(double)mosaicTileHeight) )->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",ceil(maxRatio/minRatio*(double)mosaicTileWidth))->set("tile_height",ceil(maxRatio/minRatio*(double)mosaicTileHeight)));
+          break;
+      }
+
+      // Convert image to 3 band image
+      if( image.bands() == 1 )
+      {
+        image = image.bandjoin(image).bandjoin(image);
+      }
+      else if( image.bands() == 4 )
+      {
+        image = image.flatten();
+      }
+
+      // If the mosaicTileWidth and imageTileWidth are different then shrink and crop again
+      if( different )
+      {
+        switch( cropStyle )
+        {
+          // Crop the middle square
+          case 0:
+            image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN ));
+            break;
+          // Crop the square with the most entropy
+          case 1:
+            image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN ));
+            break;
+          // Crop the square most likely to 
+          case 2:
+            image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
+            break;
+          // Shrink the image to be cropped later
+          case 3:
+            // In order to crop image multiple times, gifs need to be cached with 16x16 tiles, and averything else needs to be cached with the full image
+            image2 = vips_foreign_is_a("gifload",(char *)str.c_str()) ? 
+                    VImage::thumbnail((char *)str.c_str(),ceil(maxRatio/minRatio*(double)imageTileWidth),VImage::option()->set( "height", ceil(maxRatio/minRatio*(double)imageTileHeight) )->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",16)->set("tile_height",16)) : 
+                    VImage::thumbnail((char *)str.c_str(),ceil(maxRatio/minRatio*(double)imageTileWidth),VImage::option()->set( "height", ceil(maxRatio/minRatio*(double)imageTileHeight) )->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",ceil(maxRatio/minRatio*(double)imageTileWidth))->set("tile_height",ceil(maxRatio/minRatio*(double)imageTileHeight)));
+            break;
+        }
+
+        if( image2.bands() == 1 )
+        {
+          image2 = image2.bandjoin(image2).bandjoin(image2);
+        }
+        else if( image2.bands() == 4 )
+        {
+          image2 = image2.flatten();
+        }
+      }
+
+      // If cropStyle is 3 then crop every possible square
+      if( cropStyle == 3 )
+      {
+        /*
+        // For every possible square
+        for( int ii = sw - mosaicTileWidth; ii >= 0; --ii )
+        {
+          VImage newImage, newImage2;
+
+          // Crop it correctly if it is a vertical or horizontal image
+          if( vertical )
+          {
+            newImage = image.extract_area(0,ii,mosaicTileWidth,mosaicTileWidth);
+            if(different) newImage2 = image2.extract_area(0,ii*imageTileWidth/mosaicTileWidth,imageTileWidth,imageTileWidth);
+          }
+          else
+          {
+            newImage = image.extract_area(ii,0,mosaicTileWidth,mosaicTileWidth);
+            if(different) newImage2 = image2.extract_area(ii*imageTileWidth/mosaicTileWidth,0,imageTileWidth,imageTileWidth);
+          }
+
+          // Mirror the image if flip is set
+          for( int ff = flip; ff >= 0; --ff)
+          {
+            if(flip)
+            {
+              newImage = newImage.flip(VIPS_DIRECTION_HORIZONTAL);
+              if( different ) newImage2 = newImage2.flip(VIPS_DIRECTION_HORIZONTAL);
+            }
+
+            // Rotate the image 4 times if spin is set
+            for( int jj = (spin ? 3:0); jj >= 0; --jj )
+            {
+              if(spin) newImage = newImage.rot90();
+
+              // Get the image data
+              c1 = (unsigned char *)newImage.data();
+
+              // Push the data onto the vector
+              mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
+
+              if( different )
+              {
+                if(spin) newImage2 = newImage2.rot90();
+                c2 = (unsigned char *)newImage2.data();
+                imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+              }
+
+              // Save the data detailing the image name, crop offset, mirror status, and rotation
+              cropData.push_back( make_tuple(str,vertical?0:ii*minSize/mosaicTileWidth,vertical?ii*minSize/mosaicTileWidth:0,jj,ff) );
+            }
+          }
+        }*/
+      }
+      // Otherwise just save the image
+      else
+      {
+        // Mirror the image if flip is set
+        for( int ff = flip; ff >= 0; --ff)
+        {
+          if(flip)
+          {
+            image = image.flip(VIPS_DIRECTION_HORIZONTAL);
+            if( different ) image2 = image2.flip(VIPS_DIRECTION_HORIZONTAL);
+          }
+
+          // Get the image data
+          c1 = (unsigned char *)image.data();
+
+          // Push the data onto the vector
+          mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
+
+          if( different )
+          {
+            c2 = (unsigned char *)image2.data();
+            imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+          }
+        }
+      }
+    }
+    catch (...)
+    {
+    }
+  }
+
+  cout << endl;
+}
+
+int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic )
 {
   // Whether to update progressbar
   bool show = !(blockX+blockY);
 
   // Vector lab tile data
-  vector< float > d(tileWidth*tileWidth*3);
+  vector< float > d(tileWidth*tileHeight*3);
 
   int num_images = imageData.size();
 
@@ -700,12 +923,12 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
     int yEnd = ( (i+repeat+1<(int)mosaic.size()) ? i+repeat+1 : mosaic.size() );
 
     // Extract rgb data of tile from image and convert to lab data
-    for( int y = 0, n = 0; y < tileWidth; ++y )
+    for( int y = 0, n = 0; y < tileHeight; ++y )
     {
       for( int x = 0; x < tileWidth; ++x, n+=3 )
       {
         // Index of pixel
-        int l = ( ( i * tileWidth + y ) * width + j * tileWidth + x ) * 3;
+        int l = ( ( i * tileHeight + y ) * width + j * tileWidth + x ) * 3;
         
         float r,g,b;
         // Convert rgb to rgb16
@@ -748,7 +971,7 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
 
       // Compute sum of color differences
       double sum = 0;
-      for( int l = 0; l < tileWidth*tileWidth*3; l+=3 )
+      for( int l = 0; l < tileWidth*tileHeight*3; l+=3 )
       {
         sum += vips_col_dE00( imageData[k][l], imageData[k][l+1], imageData[k][l+2], d[l], d[l+1], d[l+2] );
       }
@@ -801,6 +1024,7 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   if( resize != 0 ) image = image.resize( (double)resize / (double)(image.width()) );
 
   int width = image.width();
+  int height = image.height();
 
   // Get image data
   unsigned char * c = ( unsigned char * )image.data();
@@ -811,7 +1035,8 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
 
   // Data about tile size
   int tileWidth = width / numHorizontal;
-  int tileArea = tileWidth*tileWidth*3;
+  int tileHeight = height / numVertical;
+  int tileArea = tileWidth*tileHeight*3;
 
   // Number of images to check against
   int num_images = imageData.size();
@@ -840,7 +1065,7 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   {
     for( int j = 0; j < sqrtThreads; ++j, ++k )
     {
-      ret[k] = async( launch::async, &generateLABBlock, ref(imageData), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, width, numHorizontal, numVertical, buildingMosaic );
+      ret[k] = async( launch::async, &generateLABBlock, ref(imageData), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic );
     }
   }
 
@@ -854,7 +1079,7 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   return accumulate(used.begin(), used.end(), 0);
 }
 
-int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic )
+int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic )
 {
   // Whether to update progressbar
   bool show = !(blockX+blockY);
@@ -863,7 +1088,7 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
   int out_dist_sqr;
 
   // Vector rgb tile data
-  vector< int > d(tileWidth*tileWidth*3);
+  vector< int > d(tileWidth*tileHeight*3);
 
   // For every index
   for( int p = 0; p < indices.size(); ++p )
@@ -883,11 +1108,11 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
     j += blockX;
 
     // Get rgb data about tile and save in vector
-    for( int y = 0, n = 0; y < tileWidth; ++y )
+    for( int y = 0, n = 0; y < tileHeight; ++y )
     {
       for( int x = 0; x < tileWidth; ++x, n+=3 )
       {
-        int l = ( ( i * tileWidth + y ) * width + j * tileWidth + x ) * 3;
+        int l = ( ( i * tileHeight + y ) * width + j * tileWidth + x ) * 3;
         d[n] = c[l];
         d[n+1] = c[l+1];
         d[n+2] = c[l+2];
@@ -993,6 +1218,7 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
   if( resize != 0 ) image = image.resize( (double)resize / (double)(image.width()) );
 
   int width = image.width();
+  int height = image.height();
 
   // Get image data
   unsigned char * c = ( unsigned char * )image.data();
@@ -1003,7 +1229,8 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
 
   // Data about tile size
   int tileWidth = width / numHorizontal;
-  int tileArea = tileWidth*tileWidth*3;
+  int tileHeight = height / numVertical;
+  int tileArea = tileWidth*tileHeight*3;
 
   // Whether an image was used or not
   vector< bool > used( num_images, false );
@@ -1029,7 +1256,7 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
   {
     for( int j = 0; j < sqrtThreads; ++j, ++k )
     {
-      ret[k] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, width, numHorizontal, numVertical, buildingMosaic );
+      ret[k] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic );
     }
   }
 
@@ -1043,7 +1270,7 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
   return accumulate(used.begin(), used.end(), 0);
 }
 
-void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< int > > &mosaic, string outputImage, int tileWidth )
+void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< int > > &mosaic, string outputImage, int tileWidth, int tileHeight )
 {
   cout << "Generating image " << outputImage << endl;
 
@@ -1052,7 +1279,7 @@ void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< i
   int height = mosaic.size();
 
   // Create output image data 
-  unsigned char *data = new unsigned char[width*height*tileWidth*tileWidth*3];
+  unsigned char *data = new unsigned char[width*height*tileWidth*tileHeight*3];
 
   // Itereate through everty tile
   for( int i = 0; i < height; ++i )
@@ -1060,21 +1287,33 @@ void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< i
     for( int j = 0; j < width; ++j )
     {
       // Iterate through every pixel in tile
-      for( int y = 0; y < tileWidth; ++y )
+      for( int y = 0; y < tileHeight; ++y )
       {
         for( int x = 0; x < tileWidth; ++x )
         {
           // Save the image data to the output tile
-          data[ 3 * ( width * tileWidth * ( i * tileWidth + y ) + j * tileWidth + x ) ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)];
-          data[ 3 * ( width * tileWidth * ( i * tileWidth + y ) + j * tileWidth + x ) + 1 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+1];
-          data[ 3 * ( width * tileWidth * ( i * tileWidth + y ) + j * tileWidth + x ) + 2 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+2];
+          data[ 3 * ( width * tileWidth * ( i * tileHeight + y ) + j * tileWidth + x ) ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)];
+          data[ 3 * ( width * tileWidth * ( i * tileHeight + y ) + j * tileWidth + x ) + 1 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+1];
+          data[ 3 * ( width * tileWidth * ( i * tileHeight + y ) + j * tileWidth + x ) + 2 ] = imageData[mosaic[i][j]][3*(y*tileWidth+x)+2];
         }
       }
     }
   }
 
   // Save data to output image
-  VImage::new_from_memory( data, width*height*tileWidth*tileWidth*3, width*tileWidth, height*tileWidth, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
+  if( vips_foreign_find_save( outputImage.c_str() ) != NULL )
+  {
+    VImage::new_from_memory( data, width*height*tileWidth*tileHeight*3, width*tileWidth, height*tileHeight, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
+  }
+  else
+  {
+    VImage::new_from_memory( data, width*height*tileWidth*tileHeight*3, width*tileWidth, height*tileHeight, 3, VIPS_FORMAT_UCHAR ).dzsave((char *)outputImage.c_str());
+  
+    // Generate html file to view deep zoom image
+    ofstream htmlFile(string(outputImage).append(".html").c_str());
+    htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<style>\nhtml,\nbody,\n#rotationalMosaic\n{\nposition: fixed;\nleft: 0;\ntop: 0;\nwidth: 100%;\nheight: 100%;\n}\n</style>\n\n<div id=\"rotationalMosaic\"></div>\n\n<script>\nvar viewer = OpenSeadragon({\nid: 'rotationalMosaic',\nprefixUrl: 'icons/',\ntileSources:   \"" + outputImage + ".dzi\",\nminZoomImageRatio: 0,\nmaxZoomImageRatio: 1\n});\n</script>\n</body>\n</html>";
+    htmlFile.close();
+  }
 
   // Free the data
   delete [] data;

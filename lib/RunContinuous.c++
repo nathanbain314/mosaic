@@ -44,7 +44,7 @@ int main( int argc, char **argv )
     vector< cropType > cropData;
     vector< VImage > images;
 
-    generateThumbnails( cropData, startData, startData, inputDirectory, tileWidth, tileWidth );
+    generateSquareThumbnails( cropData, startData, startData, inputDirectory, tileWidth, tileWidth );
 
     int numImages = cropData.size();
 

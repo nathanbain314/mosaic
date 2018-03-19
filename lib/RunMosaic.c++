@@ -11,9 +11,11 @@ int main( int argc, char **argv )
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
-    ValueArg<int> imageTileArg( "i", "imageTileSize", "Tile size for generating image", false, 0, "int", cmd);
+    ValueArg<int> imageTileArg( "i", "imageTileWidth", "Tile width for generating image", false, 0, "int", cmd);
 
-    ValueArg<int> mosaicTileArg( "m", "mosaicTileSize", "Maximum tile size for generating mosaic", false, 0, "int", cmd);
+    ValueArg<int> mosaicTileHeightArg( "l", "mosaicTileHeight", "Maximum tile height for generating mosaic", false, 0, "int", cmd);
+
+    ValueArg<int> mosaicTileWidthArg( "m", "mosaicTileWidth", "Maximum tile width for generating mosaic", false, 0, "int", cmd);
 
     SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
 
@@ -44,8 +46,9 @@ int main( int argc, char **argv )
     bool flip                         = flipArg.getValue();
     bool spin                         = spinArg.getValue();
     int cropStyle                     = cropStyleArg.getValue();
-    int mosaicTileSize                = mosaicTileArg.getValue();
-    int imageTileSize                 = imageTileArg.getValue();
+    int mosaicTileWidth               = mosaicTileWidthArg.getValue();
+    int mosaicTileHeight              = mosaicTileHeightArg.getValue();
+    int imageTileWidth                = imageTileArg.getValue();
     string fileName                   = fileArg.getValue();
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
@@ -83,15 +86,18 @@ int main( int argc, char **argv )
     int width = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).width();
     int height = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).height();
 
-    if( mosaicTileSize > 0 )
+    if( mosaicTileWidth > 0 )
     {
-      mosaicTileSize = min( mosaicTileSize, width/numHorizontal );
+      mosaicTileWidth = min( mosaicTileWidth, width/numHorizontal );
     }
     else
     {
-      mosaicTileSize = width/numHorizontal;
+      mosaicTileWidth = width/numHorizontal;
     }
-    if( imageTileSize == 0 ) imageTileSize = mosaicTileSize;
+    if( imageTileWidth == 0 ) imageTileWidth = mosaicTileWidth;
+    if( mosaicTileHeight == 0 ) mosaicTileHeight = mosaicTileWidth;
+
+    int imageTileHeight = imageTileWidth*mosaicTileHeight/mosaicTileWidth;
 
     int numImages;
     vector< cropType > cropData;
@@ -107,43 +113,48 @@ int main( int argc, char **argv )
       if(data.is_open())
       {
         data.read( (char *)&numImages, sizeof(int) );
-        data.read( (char *)&mosaicTileSize, sizeof(int) );
-        data.read( (char *)&imageTileSize, sizeof(int) );
+        data.read( (char *)&mosaicTileWidth, sizeof(int) );
+        data.read( (char *)&mosaicTileHeight, sizeof(int) );
+        data.read( (char *)&imageTileWidth, sizeof(int) );
+        data.read( (char *)&imageTileHeight, sizeof(int) );
 
-        for( int i = 0; i < numImages; ++i )
+        if( mosaicTileWidth == mosaicTileHeight )
         {
-          int strLen, cropX, cropY, rot;
-          bool flip;
-          string str;
-          data.read((char *)&strLen, sizeof(int));
-          char* temp = new char[strLen+1];
-          data.read(temp, strLen);
-          temp[strLen] = '\0';
-          str = temp;
-          delete [] temp;
-          data.read((char *)&cropX, sizeof(int));
-          data.read((char *)&cropY, sizeof(int));
-          data.read((char *)&rot, sizeof(int));
-          data.read((char *)&flip, sizeof(bool));
+          for( int i = 0; i < numImages; ++i )
+          {
+            int strLen, cropX, cropY, rot;
+            bool flip;
+            string str;
+            data.read((char *)&strLen, sizeof(int));
+            char* temp = new char[strLen+1];
+            data.read(temp, strLen);
+            temp[strLen] = '\0';
+            str = temp;
+            delete [] temp;
+            data.read((char *)&cropX, sizeof(int));
+            data.read((char *)&cropY, sizeof(int));
+            data.read((char *)&rot, sizeof(int));
+            data.read((char *)&flip, sizeof(bool));
 
-          cropData.push_back(make_tuple(str,cropX,cropY,rot,flip));
+            cropData.push_back(make_tuple(str,cropX,cropY,rot,flip));
+          }
         }
 
         mosaicTileData.resize( numImages );
         
         for( int i = 0; i < numImages; ++i )
         {
-          mosaicTileData[i].resize( mosaicTileSize*mosaicTileSize*3 );
+          mosaicTileData[i].resize( mosaicTileWidth*mosaicTileHeight*3 );
           data.read((char *)mosaicTileData[i].data(), mosaicTileData[i].size()*sizeof(unsigned char));
         }
 
-        if( imageTileSize != mosaicTileSize )
+        if( imageTileHeight != mosaicTileHeight )
         {
           imageTileData.resize( numImages );
           
           for( int i = 0; i < numImages; ++i )
           {
-            imageTileData[i].resize( imageTileSize*imageTileSize*3 );
+            imageTileData[i].resize( imageTileWidth*imageTileHeight*3 );
             data.read((char *)imageTileData[i].data(), imageTileData[i].size()*sizeof(unsigned char));
           } 
         }
@@ -159,7 +170,14 @@ int main( int argc, char **argv )
       {
         string imageDirectory = inputDirectory[i];
         if( imageDirectory.back() != '/' ) imageDirectory += '/';
-        generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileSize, imageTileSize, isDeepZoom, spin, cropStyle, flip );
+        if( mosaicTileWidth == mosaicTileHeight )
+        {
+          generateSquareThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, imageTileWidth, isDeepZoom, spin, cropStyle, flip );
+        }
+        else
+        {
+          generateThumbnails( mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, cropStyle, flip );
+        }
       }
 
       numImages = mosaicTileData.size();
@@ -175,11 +193,15 @@ int main( int argc, char **argv )
         ofstream data( fileName, ios::binary );
         data.write( (char *)&numImages, sizeof(int) );
 
-        data.write( (char *)&mosaicTileSize, sizeof(int) );
+        data.write( (char *)&mosaicTileWidth, sizeof(int) );
 
-        data.write( (char *)&imageTileSize, sizeof(int) );
+        data.write( (char *)&mosaicTileHeight, sizeof(int) );
 
-        for( int i = 0; i < numImages; ++i )
+        data.write( (char *)&imageTileWidth, sizeof(int) );
+
+        data.write( (char *)&imageTileHeight, sizeof(int) );
+
+        for( int i = 0; i < cropData.size(); ++i )
         {
           string str = get<0>(cropData[i]);
           int strLen = str.length();
@@ -196,7 +218,7 @@ int main( int argc, char **argv )
           data.write((char *)&mosaicTileData[i].front(), mosaicTileData[i].size() * sizeof(unsigned char)); 
         }
 
-        if( imageTileSize != mosaicTileSize )
+        if( imageTileWidth != mosaicTileWidth )
         {
           for( int i = 0; i < numImages; ++i )
           {
@@ -206,8 +228,8 @@ int main( int argc, char **argv )
       }
     }
 
-    int tileArea = mosaicTileSize*mosaicTileSize*3;
-    int numVertical = int( (double)height / (double)width * (double)numHorizontal );
+    int tileArea = mosaicTileWidth*mosaicTileHeight*3;
+    int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
     int numUnique = 0;
 
     vector< vector< int > > mosaic( numVertical, vector< int >( numHorizontal, -1 ) );
@@ -258,16 +280,16 @@ int main( int argc, char **argv )
 
       if( trueColor  )
       {
-        numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileSize );
+        numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth );
       }
       else
       {
-        numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileSize );
+        numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth );
       }
 
       cout << endl;
 
-      if( isDeepZoom )
+      if( isDeepZoom && mosaicTileWidth == mosaicTileHeight )
       {
         if( outputImages[i].back() != '/' ) outputImages[i] += '/';
 
@@ -285,13 +307,13 @@ int main( int argc, char **argv )
       }
       else
       {
-        if( mosaicTileSize == imageTileSize )
+        if( mosaicTileWidth == imageTileWidth )
         {
-          buildImage( mosaicTileData, mosaic, outputImages[i], mosaicTileSize );
+          buildImage( mosaicTileData, mosaic, outputImages[i], mosaicTileWidth, mosaicTileHeight );
         }
         else
         {
-          buildImage( imageTileData, mosaic, outputImages[i], imageTileSize );
+          buildImage( imageTileData, mosaic, outputImages[i], imageTileWidth, imageTileHeight );
         }
       }
     }

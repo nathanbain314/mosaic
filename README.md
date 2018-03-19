@@ -35,8 +35,9 @@ This creates a photomosaic and saves it as either a single image or a zoomable i
 - -c, --cropStyle : What cropStyle to use. 0 = center, 1 = entropy, 2 = attention, 3 = all possible crops
 - -t, --trueColor : Use [de00](https://en.wikipedia.org/wiki/Color_difference# CIEDE2000) for color difference
 - -s, --spin : Rotate the images to create four times as many images
-- -m, --mosaicTileSize : Maximum tile size for generating mosaic
-- -i, --imageTileSize : Tile size for generating image
+- -m, --mosaicTileWidth : Maximum tile width for generating mosaic
+- -l, --mosaicTileHeight : Maximum tile height for generating mosaic
+- -i, --imageTileWidth : Tile width for generating image
 - -f, --file : File of image data to save or load
 ## Tips
 ### Single images
