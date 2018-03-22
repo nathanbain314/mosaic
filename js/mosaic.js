@@ -4,11 +4,12 @@ viewer = OpenSeadragon({
   maxZoomPixelRatio: 1,
   alwaysBlend: true,
   tileSources:   {
-      height: mosaicHeight<<(maxZoomablesLevel+8),
-      width:  mosaicWidth<<(maxZoomablesLevel+8),
-      tileSize: 256,
+      height: mosaicHeight*mosaicTileHeight<<maxZoomablesLevel,
+      width:  mosaicWidth*mosaicTileWidth<<maxZoomablesLevel,
+      tileWidth: mosaicTileWidth,
+      tileHeight: mosaicTileHeight,
       minLevel: 0, 
-      maxLevel: mosaicLevel+maxZoomablesLevel+0,
+      maxLevel: mosaicLevel+maxZoomablesLevel,
       tileOverlap: 0,
       getTileUrl: function( level, x, y ){
         if( level < mosaicLevel )
@@ -43,24 +44,27 @@ viewer = OpenSeadragon({
 });
 
 viewer.viewport.getMaxZoom = function() { 
-  var minzoom = (mosaicWidth<<(minZoomablesLevel+8))/document.getElementById("mosaic").offsetWidth;
+  var minzoom = (mosaicWidth*mosaicTileWidth<<minZoomablesLevel)/document.getElementById("mosaic").offsetWidth;
 
   if( viewer.viewport.getZoom() >= minzoom )
   {
     var maxLevel = minZoomablesLevel;
     var bounds = viewer.viewport.getBounds(true);
-    var startX = bounds.x < 0 ? 0 : Math.floor(bounds.x * mosaicWidth);
-    var startY = bounds.y < 0 ? 0 : Math.floor(bounds.y * mosaicWidth);
-    var endX = bounds.x+bounds.width > 1 ? mosaicWidth : Math.ceil((bounds.x+bounds.width) * mosaicWidth);
-    var endY = bounds.y+bounds.height > 1 ? mosaicHeight : Math.ceil((bounds.y+bounds.height) * mosaicWidth);
 
-    for( ; startY < endY; ++startY )
+    var endX = bounds.x+bounds.width > 1 ? mosaicWidth : Math.ceil((bounds.x+bounds.width) * mosaicWidth);
+    var endY = bounds.y+bounds.height > 1 ? mosaicHeight : Math.ceil((bounds.y+bounds.height) * mosaicWidth * mosaicTileWidth/mosaicTileHeight);
+
+    console.log(startX,startY,endX,endY,bounds.x,bounds.y);
+
+    for( var startY = bounds.y < 0 ? 0 : Math.floor(bounds.y * mosaicWidth * mosaicTileWidth/mosaicTileHeight); startY < endY; ++startY )
     {
-      for( ; startX < endX; ++startX )
+      for( var startX = bounds.x < 0 ? 0 : Math.floor(bounds.x * mosaicWidth); startX < endX; ++startX )
       {
         maxLevel = Math.max( maxLevel, levelData[data[mosaicLevel][startY][startX]] );
       }
     }
+
+    console.log(maxLevel, minzoom<<( maxLevel - minZoomablesLevel ));
 
     return minzoom<<( maxLevel - minZoomablesLevel );
   }

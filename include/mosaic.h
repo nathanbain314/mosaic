@@ -27,9 +27,7 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
 
 void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int numIter, int angleOffset );
 
-void generateSquareThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int imageTileWidth, bool exclude = false, bool spin = false, int cropStyle = 0, bool flip = false );
-
-void generateThumbnails( vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int cropStyle = 0, bool flip = false );
+void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, bool exclude = false, bool spin = false, int cropStyle = 0, bool flip = false );
 
 pair< int, double > computeBest( vector< vector< float > > &imageData, vector< float > &d, int start, int end, int tileWidth, vector< vector< int > > &mosaic, int i, int j, int repeat );
 
@@ -39,6 +37,6 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
 
 void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< int > > &mosaic, string outputImage, int tileWidth, int tileHeight );
 
-void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cropData, int numUnique, string outputImage, ofstream& htmlFile );
+void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cropData, int numUnique, int tileWidth, int tileHeight, string outputImage, ofstream& htmlFile );
 
 void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VImage > &images, string outputDirectory, ofstream& htmlFile );

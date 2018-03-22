@@ -87,7 +87,7 @@ int main( int argc, char **argv )
     int height = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).height();
 
     if( mosaicTileWidth == 0 ) mosaicTileWidth = width/numHorizontal;
-    if( imageTileWidth == 0 ) imageTileWidth = mosaicTileWidth;
+    if( imageTileWidth == 0 || isDeepZoom ) imageTileWidth = mosaicTileWidth;
     if( mosaicTileHeight == 0 ) mosaicTileHeight = mosaicTileWidth;
 
     int imageTileHeight = imageTileWidth*mosaicTileHeight/mosaicTileWidth;
@@ -111,28 +111,25 @@ int main( int argc, char **argv )
         data.read( (char *)&imageTileWidth, sizeof(int) );
         data.read( (char *)&imageTileHeight, sizeof(int) );
 
-        if( mosaicTileWidth == mosaicTileHeight )
+        for( int i = 0; i < numImages; ++i )
         {
-          for( int i = 0; i < numImages; ++i )
-          {
-            int strLen, cropX, cropY, rot;
-            bool flip;
-            string str;
-            data.read((char *)&strLen, sizeof(int));
-            char* temp = new char[strLen+1];
-            data.read(temp, strLen);
-            temp[strLen] = '\0';
-            str = temp;
-            delete [] temp;
-            data.read((char *)&cropX, sizeof(int));
-            data.read((char *)&cropY, sizeof(int));
-            data.read((char *)&rot, sizeof(int));
-            data.read((char *)&flip, sizeof(bool));
+          int strLen, cropX, cropY, rot;
+          bool flip;
+          string str;
+          data.read((char *)&strLen, sizeof(int));
+          char* temp = new char[strLen+1];
+          data.read(temp, strLen);
+          temp[strLen] = '\0';
+          str = temp;
+          delete [] temp;
+          data.read((char *)&cropX, sizeof(int));
+          data.read((char *)&cropY, sizeof(int));
+          data.read((char *)&rot, sizeof(int));
+          data.read((char *)&flip, sizeof(bool));
 
-            cropData.push_back(make_tuple(str,cropX,cropY,rot,flip));
-          }
+          cropData.push_back(make_tuple(str,cropX,cropY,rot,flip));
         }
-
+      
         mosaicTileData.resize( numImages );
         
         for( int i = 0; i < numImages; ++i )
@@ -163,14 +160,7 @@ int main( int argc, char **argv )
       {
         string imageDirectory = inputDirectory[i];
         if( imageDirectory.back() != '/' ) imageDirectory += '/';
-        if( mosaicTileWidth == mosaicTileHeight )
-        {
-          generateSquareThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, imageTileWidth, isDeepZoom, spin, cropStyle, flip );
-        }
-        else
-        {
-          generateThumbnails( mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, cropStyle, flip );
-        }
+        generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, isDeepZoom, spin, cropStyle, flip );
       }
 
       numImages = mosaicTileData.size();
@@ -194,7 +184,7 @@ int main( int argc, char **argv )
 
         data.write( (char *)&imageTileHeight, sizeof(int) );
 
-        for( int i = 0; i < cropData.size(); ++i )
+        for( int i = 0; i < numImages; ++i )
         {
           string str = get<0>(cropData[i]);
           int strLen = str.length();
@@ -282,7 +272,7 @@ int main( int argc, char **argv )
 
       cout << endl;
 
-      if( isDeepZoom && mosaicTileWidth == mosaicTileHeight )
+      if( isDeepZoom )
       {
         if( outputImages[i].back() != '/' ) outputImages[i] += '/';
 
@@ -290,9 +280,9 @@ int main( int argc, char **argv )
 
         ofstream htmlFile(outputImages[i].substr(0, outputImages[i].size()-1).append(".html").c_str());
 
-        htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<div id=\"mosaic\" style=\"width: 1000px; height: 600px;\"></div>\n<script type=\"text/javascript\">\nvar outputName = \"" << outputImages[i] << "\";\nvar outputDirectory = \"" << outputImages[i] << "zoom/\";\n";
+        htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<style>\nhtml,\nbody,\n#mosaic\n{\nposition: fixed;\nleft: 0;\ntop: 0;\nwidth: 100%;\nheight: 100%;\n}\n</style>\n\n<div id=\"mosaic\" ></div>\n<script type=\"text/javascript\">\nvar outputName = \"" << outputImages[i] << "\";\nvar outputDirectory = \"" << outputImages[i] << "zoom/\";\n";
 
-        buildDeepZoomImage( mosaic, cropData, numUnique, outputImages[i], htmlFile );
+        buildDeepZoomImage( mosaic, cropData, numUnique, mosaicTileWidth, mosaicTileHeight, outputImages[i], htmlFile );
 
         htmlFile << "</script>\n<script src=\"js/mosaic.js\"></script>\n</body>\n</html>";
 
