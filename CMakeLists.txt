@@ -15,7 +15,7 @@ include_directories(include)
 
 file(GLOB SOURCE_FILES lib/mosaic.c++ lib/progress_bar.c++)
 
-set( EXECUTABLES RunMosaic RunRotationalMosaic RunContinuous )
+set( EXECUTABLES RunMosaic RunRotationalMosaic RunContinuous RunVideo )
 
 set (CMAKE_CXX_STANDARD 11)
 set(VIPS_LDFLAGS pthread ${VIPS_LDFLAGS})
