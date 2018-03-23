@@ -279,7 +279,7 @@ int main( int argc, char **argv )
             for( int x = 0; x < imageTileWidth; ++x )
             {
               int pp = p-starts[i][j];
-              if( pp < 0 || pp >= mosaic.size()*30 )
+              if( pp < 0 || pp >= mosaic.size()*frames )
               {
                 data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = 0;
                 data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = 0;
