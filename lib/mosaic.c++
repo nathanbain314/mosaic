@@ -1164,8 +1164,22 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
           // Find the width of the largest square inside image
           int width = image.width();
           int height = image.height();
-          double size = min( (double)width/(double)tileWidth, (double)height/(double)tileHeight );
           
+          double minDim, minTileDim;
+
+          if( (double)width/(double)tileWidth < (double)height/(double)tileHeight )
+          {
+            minDim = width;
+            minTileDim = tileWidth;
+          }
+          else
+          {
+            minDim = height;
+            minTileDim = tileHeight;
+          }
+
+          double size = minDim/minTileDim;
+
           // Logarithm of square size
           int log = round( log2( size ) );
 
@@ -1182,7 +1196,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
           string zoomableName = outputDirectory + to_string(mosaic[i][j]);
 
           // Extract square, flip, and rotate based on cropdata, and then save as a deep zoom image
-          image = image.extract_area(get<1>(cropData[current]), get<2>(cropData[current]), round(size*tileWidth), round(size*tileHeight)).resize((double)newSize/(double)size);
+          image = image.extract_area(get<1>(cropData[current]), get<2>(cropData[current]), ceil(minDim*tileWidth/minTileDim), ceil(minDim*tileHeight/minTileDim)).resize((double)newSize*minTileDim/minDim);
 
           if( get<4>(cropData[current]) )
           {
