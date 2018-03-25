@@ -298,15 +298,15 @@ int main( int argc, char **argv )
               {
                 if( mosaicTileWidth == imageTileWidth )
                 {
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = mosaicTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = mosaicTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = mosaicTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
                 }
                 else
                 {
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = imageTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = imageTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = imageTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
                 }
               }
             }
