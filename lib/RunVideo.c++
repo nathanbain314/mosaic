@@ -11,6 +11,8 @@ int main( int argc, char **argv )
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
+    ValueArg<int> skipTileArg( "s", "skip", "Number of frames to skip in between each video", false, 30, "int", cmd);
+
     ValueArg<int> framesTileArg( "f", "frames", "Number of frames in each video", false, 30, "int", cmd);
 
     ValueArg<int> imageTileArg( "i", "imageTileWidth", "Tile width for generating image", false, 0, "int", cmd);
@@ -43,6 +45,7 @@ int main( int argc, char **argv )
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
     int imageTileWidth                = imageTileArg.getValue();
     int frames                        = framesTileArg.getValue();
+    int skip                          = skipTileArg.getValue();
     string fileName                   = fileArg.getValue();
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
@@ -77,10 +80,12 @@ int main( int argc, char **argv )
 
     int imageTileHeight = imageTileWidth*mosaicTileHeight/mosaicTileWidth;
 
-    int numImages;
+    int numImages = 0;
     vector< cropType > cropData;
     vector< vector< unsigned char > > mosaicTileData;
     vector< vector< unsigned char > > imageTileData;
+    vector< vector< int > > d;
+    vector< int > sequenceStarts;
 
     bool loadData = (fileName != " ");
 
@@ -139,6 +144,11 @@ int main( int argc, char **argv )
         loadData = false;
       }
     }
+
+    int tileArea = mosaicTileWidth*mosaicTileHeight*3;
+    int imageTileArea = imageTileWidth*imageTileHeight*3;
+    int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
+
     if( !loadData )
     {
       for( int i = 0; i < inputDirectory.size(); ++i )
@@ -146,6 +156,19 @@ int main( int argc, char **argv )
         string imageDirectory = inputDirectory[i];
         if( imageDirectory.back() != '/' ) imageDirectory += '/';
         generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight );
+      }
+
+      for( int j = numImages, l = d.size(); j < mosaicTileData.size()-frames; j+=skip, ++l )
+      {
+        d.push_back(vector< int >(tileArea*frames));
+        sequenceStarts.push_back(j);
+        for( int k = 0; k < frames; ++k )
+        {
+          for( int p = 0; p < tileArea; ++p )
+          {
+            d[l][k*tileArea+p] = mosaicTileData[j+k][p];
+          }
+        }
       }
 
       numImages = mosaicTileData.size();
@@ -196,35 +219,20 @@ int main( int argc, char **argv )
       }
     }
 
-    int tileArea = mosaicTileWidth*mosaicTileHeight*3;
-    int imageTileArea = imageTileWidth*imageTileHeight*3;
-    int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
-    int numUnique = 0;
-
-
     vector< vector< vector< int > > > e( numVertical, vector< vector< int > >( numHorizontal, vector< int >(frames*tileArea) ) );
-    vector< vector< int > > d( numImages-frames, vector< int >(tileArea*frames) );
+    //vector< vector< int > > d( ceil(((double)numImages-(double)frames)/(double)skip), vector< int >(tileArea*frames) );
 
     vector< vector< int > > starts(numVertical, vector< int >( numHorizontal ) );
 
+    int randStart = min(frames,(int)inputImages.size()-frames);
+
     for( int i = 0; i < numVertical; ++i )
       for( int j = 0; j < numHorizontal; ++j )
-        starts[i][j] = rand()%frames;
-
-    for( int j = 0; j < numImages-frames; ++j )
-    {
-      for( int k = 0; k < frames; ++k )
-      {
-        for( int p = 0; p < tileArea; ++p )
-        {
-          d[j][k*tileArea+p] = mosaicTileData[j+k][p];
-        }
-      }
-    }
+        starts[i][j] = rand()%randStart;
 
     g_mkdir(outputName.c_str(), 0777);
     
-    vector< vector< vector< int > > > mosaic( inputImages.size()/frames-1, vector< vector< int > >( numVertical, vector< int >( numHorizontal, -1 ) ) );
+    vector< vector< vector< int > > > mosaic( inputImages.size()/frames+1, vector< vector< int > >( numVertical, vector< int >( numHorizontal, -1 ) ) );
 
     my_kd_tree_t mat_index(tileArea, d, 10 );
 
@@ -237,6 +245,7 @@ int main( int argc, char **argv )
     for( int p = 0; p < inputImages.size(); ++p )
     {
       VImage image = VImage::vipsload( (char *)inputImages[p].c_str() );
+      image = image.resize( (double)(numHorizontal*mosaicTileWidth) / (double)(image.width()) );
       unsigned char * c = ( unsigned char * )image.data();
 
       for( int i = 0; i < numVertical; ++i )
@@ -255,7 +264,7 @@ int main( int argc, char **argv )
             if(p2%frames == frames-1 && p2/frames < mosaic.size() )
             {
               mat_index.query( &e[i][j][0], 1, &ret_index, &out_dist_sqr );
-              mosaic[p2/frames][i][j] = ret_index;
+              mosaic[p2/frames][i][j] = sequenceStarts[ret_index];
             }
           }
         }
@@ -279,7 +288,7 @@ int main( int argc, char **argv )
             for( int x = 0; x < imageTileWidth; ++x )
             {
               int pp = p-starts[i][j];
-              if( pp < 0 || pp >= mosaic.size()*frames )
+              if( pp < 0 || mosaic[pp/frames][i][j] < 0 )
               {
                 data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = 0;
                 data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = 0;
@@ -289,15 +298,15 @@ int main( int argc, char **argv )
               {
                 if( mosaicTileWidth == imageTileWidth )
                 {
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = mosaicTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = mosaicTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = mosaicTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
                 }
                 else
                 {
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = imageTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = imageTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = imageTileData[mosaic[pp/frames][i][j]*skip+(pp%frames)][y2++];
                 }
               }
             }
