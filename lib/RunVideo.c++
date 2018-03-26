@@ -162,7 +162,7 @@ int main( int argc, char **argv )
         generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight );
 
         idx.resize(mosaicTileData.size());
-        iota(idx.begin(), idx.end(), numImages);
+        iota(idx.begin()+numImages, idx.end(), numImages);
 
         sort(idx.begin()+numImages, idx.end(), [&cropData](int i1, int i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
 
