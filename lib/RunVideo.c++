@@ -71,6 +71,9 @@ int main( int argc, char **argv )
       }
     }
 
+    sort(inputImages.begin(), inputImages.end());
+    sort(outputImages.begin(), outputImages.end());
+
     int width = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).width();
     int height = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).height();
 
@@ -86,6 +89,7 @@ int main( int argc, char **argv )
     vector< vector< unsigned char > > imageTileData;
     vector< vector< int > > d;
     vector< int > sequenceStarts;
+    vector< int > idx;
 
     bool loadData = (fileName != " ");
 
@@ -156,22 +160,27 @@ int main( int argc, char **argv )
         string imageDirectory = inputDirectory[i];
         if( imageDirectory.back() != '/' ) imageDirectory += '/';
         generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight );
-      }
 
-      for( int j = numImages, l = d.size(); j < mosaicTileData.size()-frames; j+=skip, ++l )
-      {
-        d.push_back(vector< int >(tileArea*frames));
-        sequenceStarts.push_back(j);
-        for( int k = 0; k < frames; ++k )
+        idx.resize(mosaicTileData.size());
+        iota(idx.begin(), idx.end(), numImages);
+
+        sort(idx.begin()+numImages, idx.end(), [&cropData](int i1, int i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
+
+        for( int j = numImages, l = d.size(); j < mosaicTileData.size()-frames; j+=skip, ++l )
         {
-          for( int p = 0; p < tileArea; ++p )
+          d.push_back(vector< int >(tileArea*frames));
+          sequenceStarts.push_back(j);
+          for( int k = 0; k < frames; ++k )
           {
-            d[l][k*tileArea+p] = mosaicTileData[j+k][p];
+            for( int p = 0; p < tileArea; ++p )
+            {
+              d[l][k*tileArea+p] = mosaicTileData[idx[j+k]][p];
+            }
           }
         }
-      }
 
-      numImages = mosaicTileData.size();
+        numImages = mosaicTileData.size();
+      }
 
       if( numImages == 0 ) 
       {
@@ -298,15 +307,15 @@ int main( int argc, char **argv )
               {
                 if( mosaicTileWidth == imageTileWidth )
                 {
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = mosaicTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = mosaicTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = mosaicTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
                 }
                 else
                 {
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
-                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = imageTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = imageTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
+                  data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = imageTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
                 }
               }
             }
