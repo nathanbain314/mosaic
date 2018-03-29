@@ -524,13 +524,13 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
             break;
           // Shrink the image to be cropped later
           case 3:
-            int w2 = width/minRatio ;//vertical ? mosaicTileWidth : ;// ceil(maxRatio/minRatio*(double)mosaicTileWidth);
+            int w2 = width/minRatio;//vertical ? mosaicTileWidth : ;// ceil(maxRatio/minRatio*(double)mosaicTileWidth);
             int h2 = height/minRatio;//vertical ? height/ ceil(maxRatio/minRatio*(double)mosaicTileWidth) : mosaicTileHeight;// ceil(maxRatio/minRatio*(double)mosaicTileHeight);
             int s2 = max(w2,h2);
             // In order to crop image multiple times, gifs need to be cached with 16x16 tiles, and averything else needs to be cached with the full image
             image = vips_foreign_is_a("gifload",(char *)str.c_str()) ? 
-                    initImage.thumbnail_image(s2,VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",16)->set("tile_height",16)) : 
-                    initImage.thumbnail_image(s2,VImage::option()->set( "size", VIPS_SIZE_DOWN )).cache(VImage::option()->set("tile_width",w2)->set("tile_height",h2));
+                    initImage.thumbnail_image(w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 )).cache(VImage::option()->set("tile_width",16)->set("tile_height",16)) : 
+                    initImage.thumbnail_image(w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 )).cache(VImage::option()->set("tile_width",w2)->set("tile_height",h2));
             break;
         }
 
