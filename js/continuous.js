@@ -5,7 +5,7 @@ var zoomSpeed = 1.0;
 
 viewer = OpenSeadragon({
   id:            "continuous",
-  prefixUrl:     "icons/",
+  prefixUrl:     "zoomIcons/",
       maxZoomPixelRatio: 1,
       alwaysBlend: true,
       mouseNavEnabled: false,

@@ -1,6 +1,6 @@
 viewer = OpenSeadragon({
   id:            "mosaic",
-  prefixUrl:     "icons/",
+  prefixUrl:     "zoomIcons/",
   maxZoomPixelRatio: 1,
   alwaysBlend: true,
   tileSources:   {

@@ -436,7 +436,7 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
   }
 }
 
-void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight,  bool exclude, bool spin, int cropStyle, bool flip )
+void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight,  bool exclude, bool spin, int cropStyle, bool flip, bool quiet )
 {
   // Used for reading directory
   DIR *dir;
@@ -481,7 +481,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
   // Iterate through all images in directory
   for( int i = 0; i < num_images; ++i )
   {
-    processing_images->Increment();
+    if( !quiet ) processing_images->Increment();
     try
     {
       str = names[i];
@@ -657,10 +657,10 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
   cout << endl;
 }
 
-int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic )
+int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic, bool quiet )
 {
   // Whether to update progressbar
-  bool show = !(blockX+blockY);
+  bool show = !quiet && !(blockX+blockY);
 
   // Vector lab tile data
   vector< float > d(tileWidth*tileHeight*3);
@@ -761,7 +761,7 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
 }
 
 // Takes a vector of image thumbnails, input image and number of images per row and creates output image
-int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize )
+int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool quiet )
 {
   // Whether to show progressbar
   bool show = ( buildingMosaic != NULL );
@@ -831,7 +831,7 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   {
     for( int j = 0; j < sqrtThreads; ++j, ++k )
     {
-      ret[k] = async( launch::async, &generateLABBlock, ref(imageData), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic );
+      ret[k] = async( launch::async, &generateLABBlock, ref(imageData), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic, quiet );
     }
   }
 
@@ -845,10 +845,10 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   return accumulate(used.begin(), used.end(), 0);
 }
 
-int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic )
+int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic, bool quiet )
 {
   // Whether to update progressbar
-  bool show = !(blockX+blockY);
+  bool show = !quiet && !(blockX+blockY);
 
   // Color difference of images
   int out_dist_sqr;
@@ -952,7 +952,7 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
   return 0;
 }
 
-int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize )
+int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool quiet )
 {
   // Whether to show progressbar
   bool show = ( buildingMosaic != NULL );
@@ -1022,7 +1022,7 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
   {
     for( int j = 0; j < sqrtThreads; ++j, ++k )
     {
-      ret[k] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic );
+      ret[k] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic, quiet );
     }
   }
 
@@ -1076,7 +1076,7 @@ int gcd(int a, int b) {
     return b == 0 ? a : gcd(b, a % b);
 }
 
-void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cropData, int numUnique, int tileWidth, int tileHeight, string outputImage, ofstream& htmlFile )
+void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cropData, int numUnique, int tileWidth, int tileHeight, string outputImage, ofstream& htmlFile, bool quiet )
 {
   // Rotation angles
   VipsAngle rotAngle[4] = {VIPS_ANGLE_D0,VIPS_ANGLE_D90,VIPS_ANGLE_D180,VIPS_ANGLE_D270};
@@ -1234,7 +1234,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
             }
           }
 
-          generatingZoomables->Increment();
+          if( !quiet ) generatingZoomables->Increment();
         }
         // Otherwise set the mosaic value to the ID for the image
         else
@@ -1326,7 +1326,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
           mosaic[i/2][j/2] = k;
         }
       }
-      generatingLevels->Increment();
+      if( !quiet ) generatingLevels->Increment();
     }
 
     // Edge cases with only two images

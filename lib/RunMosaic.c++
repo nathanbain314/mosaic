@@ -9,6 +9,8 @@ int main( int argc, char **argv )
   {
     CmdLine cmd("Creates an image mosaic.", ' ', "2.0");
 
+    SwitchArg quietArg( "q", "quiet", "Limit output", cmd, false );
+
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
     ValueArg<int> imageTileArg( "i", "imageTileWidth", "Tile width for generating image", false, 0, "int", cmd);
@@ -45,6 +47,7 @@ int main( int argc, char **argv )
     bool trueColor                    = colorArg.getValue();
     bool flip                         = flipArg.getValue();
     bool spin                         = spinArg.getValue();
+    bool quiet                        = quietArg.getValue();
     int cropStyle                     = cropStyleArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
@@ -160,7 +163,7 @@ int main( int argc, char **argv )
       {
         string imageDirectory = inputDirectory[i];
         if( imageDirectory.back() != '/' ) imageDirectory += '/';
-        generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, isDeepZoom, spin, cropStyle, flip );
+        generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, isDeepZoom, spin, cropStyle, flip, quiet );
       }
 
       numImages = mosaicTileData.size();
@@ -263,11 +266,11 @@ int main( int argc, char **argv )
 
       if( trueColor  )
       {
-        numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth );
+        numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet );
       }
       else
       {
-        numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth );
+        numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet );
       }
 
       cout << endl;
@@ -282,7 +285,7 @@ int main( int argc, char **argv )
 
         htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<style>\nhtml,\nbody,\n#mosaic\n{\nposition: fixed;\nleft: 0;\ntop: 0;\nwidth: 100%;\nheight: 100%;\n}\n</style>\n\n<div id=\"mosaic\" ></div>\n<script type=\"text/javascript\">\nvar outputName = \"" << outputImages[i] << "\";\nvar outputDirectory = \"" << outputImages[i] << "zoom/\";\n";
 
-        buildDeepZoomImage( mosaic, cropData, numUnique, mosaicTileWidth, mosaicTileHeight, outputImages[i], htmlFile );
+        buildDeepZoomImage( mosaic, cropData, numUnique, mosaicTileWidth, mosaicTileHeight, outputImages[i], htmlFile, quiet );
 
         htmlFile << "</script>\n<script src=\"js/mosaic.js\"></script>\n</body>\n</html>";
 
