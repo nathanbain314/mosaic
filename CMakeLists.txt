@@ -13,22 +13,22 @@ ENDIF()
 
 include_directories(include)
 
-file(GLOB SOURCE_FILES lib/mosaic.c++ lib/progress_bar.c++)
+file(GLOB SOURCE_FILES lib/mosaicTools.c++ lib/progress_bar.c++)
 
-set( EXECUTABLES RunMosaic RunRotationalMosaic RunContinuous RunVideo )
+set( EXECUTABLES Mosaic Rotational Continuous Video )
 
 set (CMAKE_CXX_STANDARD 11)
 set(VIPS_LDFLAGS pthread ${VIPS_LDFLAGS})
 
 foreach( EXECUTABLE ${EXECUTABLES} )
-    add_executable( ${EXECUTABLE} lib/${EXECUTABLE}.c++ ${SOURCE_FILES} )
+    add_executable( Run${EXECUTABLE} lib/Run${EXECUTABLE}.c++ lib/${EXECUTABLE}.c++ ${SOURCE_FILES} )
     IF (WIN32)
       set(VIPS_LDFLAGS vips-cpp vips gsf-1 z jpeg xml2 fftw3 m lcms2 pangoft2-1.0 tiff png16 exif pango-1.0 freetype fontconfig gobject-2.0 gmodule-2.0 gthread-2.0 glib-2.0 intl)
       include_directories($ENV{VIPS_INCLUDE}/include $ENV{VIPS_INCLUDE}/include/glib-2.0 $ENV{VIPS_INCLUDE}/lib/glib-2.0/include)
-      target_link_libraries(${EXECUTABLE} ${VIPS_LDFLAGS})
+      target_link_libraries(Run${EXECUTABLE} ${VIPS_LDFLAGS})
     ELSE()
-      target_link_libraries(${EXECUTABLE} ${VIPS_LIBRARIES})
-      target_link_libraries(${EXECUTABLE} ${VIPS_LDFLAGS})
+      target_link_libraries(Run${EXECUTABLE} ${VIPS_LIBRARIES})
+      target_link_libraries(Run${EXECUTABLE} ${VIPS_LDFLAGS})
       add_definitions(${VIPS_CFLAGS} ${VIPS_CFLAGS_OTHER})
     ENDIF()
 endforeach( EXECUTABLE ${EXECUTABLES} )
