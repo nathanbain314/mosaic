@@ -78,7 +78,7 @@ void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VI
       generatingLevels->Increment();
     }
 
-    cout << endl;
+    generatingLevels->Finish();
 
     currentMosaic << "]\n";
 
@@ -148,7 +148,7 @@ void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VI
       generatingLevels->Increment();
     }
 
-    cout << endl;
+    generatingLevels->Finish();
 
     currentMosaic << "]\n";
     mosaicStrings.push_back( currentMosaic.str() );
@@ -271,7 +271,7 @@ void RunContinuous( string inputDirectory, string outputDirectory, int mosaicTil
     }
   }
 
-  cout << endl;
+  buildingMosaic->Finish();
 
   ProgressBar *generateAverages = new ProgressBar(numImages * 2, "Generating averages");
 
@@ -330,7 +330,7 @@ void RunContinuous( string inputDirectory, string outputDirectory, int mosaicTil
     generateAverages->Increment();
   }
 
-  cout << endl;
+  generateAverages->Finish();
 
   ofstream htmlFile(outputDirectory.substr(0, outputDirectory.size()-1).append(".html").c_str());
 

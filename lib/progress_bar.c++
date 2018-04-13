@@ -109,3 +109,9 @@ void ProgressBar::Increment(unsigned long idx_)
 {
     Progressed(idx+idx_);
 }
+
+void ProgressBar::Finish(bool newLine)
+{
+    Progressed(n);
+    if( newLine ) std::cout << std::endl;
+}

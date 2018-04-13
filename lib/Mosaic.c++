@@ -217,7 +217,8 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
     mosaicStrings.push_back(currentMosaic.str());
   }
 
-  cout << endl;
+  if( !quiet ) generatingZoomables->Finish();
+
   ProgressBar *generatingLevels = new ProgressBar(height, "Generating levels");
 
   levelData << "];";
@@ -425,7 +426,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
     first = false;
   }
 
-  cout << endl;
+  if( !quiet ) generatingLevels->Finish();
 
   htmlFile << levelData.str() << endl;
 
@@ -660,7 +661,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
       numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet );
     }
 
-    cout << endl;
+    if( !quiet ) buildingMosaic->Finish();
 
     if( isDeepZoom )
     {

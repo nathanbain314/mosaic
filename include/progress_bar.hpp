@@ -26,6 +26,7 @@ public:
 
     void Progressed(unsigned long idx_);
     void Increment(unsigned long idx_ = 1);
+    void Finish(bool newLine = true);
 
 private:
 	

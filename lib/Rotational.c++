@@ -110,7 +110,7 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
     }
   }
 
-  cout << endl;
+  processing_images->Finish();
 }
 
 double cosAngle, sinAngle, halfWidth, halfHeight;

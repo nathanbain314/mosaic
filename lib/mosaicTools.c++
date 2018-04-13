@@ -218,7 +218,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
     }
   }
 
-  cout << endl;
+  if( !quiet ) processing_images->Finish();
 }
 
 int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic, bool quiet )

@@ -232,7 +232,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     processing_video->Increment();
   }
 
-  cout << endl;
+  processing_video->Finish();
 
   unsigned char *data = new unsigned char[numHorizontal*numVertical*imageTileWidth*imageTileHeight*3];
 
@@ -278,5 +278,5 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     rendering_video->Increment();
   }
 
-  cout << endl;
+  rendering_video->Finish();
 }
