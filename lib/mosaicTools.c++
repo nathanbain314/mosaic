@@ -420,6 +420,12 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
   // Vector rgb tile data
   vector< int > d(tileWidth*tileHeight*3);
 
+  typedef KDTreeSingleIndexDynamicAdaptor< L2_Simple_Adaptor<int, my_kd_tree_t>, my_kd_tree_t> dynamic_kdtree;
+
+  int num_images = mat_index.kdtree_get_point_count();
+
+  dynamic_kdtree index(mat_index.m_data[0].size(), mat_index, KDTreeSingleIndexAdaptorParams(10) );
+
   // For every index
   for( int p = 0; p < indices.size(); ++p )
   {
@@ -453,53 +459,55 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
 
     if( repeat > 0 )
     {
-      vector< vector< int > > newData = mat_index.m_data;
       set< int > eraseData;
+
+      int imagesLeft = num_images;
 
       // Outside of square so that closer images are not the same
       for( int r = 1; r <= repeat; ++r )
       {
-        for( int p1 = -r; eraseData.size() < newData.size()-1 && p1 <= r; ++p1 )
+        for( int p1 = -r; imagesLeft > 1 && p1 <= r; ++p1 )
         {
-          if( j+p1 >= 0 && j+p1 < numHorizontal && i-r >= 0 && mosaic[i-r][j+p1] >= 0 ) eraseData.insert(mosaic[i-r][j+p1]);
+          if( j+p1 >= 0 && j+p1 < numHorizontal && i-r >= 0 && mosaic[i-r][j+p1] >= 0 )
+          {
+            index.removePoint(mosaic[i-r][j+p1]);
+            --imagesLeft;
+          }
         }
 
-        for( int p1 = -r; eraseData.size() < newData.size()-1 && p1 <= r; ++p1 )
+        for( int p1 = -r; imagesLeft > 1 && p1 <= r; ++p1 )
         {
-          if( j+p1 >= 0 && j+p1 < numHorizontal && i+r < numVertical && mosaic[i+r][j+p1] >= 0 ) eraseData.insert(mosaic[i+r][j+p1]);
+          if( j+p1 >= 0 && j+p1 < numHorizontal && i+r < numVertical && mosaic[i+r][j+p1] >= 0 )
+          {
+            index.removePoint(mosaic[i+r][j+p1]);
+            --imagesLeft;
+          }
         }
 
-        for( int p1 = -r+1; eraseData.size() < newData.size()-1 && p1 < r; ++p1 )
+        for( int p1 = -r+1; imagesLeft > 1 && p1 < r; ++p1 )
         {
-          if( i+p1 >= 0 && i+p1 < numVertical && j-r >= 0 && mosaic[i+p1][j-r] >= 0 ) eraseData.insert(mosaic[i+p1][j-r]);
+          if( i+p1 >= 0 && i+p1 < numVertical && j-r >= 0 && mosaic[i+p1][j-r] >= 0 )
+          {
+            index.removePoint(mosaic[i+p1][j-r]);
+            --imagesLeft;
+          }
         }
 
-        for( int p1 = -r+1; eraseData.size() < newData.size()-1 && p1 < r; ++p1 )
+        for( int p1 = -r+1; imagesLeft > 1 && p1 < r; ++p1 )
         {
-          if( i+p1 >= 0 && i+p1 < numVertical && j+r < numHorizontal && mosaic[i+p1][j+r] >= 0 ) eraseData.insert(mosaic[i+p1][j+r]);
-        }
-      }
-
-      for (set<int>::reverse_iterator it = eraseData.rbegin(); it != eraseData.rend(); ++it)
-      {
-        newData.erase(newData.begin() + *it);
-      }
-
-      my_kd_tree_t newTree(newData[0].size(), newData, 10 );
-
-      newTree.query( &d[0], 1, &ret_index, &out_dist_sqr );
-
-      for (set<int>::iterator it = eraseData.begin(); it != eraseData.end(); ++it)
-      {
-        if( ret_index >= *it )
-        {
-          ++ret_index;
-        }
-        else
-        {
-          break;
+          if( i+p1 >= 0 && i+p1 < numVertical && j+r < numHorizontal && mosaic[i+p1][j+r] >= 0 )
+          {
+            index.removePoint(mosaic[i+p1][j+r]);
+            --imagesLeft;
+          }
         }
       }
+
+      nanoflann::KNNResultSet<int> resultSet(1);
+      resultSet.init(&ret_index, &out_dist_sqr );
+      index.findNeighbors(resultSet, &d[0], nanoflann::SearchParams(10));
+
+      index.addPointsBack();
     }
     else
     {
