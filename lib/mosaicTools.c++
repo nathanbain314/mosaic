@@ -328,7 +328,7 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
 int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool quiet )
 {
   // Whether to show progressbar
-  bool show = ( buildingMosaic != NULL );
+  quiet = quiet || ( buildingMosaic == NULL );
 
   // Load input image
   VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );//.colourspace( VIPS_INTERPRETATION_LAB );
@@ -527,7 +527,7 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
 int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool quiet )
 {
   // Whether to show progressbar
-  bool show = ( buildingMosaic != NULL );
+  quiet = quiet || ( buildingMosaic == NULL );
 
   // Number of images to check against
   int num_images = mat_index.kdtree_get_point_count();
