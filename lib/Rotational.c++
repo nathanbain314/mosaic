@@ -113,16 +113,116 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
   processing_images->Finish();
 }
 
-double cosAngle, sinAngle, halfWidth, halfHeight;
-
-int rotateX( double x, double y )
+int rotateX( double x, double y, double cosAngle, double sinAngle, double halfWidth, double halfHeight )
 {
   return cosAngle*(x-halfWidth) - sinAngle*(y-halfHeight) + halfWidth;
 }
 
-int rotateY( double x, double y )
+int rotateY( double x, double y, double cosAngle, double sinAngle, double halfWidth, double halfHeight )
 {
   return sinAngle*(x-halfWidth) + cosAngle*(y-halfHeight) + halfHeight;
+}
+
+rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int imageHeight, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char * imageData, unsigned char * computeMaskData, int angleOffset )
+{
+  int bestImage = -1;
+  double bestDifference = DBL_MAX, bestAngle = 0;
+
+  // Run through every image in thread area
+  // Round down to nearest even number
+  for( int k = start-start%2; k < end-end%2; k+=2 )
+  {
+    // Rotate image for every angleOffset angles
+    for( double a = 0; a < 360; a += angleOffset )
+    {
+      // Convert to radians
+      double angle = a * 3.14159265/180.0;
+      int width = dimensions[k].first;
+      int height = dimensions[k].second;
+
+      // Compute data for point rotation
+      double cosAngle = cos(angle);
+      double sinAngle = sin(angle);
+      double halfWidth = (double)width/2.0;
+      double halfHeight = (double)height/2.0;
+
+      // Conpute side offset of rotated image from regular image
+      int xOffset = max( rotateX(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateX(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - width;
+      int yOffset = max( rotateY(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateY(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - height;
+
+      // New width and height of rotated image
+      int newWidth = width + 2*xOffset;
+      int newHeight = height + 2*yOffset;
+
+      double difference = 0;
+      double usedPixels = 0;
+
+      // New data for point rotation in reverse direction
+      cosAngle = cos(-angle);
+      sinAngle = sin(-angle);
+      halfWidth = (double)newWidth/2.0;
+      halfHeight = (double)newHeight/2.0;
+
+      // Traverse data for rotated image to find difference from input image
+      for( int i = 0; i < newHeight; ++i )
+      {
+        for( int j = 0; j < newWidth; ++j )
+        {
+          // New x and y of rotated image point
+          int newX = rotateX(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
+          int newY = rotateY(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
+
+          // Make sure that the point is within the image
+          if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
+
+          // Point in image
+          int p = width*newY + newX;
+
+          // Make sure that the point is not transparent
+          if( masks[k][p] == 0 ) continue;
+
+          // Point in input image
+          int ix = x + j - newWidth/2;
+          int iy = y + i - newHeight/2;
+
+          // Make sure that the point is within the input image
+          if( (ix < 0) || (ix > imageWidth-1) || (iy < 0) || (iy > imageHeight-1) ) continue;
+
+          // Index of point in input image
+          unsigned long long index = (unsigned long long)iy*(unsigned long long)imageWidth+(unsigned long long)ix;
+
+          // Make sure the the point is not fully colored
+          if( computeMaskData[index] == 255 ) continue;
+
+          // Update the number of pixels that are used
+          ++usedPixels;
+
+          // Get the input image rgb values
+          unsigned char ir = imageData[3ULL*index+0ULL];
+          unsigned char ig = imageData[3ULL*index+1ULL];
+          unsigned char ib = imageData[3ULL*index+2ULL];
+
+          // Get the image rgb values
+          unsigned char tr = images[k][3*p+0];
+          unsigned char tg = images[k][3*p+1];
+          unsigned char tb = images[k][3*p+2];
+
+          // Compute the sum-of-squares for color difference
+          difference += (ir-tr)*(ir-tr) + (ig-tg)*(ig-tg) + (ib-tb)*(ib-tb);
+        }
+      }
+
+      // If the image is more similar then choose this one as the best image and angle
+      if( difference/usedPixels < bestDifference )
+      {
+        bestDifference = difference/usedPixels;
+        bestImage = k;
+        bestAngle = angle;
+      }
+    }
+  }
+
+  return make_tuple(bestImage, bestAngle, bestDifference );
 }
 
 void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int numIter, int angleOffset )
@@ -170,96 +270,25 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
     int bestImage = -1;
     double bestDifference = DBL_MAX, bestAngle = 0;
 
-    // Run through every image 
-    for( int k = 0; k < images.size(); k+=2 )
+    int threads = 4;
+
+    future< rotateResult > ret[threads];
+
+    for( int k = 0; k < threads; ++k )
     {
-      // Rotate image for every angleOffset angles
-      for( double a = 0; a < 360; a += angleOffset )
+      ret[k] = async( launch::async, &findSmallest, x, y, k*images.size()/threads, (k+1)*images.size()/threads, imageWidth, imageHeight, ref(images), ref(masks), ref(dimensions), imageData, computeMaskData, angleOffset );
+    }
+
+    // Wait for threads to finish
+    for( int k = 0; k < threads; ++k )
+    {
+      rotateResult r = ret[k].get();
+
+      if( get<2>(r) < bestDifference )
       {
-        // Convert to radians
-        double angle = a * 3.14159265/180.0;
-        int width = dimensions[k].first;
-        int height = dimensions[k].second;
-
-        // Compute data for point rotation
-        cosAngle = cos(angle);
-        sinAngle = sin(angle);
-        halfWidth = (double)width/2.0;
-        halfHeight = (double)height/2.0;
-
-        // Conpute side offset of rotated image from regular image
-        int xOffset = max( rotateX(0,0), max( rotateX(width,0), max( rotateX(0,height), rotateX(width,height) ) ) ) - width;
-        int yOffset = max( rotateY(0,0), max( rotateY(width,0), max( rotateY(0,height), rotateY(width,height) ) ) ) - height;
-
-        // New width and height of rotated image
-        int newWidth = width + 2*xOffset;
-        int newHeight = height + 2*yOffset;
-
-        double difference = 0;
-        double usedPixels = 0;
-
-        // New data for point rotation in reverse direction
-        cosAngle = cos(-angle);
-        sinAngle = sin(-angle);
-        halfWidth = (double)newWidth/2.0;
-        halfHeight = (double)newHeight/2.0;
-
-        // Traverse data for rotated image to find difference from input image
-        for( int i = 0; i < newHeight; ++i )
-        {
-          for( int j = 0; j < newWidth; ++j )
-          {
-            // New x and y of rotated image point
-            int newX = rotateX(j,i) - xOffset;
-            int newY = rotateY(j,i) - yOffset;
-
-            // Make sure that the point is within the image
-            if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
-
-            // Point in image
-            int p = width*newY + newX;
-
-            // Make sure that the point is not transparent
-            if( masks[k][p] == 0 ) continue;
-
-            // Point in input image
-            int ix = x + j - newWidth/2;
-            int iy = y + i - newHeight/2;
-
-            // Make sure that the point is within the input image
-            if( (ix < 0) || (ix > imageWidth-1) || (iy < 0) || (iy > imageHeight-1) ) continue;
-
-            // Index of point in input image
-            unsigned long long index = (unsigned long long)iy*(unsigned long long)imageWidth+(unsigned long long)ix;
-
-            // Make sure the the point is not fully colored
-            if( computeMaskData[index] == 255 ) continue;
-
-            // Update the number of pixels that are used
-            ++usedPixels;
-
-            // Get the input image rgb values
-            unsigned char ir = imageData[3ULL*index+0ULL];
-            unsigned char ig = imageData[3ULL*index+1ULL];
-            unsigned char ib = imageData[3ULL*index+2ULL];
-
-            // Get the image rgb values
-            unsigned char tr = images[k][3*p+0];
-            unsigned char tg = images[k][3*p+1];
-            unsigned char tb = images[k][3*p+2];
-
-            // Compute the sum-of-squares for color difference
-            difference += (ir-tr)*(ir-tr) + (ig-tg)*(ig-tg) + (ib-tb)*(ib-tb);
-          }
-        }
-
-        // If the image is more similar then choose this one as the best image and angle
-        if( difference/usedPixels < bestDifference )
-        {
-          bestDifference = difference/usedPixels;
-          bestImage = k;
-          bestAngle = angle;
-        }
+        bestImage = get<0>(r);
+        bestAngle = get<1>(r);
+        bestDifference = get<2>(r);
       }
     }
 
@@ -270,13 +299,13 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
     int width = dimensions[bestImage].first;
     int height = dimensions[bestImage].second;
 
-    cosAngle = cos(bestAngle);
-    sinAngle = sin(bestAngle);
-    halfWidth = (double)width/2.0;
-    halfHeight = (double)height/2.0;
+    double cosAngle = cos(bestAngle);
+    double sinAngle = sin(bestAngle);
+    double halfWidth = (double)width/2.0;
+    double halfHeight = (double)height/2.0;
 
-    int xOffset = max( rotateX(0,0), max( rotateX(width,0), max( rotateX(0,height), rotateX(width,height) ) ) ) - width;
-    int yOffset = max( rotateY(0,0), max( rotateY(width,0), max( rotateY(0,height), rotateY(width,height) ) ) ) - height;
+    int xOffset = max( rotateX(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateX(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - width;
+    int yOffset = max( rotateY(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateY(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - height;
 
     int newWidth = width + 2*xOffset;
     int newHeight = height + 2*yOffset;
@@ -291,8 +320,8 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
     {
       for( int j = 0; j < newWidth; ++j )
       {
-        int newX = rotateX(j,i) - xOffset;
-        int newY = rotateY(j,i) - yOffset;
+        int newX = rotateX(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
+        int newY = rotateY(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
 
         if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
 
@@ -320,8 +349,8 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
     halfWidth = (double)width/2.0;
     halfHeight = (double)height/2.0;
 
-    xOffset = max( rotateX(0,0), max( rotateX(width,0), max( rotateX(0,height), rotateX(width,height) ) ) ) - width;
-    yOffset = max( rotateY(0,0), max( rotateY(width,0), max( rotateY(0,height), rotateY(width,height) ) ) ) - height;
+    xOffset = max( rotateX(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateX(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - width;
+    yOffset = max( rotateY(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateY(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - height;
 
     newWidth = width + 2*xOffset;
     newHeight = height + 2*yOffset;
@@ -345,8 +374,8 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
         //  Get the average of the rotated pixels 1/2 above, below, and to the sides for the average to get be a better color
         for( double k = -1; k <= 1; k += 2 )
         {
-          int newX = rotateX((double)j+k/2.0,i) - xOffset;
-          int newY = rotateY((double)j+k/2.0,i) - yOffset;
+          int newX = rotateX((double)j+k/2.0,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
+          int newY = rotateY((double)j+k/2.0,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
 
           if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
 
@@ -358,8 +387,8 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
           m+=masks[bestImage+1][p];
           ++used;
 
-          newX = rotateX(j,(double)i+k/2.0) - xOffset;
-          newY = rotateY(j,(double)i+k/2.0) - yOffset;
+          newX = rotateX(j,(double)i+k/2.0,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
+          newY = rotateY(j,(double)i+k/2.0,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
 
           if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
 
@@ -372,8 +401,8 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
           ++used;
         }
 
-        int newX = rotateX(j,i) - xOffset;
-        int newY = rotateY(j,i) - yOffset;
+        int newX = rotateX(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
+        int newY = rotateY(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
 
         if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
 
