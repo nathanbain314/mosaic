@@ -9,6 +9,8 @@ int main( int argc, char **argv )
   {
     CmdLine cmd("Creates an image mosaic.", ' ', "2.0");
 
+    ValueArg<int> numSkipArg( "s", "skip", "Number of opaque pixels random points to skip", false, 1000000, "int", cmd);
+
     ValueArg<int> angleOffsetArg( "a", "angleOffset", "Angle offset", true, 90, "int", cmd);
 
     ValueArg<double> renderScaleArg( "r", "renderScale", "Render scale", true, 1.0, "double", cmd);
@@ -32,10 +34,11 @@ int main( int argc, char **argv )
     double renderScale                = renderScaleArg.getValue();
     int angleOffset                   = angleOffsetArg.getValue();
     int numIter                       = numIterArg.getValue();
+    int numSkip                       = numSkipArg.getValue();
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunRotational( inputName, outputName, inputDirectory, numIter, angleOffset, imageScale, renderScale );
+    RunRotational( inputName, outputName, inputDirectory, numIter, angleOffset, imageScale, renderScale, numSkip );
   }
   catch (ArgException &e)  // catch any exceptions
   {

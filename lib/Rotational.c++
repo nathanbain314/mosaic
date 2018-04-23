@@ -225,7 +225,7 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
   return make_tuple(bestImage, bestAngle, bestDifference );
 }
 
-void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int numIter, int angleOffset )
+void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int numIter, int angleOffset, int numSkip )
 {
   VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );
 
@@ -264,6 +264,14 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
     // Place image at random point
     int y = rand()%(imageHeight);
     int x = rand()%(imageWidth);
+
+    // Only choose point if it is not already taken
+    if( numSkip > -1 && computeMaskData[y*imageWidth+x]==255)
+    {
+      if( --numSkip < 0 ) break;
+      --inc;
+      continue;
+    }
   
     processing_images->Increment();
 
@@ -447,7 +455,7 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
     }
   }
 
-  cout << endl;
+  processing_images->Finish();
 
   // Save image as static image or zoomable image
   if( vips_foreign_find_save( outputImage.c_str() ) != NULL )
@@ -465,7 +473,7 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
   }
 }
 
-void RunRotational( string inputName, string outputName, vector< string > inputDirectory, int numIter, int angleOffset, double imageScale, double renderScale )
+void RunRotational( string inputName, string outputName, vector< string > inputDirectory, int numIter, int angleOffset, double imageScale, double renderScale, int numSkip )
 {
   vector< vector< unsigned char > > images, masks;
   vector< pair< int, int > > dimensions;
@@ -477,5 +485,5 @@ void RunRotational( string inputName, string outputName, vector< string > inputD
     generateRotationalThumbnails( imageDirectory, images, masks, dimensions, imageScale, renderScale );
   }
 
-  buildRotationalImage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, numIter, angleOffset );
+  buildRotationalImage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, numIter, angleOffset, numSkip );
 }

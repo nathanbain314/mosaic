@@ -19,32 +19,23 @@ viewer = OpenSeadragon({
         else
         {
           var superLevel = (level-mosaicLevel);
-          var shrink = 1<<superLevel;
-          var m = data[mosaicLevel][y>>superLevel][x>>superLevel];
-          return outputDirectory + m + "_files/" + superLevel + "/" + (x%shrink) + "_" + (y%shrink) + ".jpeg";
+          var shrink = (1<<superLevel) - 1;
+          return outputDirectory + data[mosaicLevel][y>>superLevel][x>>superLevel] + "_files/" + superLevel + "/" + (x&shrink) + "_" + (y&shrink) + ".jpeg";
         }
       },
       tileExists: function( level, x, y ){
-        if( level < mosaicLevel )
-        {
-          return true;
-        }
-        else
-        {
-          var superLevel = (level-mosaicLevel);
-          var m = data[mosaicLevel][y>>superLevel][x>>superLevel];
-          if( levelData[m] >= superLevel )
-          {
-            return true;
-          }
-        }
-        return false;
+        var superLevel = (level-mosaicLevel);
+
+        return superLevel < 0 || levelData[data[mosaicLevel][y>>superLevel][x>>superLevel]] >= superLevel;
       }
   }
 });
 
+var minWidth = mosaicWidth*mosaicTileWidth<<minZoomablesLevel;
+var mosaicWidthHeight = mosaicWidth * mosaicTileWidth/mosaicTileHeight;
+
 viewer.viewport.getMaxZoom = function() { 
-  var minzoom = (mosaicWidth*mosaicTileWidth<<minZoomablesLevel)/document.getElementById("mosaic").offsetWidth;
+  var minzoom = minWidth/document.getElementById("mosaic").offsetWidth;
 
   if( viewer.viewport.getZoom() >= minzoom )
   {
@@ -52,19 +43,17 @@ viewer.viewport.getMaxZoom = function() {
     var bounds = viewer.viewport.getBounds(true);
 
     var endX = bounds.x+bounds.width > 1 ? mosaicWidth : Math.ceil((bounds.x+bounds.width) * mosaicWidth);
-    var endY = bounds.y+bounds.height > 1 ? mosaicHeight : Math.ceil((bounds.y+bounds.height) * mosaicWidth * mosaicTileWidth/mosaicTileHeight);
+    var endY = bounds.y+bounds.height > 1 ? mosaicHeight : Math.ceil((bounds.y+bounds.height) * mosaicWidthHeight);
 
-    console.log(startX,startY,endX,endY,bounds.x,bounds.y);
+    var startXValue = bounds.x < 0 ? 0 : Math.floor(bounds.x * mosaicWidth);
 
     for( var startY = bounds.y < 0 ? 0 : Math.floor(bounds.y * mosaicWidth * mosaicTileWidth/mosaicTileHeight); startY < endY; ++startY )
     {
-      for( var startX = bounds.x < 0 ? 0 : Math.floor(bounds.x * mosaicWidth); startX < endX; ++startX )
+      for( var startX = startXValue; startX < endX; ++startX )
       {
         maxLevel = Math.max( maxLevel, levelData[data[mosaicLevel][startY][startX]] );
       }
     }
-
-    console.log(maxLevel, minzoom<<( maxLevel - minZoomablesLevel ));
 
     return minzoom<<( maxLevel - minZoomablesLevel );
   }
