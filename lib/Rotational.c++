@@ -244,7 +244,7 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
   return make_tuple(bestImage, bestAngle, bestDifference );
 }
 
-void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int numIter, int angleOffset, int numSkip, trueColor )
+void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int numIter, int angleOffset, int numSkip, bool trueColor )
 {
   VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );
 
