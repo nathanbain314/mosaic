@@ -123,7 +123,7 @@ int rotateY( double x, double y, double cosAngle, double sinAngle, double halfWi
   return sinAngle*(x-halfWidth) + cosAngle*(y-halfHeight) + halfHeight;
 }
 
-rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int imageHeight, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char * imageData, unsigned char * computeMaskData, int angleOffset )
+rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int imageHeight, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char * imageData, unsigned char * computeMaskData, int angleOffset, bool trueColor )
 {
   int bestImage = -1;
   double bestDifference = DBL_MAX, bestAngle = 0;
@@ -207,8 +207,27 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
           unsigned char tg = images[k][3*p+1];
           unsigned char tb = images[k][3*p+2];
 
-          // Compute the sum-of-squares for color difference
-          difference += (ir-tr)*(ir-tr) + (ig-tg)*(ig-tg) + (ib-tb)*(ib-tb);
+          if( trueColor )
+          {
+            float l1,a1,b1,l2,a2,b2;
+            // Convert rgb to rgb16
+            vips_col_sRGB2scRGB_16(ir,ig,ib, &l1,&a1,&b1 );
+            vips_col_sRGB2scRGB_16(tr,tg,tb, &l2,&a2,&b2 );
+            // Convert rgb16 to xyz
+            vips_col_scRGB2XYZ( l1, a1, b1, &l1, &a1, &b1 );
+            vips_col_scRGB2XYZ( l2, a2, b2, &l2, &a2, &b2 );
+            // Convert xyz to lab
+            vips_col_XYZ2Lab( l1, a1, b1, &l1, &a1, &b1 );
+            vips_col_XYZ2Lab( l2, a2, b2, &l2, &a2, &b2 );
+
+            difference += vips_col_dE00( l1, a1, b1, l2, a2, b2 );
+          }
+          else
+          {
+            // Compute the sum-of-squares for color difference
+            difference += (ir-tr)*(ir-tr) + (ig-tg)*(ig-tg) + (ib-tb)*(ib-tb);
+          
+          }
         }
       }
 
@@ -225,7 +244,7 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
   return make_tuple(bestImage, bestAngle, bestDifference );
 }
 
-void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int numIter, int angleOffset, int numSkip )
+void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int numIter, int angleOffset, int numSkip, trueColor )
 {
   VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );
 
@@ -284,7 +303,7 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
 
     for( int k = 0; k < threads; ++k )
     {
-      ret[k] = async( launch::async, &findSmallest, x, y, k*images.size()/threads, (k+1)*images.size()/threads, imageWidth, imageHeight, ref(images), ref(masks), ref(dimensions), imageData, computeMaskData, angleOffset );
+      ret[k] = async( launch::async, &findSmallest, x, y, k*images.size()/threads, (k+1)*images.size()/threads, imageWidth, imageHeight, ref(images), ref(masks), ref(dimensions), imageData, computeMaskData, angleOffset, trueColor );
     }
 
     // Wait for threads to finish
@@ -450,7 +469,6 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
         
         // Set output transparency mask
         outputMaskData[index] = min(255,m+(int)outputMaskData[index]);
-
       }
     }
   }
@@ -473,17 +491,79 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
   }
 }
 
-void RunRotational( string inputName, string outputName, vector< string > inputDirectory, int numIter, int angleOffset, double imageScale, double renderScale, int numSkip )
+void RunRotational( string inputName, string outputName, vector< string > inputDirectory, int numIter, int angleOffset, double imageScale, double renderScale, int numSkip, bool trueColor, string fileName )
 {
   vector< vector< unsigned char > > images, masks;
   vector< pair< int, int > > dimensions;
 
-  for( int i = 0; i < inputDirectory.size(); ++i )
+  bool loadData = (fileName != " ");
+
+  if( loadData )
   {
-    string imageDirectory = inputDirectory[i];
-    if( imageDirectory.back() != '/' ) imageDirectory += '/';
-    generateRotationalThumbnails( imageDirectory, images, masks, dimensions, imageScale, renderScale );
+    ifstream data( fileName, ios::binary );
+
+    if(data.is_open())
+    {
+      int numImages;
+      data.read( (char *)&numImages, sizeof(int) );
+      data.read( (char *)&imageScale, sizeof(double) );
+      data.read( (char *)&renderScale, sizeof(double) );
+    
+      images.resize( numImages );
+      masks.resize( numImages );
+      
+      for( int i = 0; i < numImages; ++i )
+      {
+        int width, height;
+        data.read( (char *)&width, sizeof(int) );
+        data.read( (char *)&height, sizeof(int) );
+
+        images[i].resize( width*height*3 );
+        data.read((char *)images[i].data(), images[i].size()*sizeof(unsigned char));
+
+        masks[i].resize( width*height );
+        data.read((char *)masks[i].data(), masks[i].size()*sizeof(unsigned char));
+
+        dimensions.push_back(pair< int, int >(width,height));
+      }
+    }
+    else
+    {
+      loadData = false;
+    }
+  }
+  if( !loadData )
+  {
+    for( int i = 0; i < inputDirectory.size(); ++i )
+    {
+      string imageDirectory = inputDirectory[i];
+      if( imageDirectory.back() != '/' ) imageDirectory += '/';
+      generateRotationalThumbnails( imageDirectory, images, masks, dimensions, imageScale, renderScale );
+    }
+
+    if( fileName != " " )
+    {
+      ofstream data( fileName, ios::binary );
+
+      int numImages = images.size();
+
+      data.write( (char *)&numImages, sizeof(int) );
+      data.write( (char *)&imageScale, sizeof(double) );
+      data.write( (char *)&renderScale, sizeof(double) );
+
+      for( int i = 0; i < numImages; ++i )
+      {
+        int width = dimensions[i].first;
+        int height = dimensions[i].second;
+
+        data.write( (char *)&width, sizeof(int) );
+        data.write( (char *)&height, sizeof(int) );
+
+        data.write((char *)&images[i].front(), images[i].size() * sizeof(unsigned char)); 
+        data.write((char *)&masks[i].front(), masks[i].size() * sizeof(unsigned char)); 
+      }
+    }
   }
 
-  buildRotationalImage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, numIter, angleOffset, numSkip );
+  buildRotationalImage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, numIter, angleOffset, numSkip, trueColor );
 }

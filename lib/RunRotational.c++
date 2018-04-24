@@ -9,7 +9,11 @@ int main( int argc, char **argv )
   {
     CmdLine cmd("Creates an image mosaic.", ' ', "2.0");
 
+    ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
+
     ValueArg<int> numSkipArg( "s", "skip", "Number of opaque pixels random points to skip", false, 1000000, "int", cmd);
+
+    SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
 
     ValueArg<int> angleOffsetArg( "a", "angleOffset", "Angle offset", true, 90, "int", cmd);
 
@@ -34,11 +38,13 @@ int main( int argc, char **argv )
     double renderScale                = renderScaleArg.getValue();
     int angleOffset                   = angleOffsetArg.getValue();
     int numIter                       = numIterArg.getValue();
+    bool trueColor                    = colorArg.getValue();
     int numSkip                       = numSkipArg.getValue();
+    string fileName                   = fileArg.getValue();
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunRotational( inputName, outputName, inputDirectory, numIter, angleOffset, imageScale, renderScale, numSkip );
+    RunRotational( inputName, outputName, inputDirectory, numIter, angleOffset, imageScale, renderScale, numSkip, trueColor, fileName );
   }
   catch (ArgException &e)  // catch any exceptions
   {
