@@ -1,6 +1,6 @@
-#include "Rotational.h"
+#include "Collage.h"
 
-void generateRotationalThumbnails( string imageDirectory, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double scale, double renderScale, int minSize, int maxSize )
+void generateCollageThumbnails( string imageDirectory, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double scale, double renderScale, int minSize, int maxSize )
 {
   DIR *dir;
   struct dirent *ent;
@@ -395,7 +395,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
   }
 }
 
-void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int angleOffset, int fillPercentage, bool trueColor )
+void buildCollage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int angleOffset, int fillPercentage, bool trueColor )
 {
   VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );
 
@@ -427,18 +427,11 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
   vector< pair< int, int > > points;
   vector< pair< int, double > > bestImages;
 
-  // Create random list of points
-//  vector< int > indices( imageWidth*imageHeight );
-//  iota( indices.begin(), indices.end(), 0 );
-//  shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
-
   unsigned long long alphaSum = 0;
 
   unsigned long long stopAlphaSum = (unsigned long long)imageWidth * (unsigned long long)imageHeight * 255ULL * (unsigned long long)fillPercentage / 100ULL;
 
-  ProgressBar *processing_images = new ProgressBar(stopAlphaSum, "Generating mosaic");
-
-//  int currentPoint = 0;
+  ProgressBar *processing_images = new ProgressBar(stopAlphaSum, "Generating collage");
 
   int x, y;
 
@@ -545,8 +538,12 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
     unsigned char * outputData = ( unsigned char * )calloc (outputSize,sizeof(unsigned char));
     unsigned char * outputMaskData = ( unsigned char * )calloc ((unsigned long long)outputWidth*(unsigned long long)outputHeight,sizeof(unsigned char));
 
+    ProgressBar *buildingImage = new ProgressBar(points.size(), "Building image");
+
     for( int point = 0; point < points.size(); ++point )
     {
+      buildingImage->Increment();
+
       int x = points[point].first;
       int y = points[point].second;
 
@@ -659,6 +656,8 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
       }
     }
 
+    buildingImage->Finish();
+
     VImage::new_from_memory( outputData, outputSize, outputWidth, outputHeight, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
   }
   else
@@ -763,12 +762,12 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
 
     // Generate html file to view deep zoom image
     ofstream htmlFile(string(outputImage).append(".html").c_str());
-    htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<style>\nhtml,\nbody,\n#rotationalMosaic\n{\nposition: fixed;\nleft: 0;\ntop: 0;\nwidth: 100%;\nheight: 100%;\n}\n</style>\n\n<div id=\"rotationalMosaic\"></div>\n\n<script>\nvar viewer = OpenSeadragon({\nid: 'rotationalMosaic',\nprefixUrl: 'icons/',\ntileSources:   \"" + outputImage + ".dzi\",\nminZoomImageRatio: 0,\nmaxZoomImageRatio: 1\n});\n</script>\n</body>\n</html>";
+    htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<style>\nhtml,\nbody,\n#collage\n{\nposition: fixed;\nleft: 0;\ntop: 0;\nwidth: 100%;\nheight: 100%;\n}\n</style>\n\n<div id=\"collage\"></div>\n\n<script>\nvar viewer = OpenSeadragon({\nid: 'collage',\nprefixUrl: 'icons/',\ntileSources:   \"" + outputImage + ".dzi\",\nminZoomImageRatio: 0,\nmaxZoomImageRatio: 1\n});\n</script>\n</body>\n</html>";
     htmlFile.close();
   }
 }
 
-void RunRotational( string inputName, string outputName, vector< string > inputDirectory, int angleOffset, double imageScale, double renderScale, int fillPercentage, bool trueColor, string fileName, int minSize, int maxSize )
+void RunCollage( string inputName, string outputName, vector< string > inputDirectory, int angleOffset, double imageScale, double renderScale, int fillPercentage, bool trueColor, string fileName, int minSize, int maxSize )
 {
   vector< vector< unsigned char > > images, masks;
   vector< pair< int, int > > dimensions;
@@ -815,7 +814,7 @@ void RunRotational( string inputName, string outputName, vector< string > inputD
     {
       string imageDirectory = inputDirectory[i];
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      generateRotationalThumbnails( imageDirectory, images, masks, dimensions, imageScale, renderScale, minSize, maxSize );
+      generateCollageThumbnails( imageDirectory, images, masks, dimensions, imageScale, renderScale, minSize, maxSize );
     }
 
     if( fileName != " " )
@@ -842,5 +841,5 @@ void RunRotational( string inputName, string outputName, vector< string > inputD
     }
   }
 
-  buildRotationalImage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, angleOffset, fillPercentage, trueColor );
+  buildCollage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, angleOffset, fillPercentage, trueColor );
 }

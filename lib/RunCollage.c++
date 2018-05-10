@@ -1,4 +1,4 @@
-#include "Rotational.h"
+#include "Collage.h"
 #include <tclap/CmdLine.h>
 
 using namespace TCLAP;
@@ -7,7 +7,7 @@ int main( int argc, char **argv )
 {
   try
   {
-    CmdLine cmd("Creates an image mosaic.", ' ', "2.0");
+    CmdLine cmd("Creates a collage.", ' ', "2.0");
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
@@ -47,7 +47,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunRotational( inputName, outputName, inputDirectory, angleOffset, imageScale, renderScale, fillPercentage, trueColor, fileName, minSize, maxSize );
+    RunCollage( inputName, outputName, inputDirectory, angleOffset, imageScale, renderScale, fillPercentage, trueColor, fileName, minSize, maxSize );
   }
   catch (ArgException &e)  // catch any exceptions
   {
