@@ -11,17 +11,19 @@ int main( int argc, char **argv )
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
-    ValueArg<int> numSkipArg( "s", "skip", "Number of opaque pixels random points to skip", false, 1000000, "int", cmd);
-
     SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
 
-    ValueArg<int> angleOffsetArg( "a", "angleOffset", "Angle offset", true, 90, "int", cmd);
+    ValueArg<int> maxSizeArg( "", "max", "Max size of image before processing", false, -1, "int", cmd);
 
-    ValueArg<double> renderScaleArg( "r", "renderScale", "Render scale", true, 1.0, "double", cmd);
+    ValueArg<int> minSizeArg( "", "min", "Min size of image before processing", false, -1, "int", cmd);
 
-    ValueArg<double> imageScaleArg( "i", "imageScale", "Image scale", true, 1.0, "double", cmd);
+    ValueArg<int> fillPercentageArg( "f", "fillPercentage", "Percentage of output to fill", false, 100, "int", cmd);
 
-    ValueArg<int> numIterArg( "n", "numIter", "Number of iterations", true, 1000, "int", cmd);
+    ValueArg<int> angleOffsetArg( "a", "angleOffset", "Angle offset", false, 90, "int", cmd);
+
+    ValueArg<double> renderScaleArg( "r", "renderScale", "Render scale", false, 1.0, "double", cmd);
+
+    ValueArg<double> imageScaleArg( "i", "imageScale", "Image scale", false, 1.0, "double", cmd);
 
     ValueArg<string> outputArg( "o", "output", "Output name", true, "out", "string", cmd);
 
@@ -37,14 +39,15 @@ int main( int argc, char **argv )
     double imageScale                 = imageScaleArg.getValue();
     double renderScale                = renderScaleArg.getValue();
     int angleOffset                   = angleOffsetArg.getValue();
-    int numIter                       = numIterArg.getValue();
+    int fillPercentage                = fillPercentageArg.getValue();
+    int maxSize                       = maxSizeArg.getValue();
+    int minSize                       = minSizeArg.getValue();
     bool trueColor                    = colorArg.getValue();
-    int numSkip                       = numSkipArg.getValue();
     string fileName                   = fileArg.getValue();
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunRotational( inputName, outputName, inputDirectory, numIter, angleOffset, imageScale, renderScale, numSkip, trueColor, fileName );
+    RunRotational( inputName, outputName, inputDirectory, angleOffset, imageScale, renderScale, fillPercentage, trueColor, fileName, minSize, maxSize );
   }
   catch (ArgException &e)  // catch any exceptions
   {

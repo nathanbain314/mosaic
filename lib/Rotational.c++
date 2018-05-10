@@ -1,6 +1,6 @@
 #include "Rotational.h"
 
-void generateRotationalThumbnails( string imageDirectory, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double scale, double renderScale )
+void generateRotationalThumbnails( string imageDirectory, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double scale, double renderScale, int minSize, int maxSize )
 {
   DIR *dir;
   struct dirent *ent;
@@ -40,7 +40,19 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
 
       // Load image and create white one band image of the same size
       VImage image = VImage::vipsload( (char *)str.c_str() );
-      VImage white = VImage::black(image.width(),image.height()).invert();
+
+      int width = image.width();
+      int height = image.height();
+
+      int maxDimension = max( width, height );
+
+      if( minSize > -1 && ( image.width() < minSize || image.height() < minSize ) ) continue;
+      if( maxSize > -1 && maxDimension > maxSize ) image = image.resize( (double)maxSize/(double)maxDimension );
+
+      width = image.width();
+      height = image.height();
+
+      VImage white = VImage::black(width,height).invert();
 
       // Turn grayscale images into 3 band or 4 band images
       if( image.bands() == 1 )
@@ -54,9 +66,6 @@ void generateRotationalThumbnails( string imageDirectory, vector< vector< unsign
       }
 
       processing_images->Increment();
-
-      int width = image.width();
-      int height = image.height();
 
       // Create image and mask of scale size
       VImage testImage = image.similarity(VImage::option()->set("scale",scale));
@@ -386,7 +395,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
   }
 }
 
-void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int numIter, int angleOffset, int numSkip, bool trueColor )
+void buildRotationalImage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int angleOffset, int fillPercentage, bool trueColor )
 {
   VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );
 
@@ -413,31 +422,38 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
   unsigned long long outputSize = (unsigned long long)outputWidth*(unsigned long long)outputHeight*3ULL;
 
   // Create black images of output and masks
-//  unsigned char * outputData = ( unsigned char * )calloc (outputSize,sizeof(unsigned char));
   unsigned char * computeMaskData = ( unsigned char * )calloc (imageWidth*imageHeight,sizeof(unsigned char));
-//  unsigned char * outputMaskData = ( unsigned char * )calloc ((unsigned long long)outputWidth*(unsigned long long)outputHeight,sizeof(unsigned char));
-
-  ProgressBar *processing_images = new ProgressBar(numIter, "Generating mosaic");
 
   vector< pair< int, int > > points;
   vector< pair< int, double > > bestImages;
 
-  // Run for every iteration
-  for( int inc = 0; inc < numIter; ++inc )
-  {
-    // Place image at random point
-    int y = rand()%(imageHeight);
-    int x = rand()%(imageWidth);
+  // Create random list of points
+//  vector< int > indices( imageWidth*imageHeight );
+//  iota( indices.begin(), indices.end(), 0 );
+//  shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
 
-    // Only choose point if it is not already taken
-    if( numSkip > -1 && computeMaskData[y*imageWidth+x]==255)
+  unsigned long long alphaSum = 0;
+
+  unsigned long long stopAlphaSum = (unsigned long long)imageWidth * (unsigned long long)imageHeight * 255ULL * (unsigned long long)fillPercentage / 100ULL;
+
+  ProgressBar *processing_images = new ProgressBar(stopAlphaSum, "Generating mosaic");
+
+//  int currentPoint = 0;
+
+  int x, y;
+
+  while( alphaSum < stopAlphaSum )
+  {
+    do
     {
-      if( --numSkip < 0 ) break;
-      --inc;
-      continue;
+      // Place image at random point
+      y = rand()%(imageHeight);
+      x = rand()%(imageWidth);
     }
-  
-    processing_images->Increment();
+    // Only choose point if it is not already taken
+    while( computeMaskData[y*imageWidth+x] == 255);
+
+    processing_images->Progressed(alphaSum);
 
     int bestImage = -1;
     double bestDifference = DBL_MAX, bestAngle = 0;
@@ -508,7 +524,11 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
 
         unsigned long long index = (unsigned long long)iy*(unsigned long long)imageWidth+(unsigned long long)ix;
 
+        int t = computeMaskData[index];
+
         computeMaskData[index] = min((int)computeMaskData[index] + (int)masks[bestImage][p],255);
+
+        alphaSum += (unsigned long long)(computeMaskData[index] - t);
       }
     }
 
@@ -748,7 +768,7 @@ void buildRotationalImage( string inputImage, string outputImage, vector< vector
   }
 }
 
-void RunRotational( string inputName, string outputName, vector< string > inputDirectory, int numIter, int angleOffset, double imageScale, double renderScale, int numSkip, bool trueColor, string fileName )
+void RunRotational( string inputName, string outputName, vector< string > inputDirectory, int angleOffset, double imageScale, double renderScale, int fillPercentage, bool trueColor, string fileName, int minSize, int maxSize )
 {
   vector< vector< unsigned char > > images, masks;
   vector< pair< int, int > > dimensions;
@@ -795,7 +815,7 @@ void RunRotational( string inputName, string outputName, vector< string > inputD
     {
       string imageDirectory = inputDirectory[i];
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      generateRotationalThumbnails( imageDirectory, images, masks, dimensions, imageScale, renderScale );
+      generateRotationalThumbnails( imageDirectory, images, masks, dimensions, imageScale, renderScale, minSize, maxSize );
     }
 
     if( fileName != " " )
@@ -822,5 +842,5 @@ void RunRotational( string inputName, string outputName, vector< string > inputD
     }
   }
 
-  buildRotationalImage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, numIter, angleOffset, numSkip, trueColor );
+  buildRotationalImage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, angleOffset, fillPercentage, trueColor );
 }
