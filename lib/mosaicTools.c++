@@ -375,8 +375,8 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   vector< bool > used( num_images, false );
 
   // Number of threads for multithreading: needs to be a square number
-  int threads = 9;
-  int sqrtThreads = sqrt(threads);
+  int sqrtThreads = ceil(sqrt(sysconf(_SC_NPROCESSORS_ONLN)));
+  int threads = sqrtThreads*sqrtThreads;
 
   // Totat number of tiles in block
   int total = ceil((double)numVertical/(double)sqrtThreads)*ceil((double)numHorizontal/(double)sqrtThreads);
@@ -574,8 +574,8 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
   vector< bool > used( num_images, false );
 
   // Number of threads for multithreading: needs to be a square number
-  int threads = 9;
-  int sqrtThreads = sqrt(threads);
+  int sqrtThreads = ceil(sqrt(sysconf(_SC_NPROCESSORS_ONLN)));
+  int threads = sqrtThreads*sqrtThreads;
 
   // Totat number of tiles in block
   int total = ceil((double)numVertical/(double)sqrtThreads)*ceil((double)numHorizontal/(double)sqrtThreads);

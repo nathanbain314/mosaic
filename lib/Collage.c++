@@ -451,7 +451,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
     int bestImage = -1;
     double bestDifference = DBL_MAX, bestAngle = 0;
 
-    int threads = 4;
+    int threads = sysconf(_SC_NPROCESSORS_ONLN);
 
     future< rotateResult > ret[threads];
 
@@ -669,7 +669,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
     g_mkdir(string(outputImage).append("_files/").c_str(), 0777);
     g_mkdir(string(outputImage).append("_files/").append(to_string(level)).c_str(), 0777);
 
-    int threads = 4;
+    int threads = sysconf(_SC_NPROCESSORS_ONLN);
 
     ProgressBar *topLevel = new ProgressBar(ceil((double)outputWidth/256.0)*ceil((double)outputHeight/((double)threads*256.0)), "Building top level");
 

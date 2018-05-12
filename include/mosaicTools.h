@@ -3,6 +3,7 @@
 #include <cmath>
 #include <climits>
 #include <dirent.h>
+#include <unistd.h>
 #include <future>
 #include <fstream>
 #include <algorithm>
