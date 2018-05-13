@@ -172,8 +172,8 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
       halfWidth = (double)newWidth/2.0;
       halfHeight = (double)newHeight/2.0;
 
-      xOffset += (cosAngle-1)*halfWidth - sinAngle*halfHeight;
-      yOffset += sinAngle*halfWidth + (cosAngle-1)*halfHeight;
+      double xOffset2 = (cosAngle-1.0)*halfWidth - sinAngle*halfHeight;
+      double yOffset2 = sinAngle*halfWidth + (cosAngle-1.0)*halfHeight;
 
       // Traverse data for rotated image to find difference from input image
       for( int iy = max( y - newHeight/2, 0 ), i = iy - y + newHeight/2, endy = min( imageHeight - y + newHeight/2, newHeight); i < endy; ++i, ++iy )
@@ -185,8 +185,8 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
         // Index of point in input image
         unsigned long long index = (unsigned long long)iy*(unsigned long long)imageWidth+(unsigned long long)ix;
 
-        double icos = i * cosAngle - yOffset;
-        double isin = i * sinAngle - xOffset;
+        double icos = (double)i * cosAngle;
+        double isin = (double)i * sinAngle;
 
         for( ; j < endx; ++j, ++index )
         {
@@ -194,8 +194,8 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
           if( computeMaskData[index] == 255 ) continue;
 
           // New x and y of rotated image point
-          int newX = j*cosAngle + isin; //rotateX(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
-          int newY = j*sinAngle + icos; //rotateY(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
+          int newX = (double)j*cosAngle - isin - xOffset2 - xOffset;
+          int newY = (double)j*sinAngle + icos - yOffset2 - yOffset;
 
           // Make sure that the point is within the image
           if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
