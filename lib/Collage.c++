@@ -172,14 +172,30 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
       halfWidth = (double)newWidth/2.0;
       halfHeight = (double)newHeight/2.0;
 
+      xOffset += (cosAngle-1)*halfWidth - sinAngle*halfHeight;
+      yOffset += sinAngle*halfWidth + (cosAngle-1)*halfHeight;
+
       // Traverse data for rotated image to find difference from input image
-      for( int i = 0; i < newHeight; ++i )
+      for( int iy = max( y - newHeight/2, 0 ), i = iy - y + newHeight/2, endy = min( imageHeight - y + newHeight/2, newHeight); i < endy; ++i, ++iy )
       {
-        for( int j = 0; j < newWidth; ++j )
+        int ix = max( x - newWidth/2, 0 );
+        int j = ix - x + newWidth/2;
+        int endx = min( imageWidth - x + newWidth/2, newWidth);
+
+        // Index of point in input image
+        unsigned long long index = (unsigned long long)iy*(unsigned long long)imageWidth+(unsigned long long)ix;
+
+        double icos = i * cosAngle - yOffset;
+        double isin = i * sinAngle - xOffset;
+
+        for( ; j < endx; ++j, ++index )
         {
+          // Make sure the the point is not fully colored
+          if( computeMaskData[index] == 255 ) continue;
+
           // New x and y of rotated image point
-          int newX = rotateX(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
-          int newY = rotateY(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
+          int newX = j*cosAngle + isin; //rotateX(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
+          int newY = j*sinAngle + icos; //rotateY(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
 
           // Make sure that the point is within the image
           if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
@@ -190,38 +206,15 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
           // Make sure that the point is not transparent
           if( masks[k][p] == 0 ) continue;
 
-          // Point in input image
-          int ix = x + j - newWidth/2;
-          int iy = y + i - newHeight/2;
-
-          // Make sure that the point is within the input image
-          if( (ix < 0) || (ix > imageWidth-1) || (iy < 0) || (iy > imageHeight-1) ) continue;
-
-          // Index of point in input image
-          unsigned long long index = (unsigned long long)iy*(unsigned long long)imageWidth+(unsigned long long)ix;
-
-          // Make sure the the point is not fully colored
-          if( computeMaskData[index] == 255 ) continue;
-
           // Update the number of pixels that are used
           ++usedPixels;
-
-          // Get the input image rgb values
-          unsigned char ir = imageData[3ULL*index+0ULL];
-          unsigned char ig = imageData[3ULL*index+1ULL];
-          unsigned char ib = imageData[3ULL*index+2ULL];
-
-          // Get the image rgb values
-          unsigned char tr = images[k][3*p+0];
-          unsigned char tg = images[k][3*p+1];
-          unsigned char tb = images[k][3*p+2];
 
           if( trueColor )
           {
             float l1,a1,b1,l2,a2,b2;
             // Convert rgb to rgb16
-            vips_col_sRGB2scRGB_16(ir,ig,ib, &l1,&a1,&b1 );
-            vips_col_sRGB2scRGB_16(tr,tg,tb, &l2,&a2,&b2 );
+            vips_col_sRGB2scRGB_16(imageData[3ULL*index+0ULL],imageData[3ULL*index+1ULL],imageData[3ULL*index+2ULL], &l1,&a1,&b1 );
+            vips_col_sRGB2scRGB_16(images[k][3*p+0],images[k][3*p+1],images[k][3*p+2], &l2,&a2,&b2 );
             // Convert rgb16 to xyz
             vips_col_scRGB2XYZ( l1, a1, b1, &l1, &a1, &b1 );
             vips_col_scRGB2XYZ( l2, a2, b2, &l2, &a2, &b2 );
@@ -234,8 +227,11 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
           else
           {
             // Compute the sum-of-squares for color difference
-            difference += (ir-tr)*(ir-tr) + (ig-tg)*(ig-tg) + (ib-tb)*(ib-tb);
-          
+            int ir = imageData[3ULL*index+0ULL]-images[k][3*p+0];
+            int ig = imageData[3ULL*index+1ULL]-images[k][3*p+1];
+            int ib = imageData[3ULL*index+2ULL]-images[k][3*p+2];
+
+            difference += ir*ir + ig*ig + ib*ib;
           }
         }
       }
@@ -451,7 +447,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
     int bestImage = -1;
     double bestDifference = DBL_MAX, bestAngle = 0;
 
-    int threads = sysconf(_SC_NPROCESSORS_ONLN);
+    int threads = 4;
 
     future< rotateResult > ret[threads];
 
@@ -669,7 +665,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
     g_mkdir(string(outputImage).append("_files/").c_str(), 0777);
     g_mkdir(string(outputImage).append("_files/").append(to_string(level)).c_str(), 0777);
 
-    int threads = sysconf(_SC_NPROCESSORS_ONLN);
+    int threads = 4;
 
     ProgressBar *topLevel = new ProgressBar(ceil((double)outputWidth/256.0)*ceil((double)outputHeight/((double)threads*256.0)), "Building top level");
 
