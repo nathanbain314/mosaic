@@ -74,6 +74,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
   vector< vector< unsigned char > > imageTileData;
   vector< vector< int > > d;
   vector< int > sequenceStarts;
+  vector< int > inputTileStarts;
   vector< int > idx;
 
   bool loadData = (fileName != " ");
@@ -89,25 +90,6 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
       data.read( (char *)&mosaicTileHeight, sizeof(int) );
       data.read( (char *)&imageTileWidth, sizeof(int) );
       data.read( (char *)&imageTileHeight, sizeof(int) );
-
-      for( int i = 0; i < numImages; ++i )
-      {
-        int strLen, cropX, cropY, rot;
-        bool flip;
-        string str;
-        data.read((char *)&strLen, sizeof(int));
-        char* temp = new char[strLen+1];
-        data.read(temp, strLen);
-        temp[strLen] = '\0';
-        str = temp;
-        delete [] temp;
-        data.read((char *)&cropX, sizeof(int));
-        data.read((char *)&cropY, sizeof(int));
-        data.read((char *)&rot, sizeof(int));
-        data.read((char *)&flip, sizeof(bool));
-
-        cropData.push_back(make_tuple(str,cropX,cropY,rot,flip));
-      }
     
       mosaicTileData.resize( numImages );
       
@@ -125,8 +107,21 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
         {
           imageTileData[i].resize( imageTileWidth*imageTileHeight*3 );
           data.read((char *)imageTileData[i].data(), imageTileData[i].size()*sizeof(unsigned char));
-        } 
+        }
       }
+
+      int inputTileStartsLength;
+      data.read((char *)&inputTileStartsLength, sizeof(int));
+
+      inputTileStarts.resize( inputTileStartsLength );
+      data.read((char *)inputTileStarts.data(), inputTileStartsLength*sizeof(int));
+
+      int idxLength;
+      data.read((char *)&idxLength, sizeof(int));
+
+      idx.resize( idxLength );
+      data.read((char *)idx.data(), idxLength*sizeof(int));
+ 
     }
     else
     {
@@ -151,20 +146,11 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
 
       sort(idx.begin()+numImages, idx.end(), [&cropData](int i1, int i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
 
-      for( int j = numImages, l = d.size(); j < mosaicTileData.size()-frames; j+=skip, ++l )
-      {
-        d.push_back(vector< int >(tileArea*frames));
-        sequenceStarts.push_back(j);
-        for( int k = 0; k < frames; ++k )
-        {
-          for( int p = 0; p < tileArea; ++p )
-          {
-            d[l][k*tileArea+p] = mosaicTileData[idx[j+k]][p];
-          }
-        }
-      }
+      inputTileStarts.push_back(numImages);
 
       numImages = mosaicTileData.size();
+
+      inputTileStarts.push_back(numImages);
     }
 
     if( numImages == 0 ) 
@@ -188,18 +174,6 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
 
       for( int i = 0; i < numImages; ++i )
       {
-        string str = get<0>(cropData[i]);
-        int strLen = str.length();
-        data.write((char *)&strLen,sizeof(strLen));
-        data.write((char *)str.c_str(), strLen);
-        data.write((char *)&get<1>(cropData[i]),sizeof(int));
-        data.write((char *)&get<2>(cropData[i]),sizeof(int));
-        data.write((char *)&get<3>(cropData[i]),sizeof(int));
-        data.write((char *)&get<4>(cropData[i]),sizeof(bool));
-      }
-
-      for( int i = 0; i < numImages; ++i )
-      {
         data.write((char *)&mosaicTileData[i].front(), mosaicTileData[i].size() * sizeof(unsigned char)); 
       }
 
@@ -208,6 +182,30 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
         for( int i = 0; i < numImages; ++i )
         {
           data.write((char *)&imageTileData[i].front(), imageTileData[i].size() * sizeof(unsigned char)); 
+        }
+      }
+
+      int inputTileStartsLength = inputTileStarts.size();
+
+      data.write((char *)&inputTileStartsLength, sizeof(int));
+      data.write((char *)&inputTileStarts.front(), inputTileStartsLength*sizeof(int));
+
+      data.write((char *)&numImages, sizeof(int));
+      data.write((char *)&idx.front(), numImages*sizeof(int));
+    }
+  }
+
+  for( int i = 0; i < inputTileStarts.size(); i+=2 )
+  {
+    for( int j = inputTileStarts[i], l = d.size(); j < inputTileStarts[i+1]-frames; j+=skip, ++l )
+    {
+      d.push_back(vector< int >(tileArea*frames));
+      sequenceStarts.push_back(j);
+      for( int k = 0; k < frames; ++k )
+      {
+        for( int p = 0; p < tileArea; ++p )
+        {
+          d[l][k*tileArea+p] = mosaicTileData[idx[j+k]][p];
         }
       }
     }
