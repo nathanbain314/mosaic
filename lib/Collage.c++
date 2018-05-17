@@ -132,7 +132,7 @@ int rotateY( double x, double y, double cosAngle, double sinAngle, double halfWi
   return sinAngle*(x-halfWidth) + cosAngle*(y-halfHeight) + halfHeight;
 }
 
-rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int imageHeight, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char * imageData, unsigned char * computeMaskData, int angleOffset, bool trueColor )
+rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int imageHeight, int skip, int iteration, vector< int > &lastUsed, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char * imageData, unsigned char * computeMaskData, int angleOffset, bool trueColor )
 {
   int bestImage = -1;
   double bestDifference = DBL_MAX, bestAngle = 0;
@@ -141,6 +141,8 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
   // Round down to nearest even number
   for( int k = start-start%2; k < end-end%2; k+=2 )
   {
+    if( skip >=0 && iteration - lastUsed[k>>1] <= skip ) continue;
+
     // Rotate image for every angleOffset angles
     for( double a = 0; a < 360; a += angleOffset )
     {
@@ -237,7 +239,7 @@ rotateResult findSmallest( int x, int y, int start, int end, int imageWidth, int
       }
 
       // If the image is more similar then choose this one as the best image and angle
-      if( difference/usedPixels < bestDifference )
+      if( usedPixels > 0 && difference/usedPixels < bestDifference )
       {
         bestDifference = difference/usedPixels;
         bestImage = k;
@@ -391,7 +393,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
   }
 }
 
-void buildCollage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int angleOffset, int fillPercentage, bool trueColor )
+void buildCollage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int angleOffset, int fillPercentage, bool trueColor, int skip )
 {
   VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );
 
@@ -423,13 +425,15 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
   vector< pair< int, int > > points;
   vector< pair< int, double > > bestImages;
 
+  vector< int > lastUsed( images.size()/2, -skip-1 );
+
   unsigned long long alphaSum = 0;
 
   unsigned long long stopAlphaSum = (unsigned long long)imageWidth * (unsigned long long)imageHeight * 255ULL * (unsigned long long)fillPercentage / 100ULL;
 
   ProgressBar *processing_images = new ProgressBar(stopAlphaSum, "Generating collage");
 
-  int x, y;
+  int x, y, iteration = 0;
 
   while( alphaSum < stopAlphaSum )
   {
@@ -453,7 +457,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
 
     for( int k = 0; k < threads; ++k )
     {
-      ret[k] = async( launch::async, &findSmallest, x, y, k*images.size()/threads, (k+1)*images.size()/threads, imageWidth, imageHeight, ref(images), ref(masks), ref(dimensions), imageData, computeMaskData, angleOffset, trueColor );
+      ret[k] = async( launch::async, &findSmallest, x, y, k*images.size()/threads, (k+1)*images.size()/threads, imageWidth, imageHeight, skip, iteration, ref(lastUsed), ref(images), ref(masks), ref(dimensions), imageData, computeMaskData, angleOffset, trueColor );
     }
 
     // Wait for threads to finish
@@ -523,6 +527,10 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
 
     points.push_back( pair< int, int >(x,y) );
     bestImages.push_back( pair< int, double >(bestImage,bestAngle) );
+
+    lastUsed[bestImage>>1] = iteration;
+
+    ++iteration;
   }
 
   processing_images->Finish();
@@ -763,7 +771,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
   }
 }
 
-void RunCollage( string inputName, string outputName, vector< string > inputDirectory, int angleOffset, double imageScale, double renderScale, int fillPercentage, bool trueColor, string fileName, int minSize, int maxSize )
+void RunCollage( string inputName, string outputName, vector< string > inputDirectory, int angleOffset, double imageScale, double renderScale, int fillPercentage, bool trueColor, string fileName, int minSize, int maxSize, int skip )
 {
   vector< vector< unsigned char > > images, masks;
   vector< pair< int, int > > dimensions;
@@ -837,5 +845,7 @@ void RunCollage( string inputName, string outputName, vector< string > inputDire
     }
   }
 
-  buildCollage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, angleOffset, fillPercentage, trueColor );
+  skip = min( skip, (((int)images.size())>>1)-1 );
+
+  buildCollage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, angleOffset, fillPercentage, trueColor, skip );
 }

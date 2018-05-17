@@ -1,5 +1,38 @@
 #include "Video.h"
 
+void videoThread( int start, int end, int numHorizontal, int p, int frames, int mosaicTileWidth, int mosaicTileHeight, int tileArea, int width, my_kd_tree_t &mat_index, vector< vector< vector< int > > > &e, vector< vector< int > > &starts, vector< vector< vector< int > > > &mosaic,   vector< int > &sequenceStarts, unsigned char *c )
+{
+  size_t ret_index;
+  int out_dist_sqr;
+  nanoflann::KNNResultSet<int> resultSet(1);
+
+  for( int i = start; i < end; ++i )
+  {
+    for( int j = 0; j < numHorizontal; ++j )
+    {
+      int p2 = p - starts[i][j];
+      if( p2 >= 0 )
+      {
+        for( int y = i*mosaicTileHeight,ii=tileArea*(p2%frames); y < (i+1)*mosaicTileHeight; ++y )
+        {
+          for( int x = j*mosaicTileWidth, jj = 3*(width*y+x); x < (j+1)*mosaicTileWidth; ++x, ++ii, ++jj )
+          {
+            e[i][j][ii] = c[jj];
+            e[i][j][++ii] = c[++jj];
+            e[i][j][++ii] = c[++jj];
+          }
+        }
+
+        if(p2%frames == frames-1 && p2/frames < mosaic.size() )
+        {
+          mat_index.query( &e[i][j][0], 1, &ret_index, &out_dist_sqr );
+          mosaic[p2/frames][i][j] = sequenceStarts[ret_index];
+        }
+      }
+    }
+  }
+}
+
 void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, int frames, int skip )
 {
   vector< string > inputImages;
@@ -197,11 +230,9 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
 
   my_kd_tree_t mat_index(tileArea, d, 10 );
 
-  size_t ret_index;
-  int out_dist_sqr;
-  nanoflann::KNNResultSet<int> resultSet(1);
-
   ProgressBar *processing_video = new ProgressBar(inputImages.size(), "Processing video");
+
+  int threads = sysconf(_SC_NPROCESSORS_ONLN);
 
   for( int p = 0; p < inputImages.size(); ++p )
   {
@@ -209,26 +240,19 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     image = image.resize( (double)(numHorizontal*mosaicTileWidth) / (double)(image.width()) );
     unsigned char * c = ( unsigned char * )image.data();
 
-    for( int i = 0; i < numVertical; ++i )
-      for( int j = 0; j < numHorizontal; ++j )
-      {
-        int p2 = p - starts[i][j];
-        if( p2 >= 0 )
-        {
-          for( int y = i*mosaicTileHeight,ii=0; y < (i+1)*mosaicTileHeight; ++y )
-            for( int x = j*mosaicTileWidth; x < (j+1)*mosaicTileWidth; ++x )
-            {
-              e[i][j][tileArea*(p2%frames)+ii++] = c[3*(image.width()*y+x)+0];
-              e[i][j][tileArea*(p2%frames)+ii++] = c[3*(image.width()*y+x)+1];
-              e[i][j][tileArea*(p2%frames)+ii++] = c[3*(image.width()*y+x)+2];
-            }
-          if(p2%frames == frames-1 && p2/frames < mosaic.size() )
-          {
-            mat_index.query( &e[i][j][0], 1, &ret_index, &out_dist_sqr );
-            mosaic[p2/frames][i][j] = sequenceStarts[ret_index];
-          }
-        }
-      }
+    future< void > ret[threads];
+
+    for( int k = 0; k < threads; ++k )
+    {
+      ret[k] = async( launch::async, &videoThread, k*numVertical/threads, (k+1)*numVertical/threads, numHorizontal, p, frames, mosaicTileWidth, mosaicTileHeight, tileArea, image.width(), ref(mat_index), ref(e), ref(starts), ref(mosaic), ref(sequenceStarts), c );
+    }
+
+    // Wait for threads to finish
+    for( int k = 0; k < threads; ++k )
+    {
+      ret[k].get();
+    }
+
     processing_video->Increment();
   }
 

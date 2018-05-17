@@ -17,6 +17,8 @@ int main( int argc, char **argv )
 
     ValueArg<int> minSizeArg( "", "min", "Min size of image before processing", false, -1, "int", cmd);
 
+    ValueArg<int> skipArg( "s", "skip", "Number of times to skip over an image before using it again", false, 0, "int", cmd);
+
     ValueArg<int> fillPercentageArg( "f", "fillPercentage", "Percentage of output to fill", false, 100, "int", cmd);
 
     ValueArg<int> angleOffsetArg( "a", "angleOffset", "Angle offset", false, 90, "int", cmd);
@@ -40,6 +42,7 @@ int main( int argc, char **argv )
     double renderScale                = renderScaleArg.getValue();
     int angleOffset                   = angleOffsetArg.getValue();
     int fillPercentage                = fillPercentageArg.getValue();
+    int skip                          = skipArg.getValue();
     int maxSize                       = maxSizeArg.getValue();
     int minSize                       = minSizeArg.getValue();
     bool trueColor                    = colorArg.getValue();
@@ -47,7 +50,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunCollage( inputName, outputName, inputDirectory, angleOffset, imageScale, renderScale, fillPercentage, trueColor, fileName, minSize, maxSize );
+    RunCollage( inputName, outputName, inputDirectory, angleOffset, imageScale, renderScale, fillPercentage, trueColor, fileName, minSize, maxSize, skip );
   }
   catch (ArgException &e)  // catch any exceptions
   {
