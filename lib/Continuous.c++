@@ -191,13 +191,12 @@ void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VI
   htmlFile << "];";
 }
 
-void RunContinuous( string inputDirectory, string outputDirectory, int mosaicTileSize, bool trueColor, int repeat )
+void RunContinuous( vector< string > inputDirectory, string outputDirectory, int mosaicTileSize, bool trueColor, int repeat )
 {
   int tileWidth = ( mosaicTileSize > 0 && mosaicTileSize < 64 ) ? mosaicTileSize : 64;
   int tileWidthSqr = tileWidth*tileWidth;
   int tileArea = tileWidthSqr*3;
 
-  if( inputDirectory.back() != '/' ) inputDirectory += '/';
   if( outputDirectory.back() != '/' ) outputDirectory += '/';
 
   g_mkdir(outputDirectory.c_str(), 0777);
@@ -206,7 +205,12 @@ void RunContinuous( string inputDirectory, string outputDirectory, int mosaicTil
   vector< cropType > cropData;
   vector< VImage > images;
 
-  generateThumbnails( cropData, startData, startData, inputDirectory, tileWidth, tileWidth, tileWidth, tileWidth );
+  for( int i = 0; i < inputDirectory.size(); ++i )
+  {
+    string imageDirectory = inputDirectory[i];
+    if( imageDirectory.back() != '/' ) imageDirectory += '/';
+    generateThumbnails( cropData, startData, startData, inputDirectory, imageDirectory, tileWidth, tileWidth, tileWidth, tileWidth );
+  }
 
   int numImages = cropData.size();
 

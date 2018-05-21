@@ -1,6 +1,6 @@
 #include "mosaicTools.h"
 
-void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight,  bool exclude, bool spin, int cropStyle, bool flip, bool quiet )
+void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< string > &inputDirectory, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight,  bool exclude, bool spin, int cropStyle, bool flip, bool quiet, bool recursiveSearch )
 {
   // Used for reading directory
   DIR *dir;
@@ -27,11 +27,15 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
   if ((dir = opendir (imageDirectory.c_str())) != NULL) 
   {
     while ((ent = readdir (dir)) != NULL)
-    {   
+    {
       if( ent->d_name[0] != '.' && vips_foreign_find_load( string( imageDirectory + ent->d_name ).c_str() ) != NULL )
       {
         names.push_back( imageDirectory + ent->d_name );
         cout << "\rFound " << ++num_images << " images " << flush;
+      }
+      else if( recursiveSearch && ent->d_name[0] != '.' && ent->d_type == DT_DIR )
+      {
+        inputDirectory.push_back( imageDirectory + ent->d_name );
       }
     }
   }

@@ -11,6 +11,8 @@ int main( int argc, char **argv )
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
+    SwitchArg recursiveArg( "", "recursive", "Recursive search directories", cmd, false );
+
     SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
 
     ValueArg<int> maxSizeArg( "", "max", "Max size of image before processing", false, -1, "int", cmd);
@@ -46,11 +48,12 @@ int main( int argc, char **argv )
     int maxSize                       = maxSizeArg.getValue();
     int minSize                       = minSizeArg.getValue();
     bool trueColor                    = colorArg.getValue();
+    bool recursiveSearch              = recursiveArg.getValue();
     string fileName                   = fileArg.getValue();
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunCollage( inputName, outputName, inputDirectory, angleOffset, imageScale, renderScale, fillPercentage, trueColor, fileName, minSize, maxSize, skip );
+    RunCollage( inputName, outputName, inputDirectory, angleOffset, imageScale, renderScale, fillPercentage, trueColor, fileName, minSize, maxSize, skip, recursiveSearch );
   }
   catch (ArgException &e)  // catch any exceptions
   {

@@ -9,6 +9,8 @@ int main( int argc, char **argv )
   {
     CmdLine cmd("Creates an image mosaic.", ' ', "2.0");
 
+    SwitchArg recursiveArg( "", "recursive", "Recursive search directories", cmd, false );
+
     SwitchArg quietArg( "q", "quiet", "Limit output", cmd, false );
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
@@ -48,6 +50,7 @@ int main( int argc, char **argv )
     bool flip                         = flipArg.getValue();
     bool spin                         = spinArg.getValue();
     bool quiet                        = quietArg.getValue();
+    bool recursiveSearch              = recursiveArg.getValue();
     int cropStyle                     = cropStyleArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
@@ -56,7 +59,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunMosaic( inputName, outputName, inputDirectory, numHorizontal, trueColor, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, quiet );
+    RunMosaic( inputName, outputName, inputDirectory, numHorizontal, trueColor, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, quiet, recursiveSearch );
   }
   catch (ArgException &e)  // catch any exceptions
   {

@@ -11,6 +11,8 @@ int main( int argc, char **argv )
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
+    SwitchArg recursiveArg( "", "recursive", "Recursive search directories", cmd, false );
+
     ValueArg<int> skipTileArg( "s", "skip", "Number of frames to skip in between each video", false, 30, "int", cmd);
 
     ValueArg<int> framesTileArg( "f", "frames", "Number of frames in each video", false, 30, "int", cmd);
@@ -41,6 +43,7 @@ int main( int argc, char **argv )
     int repeat                        = repeatArg.getValue();
     int numHorizontal                 = numberArg.getValue();
     bool trueColor                    = colorArg.getValue();
+    bool recursiveSearch              = recursiveArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
     int imageTileWidth                = imageTileArg.getValue();
@@ -50,7 +53,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunMosaic( inputName, outputName, inputDirectory, numHorizontal, trueColor, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, frames, skip );
+    RunVideo( inputName, outputName, inputDirectory, numHorizontal, trueColor, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, frames, skip, recursiveSearch );
   }
   catch (ArgException &e)  // catch any exceptions
   {

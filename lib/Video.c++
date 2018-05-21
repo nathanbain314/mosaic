@@ -33,7 +33,7 @@ void videoThread( int start, int end, int numHorizontal, int p, int frames, int 
   }
 }
 
-void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, int frames, int skip )
+void RunVideo( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, int frames, int skip, bool recursiveSearch )
 {
   vector< string > inputImages;
   vector< string > outputImages;
@@ -139,7 +139,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     {
       string imageDirectory = inputDirectory[i];
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight );
+      generateThumbnails( cropData, mosaicTileData, imageTileData, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, recursiveSearch );
 
       idx.resize(mosaicTileData.size());
       iota(idx.begin()+numImages, idx.end(), numImages);

@@ -19,15 +19,15 @@ int main( int argc, char **argv )
 
     ValueArg<string> outputArg( "o", "output", "Output name", true, "out", "string", cmd);
 
-    ValueArg<string> imagesArg( "i", "images", "Directory of images to use to build mosaic", true, "images", "string", cmd);
+    MultiArg<string> directoryArg( "d", "directory", "Directory of images to use to build mosaic", true, "string", cmd);
 
     cmd.parse( argc, argv );
 
-    string inputDirectory     = imagesArg.getValue();
-    string outputDirectory    = outputArg.getValue();
-    int repeat                = repeatArg.getValue();
-    bool trueColor            = colorArg.getValue();
-    int mosaicTileSize        = mosaicTileArg.getValue();
+    vector< string > inputDirectory   = directoryArg.getValue();
+    string outputDirectory            = outputArg.getValue();
+    int repeat                        = repeatArg.getValue();
+    bool trueColor                    = colorArg.getValue();
+    int mosaicTileSize                = mosaicTileArg.getValue();
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 

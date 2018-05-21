@@ -442,7 +442,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
   htmlFile << "\nvar mosaicTileWidth = " << tileWidth << ";\nvar mosaicTileHeight = " << tileHeight << ";\nvar mosaicWidth = " << numHorizontal << ";\nvar mosaicHeight = " << numVertical << ";\nvar mosaicLevel = " << mosaicStrings.size()-1 << ";\nvar minZoomablesLevel = " << minZoomablesLevel << ";\nvar maxZoomablesLevel = " << maxZoomablesLevel << ";\n";
 }
 
-void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, bool quiet )
+void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, bool quiet, bool recursiveSearch )
 {
   bool inputIsDirectory = (vips_foreign_find_save( inputName.c_str() ) == NULL);
   bool isDeepZoom = (vips_foreign_find_save( outputName.c_str() ) == NULL) && !inputIsDirectory;
@@ -551,7 +551,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     {
       string imageDirectory = inputDirectory[i];
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      generateThumbnails( cropData, mosaicTileData, imageTileData, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, isDeepZoom, spin, cropStyle, flip, quiet );
+      generateThumbnails( cropData, mosaicTileData, imageTileData, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, isDeepZoom, spin, cropStyle, flip, quiet, recursiveSearch );
     }
 
     numImages = mosaicTileData.size();

@@ -1,6 +1,6 @@
 #include "Collage.h"
 
-void generateCollageThumbnails( string imageDirectory, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double scale, double renderScale, int minSize, int maxSize )
+void generateCollageThumbnails( string imageDirectory, vector< string > &inputDirectory, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double scale, double renderScale, int minSize, int maxSize, bool recursiveSearch )
 {
   DIR *dir;
   struct dirent *ent;
@@ -22,6 +22,10 @@ void generateCollageThumbnails( string imageDirectory, vector< vector< unsigned 
         // Saves the full directory position of valid images
         names.push_back( imageDirectory + ent->d_name );
         cout << "\rFound " << ++num_images << " images " << flush;
+      }
+      else if( recursiveSearch && ent->d_name[0] != '.' && ent->d_type == DT_DIR )
+      {
+        inputDirectory.push_back( imageDirectory + ent->d_name );
       }
     }
   }
@@ -304,6 +308,31 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
         {
           for( int j = 0; j < newWidth; ++j )
           {
+            int newX = rotateX(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
+            int newY = rotateY(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
+
+            if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
+
+            int p = width*newY + newX;
+
+            // Make sure that image pixel is not transparent
+            if( masks[bestImage+1][p] == 0 ) continue;
+
+            int ix = x + j - newWidth/2;
+            int iy = y + i - newHeight/2;
+
+            ix -= tileOffsetX;// > 0 ? tileOffsetX-1 : 0;
+            iy -= tileOffsetY;// > 0 ? tileOffsetY-1: 0;
+
+            // Make sure that pixel is inside image
+            if( (ix < 0) || (ix > tileWidth - 1) || (iy < 0) || (iy > tileHeight - 1) ) continue;
+
+            // Set index
+            unsigned long long index = iy*tileWidth+ix;
+
+            // Make sure that output pixel is transparent
+            if( tileMaskData[index] == 255 ) continue;
+
             int r=0, g=0, b=0, m=0;
             int used = 0;
 
@@ -771,7 +800,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
   }
 }
 
-void RunCollage( string inputName, string outputName, vector< string > inputDirectory, int angleOffset, double imageScale, double renderScale, int fillPercentage, bool trueColor, string fileName, int minSize, int maxSize, int skip )
+void RunCollage( string inputName, string outputName, vector< string > inputDirectory, int angleOffset, double imageScale, double renderScale, int fillPercentage, bool trueColor, string fileName, int minSize, int maxSize, int skip, bool recursiveSearch )
 {
   vector< vector< unsigned char > > images, masks;
   vector< pair< int, int > > dimensions;
@@ -818,7 +847,7 @@ void RunCollage( string inputName, string outputName, vector< string > inputDire
     {
       string imageDirectory = inputDirectory[i];
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      generateCollageThumbnails( imageDirectory, images, masks, dimensions, imageScale, renderScale, minSize, maxSize );
+      generateCollageThumbnails( imageDirectory, inputDirectory, images, masks, dimensions, imageScale, renderScale, minSize, maxSize, recursiveSearch );
     }
 
     if( fileName != " " )
