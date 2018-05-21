@@ -366,13 +366,6 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
               ++used;
             }
 
-            int newX = rotateX(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
-            int newY = rotateY(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
-
-            if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
-
-            int p = width*newY + newX;
-
             r+=images[bestImage+1][3*p+0];
             g+=images[bestImage+1][3*p+1];
             b+=images[bestImage+1][3*p+2];
@@ -384,24 +377,6 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
             g/=used;
             b/=used;
             m/=used;
-
-            // Make sure that image pixel is not transparent
-            if( masks[bestImage+1][p] == 0 ) continue;
-
-            int ix = x + j - newWidth/2;
-            int iy = y + i - newHeight/2;
-
-            ix -= tileOffsetX;// > 0 ? tileOffsetX-1 : 0;
-            iy -= tileOffsetY;// > 0 ? tileOffsetY-1: 0;
-
-            // Make sure that pixel is inside image
-            if( (ix < 0) || (ix > tileWidth - 1) || (iy < 0) || (iy > tileHeight - 1) ) continue;
-
-            // Set index
-            unsigned long long index = iy*tileWidth+ix;
-
-            // Make sure that output pixel is transparent
-            if( tileMaskData[index] == 255 ) continue;
 
             // Set output colors
             tileData[3*index+0] = min(tileData[3*index+0]+int((double)(255-tileMaskData[index])*(double)r/255.0),255);
