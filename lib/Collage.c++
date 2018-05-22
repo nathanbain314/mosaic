@@ -259,13 +259,13 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
 {
   for( int tileOffsetY = start; tileOffsetY < end; tileOffsetY += 256 )
   {
-    int tileHeight = min( outputHeight - tileOffsetY, 256 ) + ( tileOffsetY > 0 && tileOffsetY + 256 < outputHeight );
+    int tileHeight = min( outputHeight - tileOffsetY, 256 );// + ( tileOffsetY > 0 && tileOffsetY + 256 < outputHeight );
 
     for( int tileOffsetX = 0; tileOffsetX < outputWidth; tileOffsetX += 256 )
     {
       if( start == 0 ) topLevel->Increment();
 
-      int tileWidth = min( outputWidth - tileOffsetX, 256 ) + ( tileOffsetX > 0 && tileOffsetX + 256 < outputWidth );
+      int tileWidth = min( outputWidth - tileOffsetX, 256 );// + ( tileOffsetX > 0 && tileOffsetX + 256 < outputWidth );
 
       unsigned char * tileMaskData = ( unsigned char * )calloc (tileHeight*tileWidth,sizeof(unsigned char));
       unsigned char * tileData = ( unsigned char * )calloc (tileHeight*tileWidth*3,sizeof(unsigned char));
