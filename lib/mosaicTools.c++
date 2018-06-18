@@ -94,10 +94,8 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
           case 3:
             int w2 = width/minRatio;
             int h2 = height/minRatio;
-            // In order to crop image multiple times, gifs need to be cached with 16x16 tiles, and averything else needs to be cached with the full image
-            image = vips_foreign_is_a("gifload",(char *)str.c_str()) ? 
-                    initImage.thumbnail_image(w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 )).cache(VImage::option()->set("tile_width",16)->set("tile_height",16)) : 
-                    initImage.thumbnail_image(w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 )).cache(VImage::option()->set("tile_width",w2)->set("tile_height",h2));
+
+            image = initImage.thumbnail_image(w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 )); 
             break;
         }
 
@@ -136,10 +134,8 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
             case 3:
               int w2 = (width*imageTileWidth)/(mosaicTileWidth*minRatio);
               int h2 = (height*imageTileWidth)/(mosaicTileWidth*minRatio);
-              // In order to crop image multiple times, gifs need to be cached with 16x16 tiles, and averything else needs to be cached with the full image
-              image2 = vips_foreign_is_a("gifload",(char *)str.c_str()) ? 
-                      initImage.thumbnail_image(w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 )).cache(VImage::option()->set("tile_width",16)->set("tile_height",16)) : 
-                      initImage.thumbnail_image(w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 )).cache(VImage::option()->set("tile_width",w2)->set("tile_height",h2));
+
+              image2 = initImage.thumbnail_image(w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 ));
               break;
           }
 
@@ -162,8 +158,8 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
             VImage newImage, newImage2;
 
             // Crop it correctly if it is a vertical or horizontal image
-            newImage = image.extract_area((!vertical)*ii,vertical*ii,mosaicTileWidth,mosaicTileHeight);
-            if(different) newImage2 = image2.extract_area((!vertical)*ii*imageTileWidth/mosaicTileWidth,vertical*ii*imageTileHeight/mosaicTileHeight,imageTileWidth,imageTileHeight);
+            newImage = image.copy().extract_area((!vertical)*ii,vertical*ii,mosaicTileWidth,mosaicTileHeight);
+            if(different) newImage2 = image2.copy().extract_area((!vertical)*ii*imageTileWidth/mosaicTileWidth,vertical*ii*imageTileHeight/mosaicTileHeight,imageTileWidth,imageTileHeight);
 
             // Mirror the image if flip is set
             for( int ff = flip; ff >= 0; --ff)

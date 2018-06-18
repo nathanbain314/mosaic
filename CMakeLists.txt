@@ -15,7 +15,7 @@ include_directories(include)
 
 file(GLOB SOURCE_FILES lib/mosaicTools.c++ lib/progress_bar.c++)
 
-set( EXECUTABLES Mosaic Collage Continuous Video )
+set( EXECUTABLES Mosaic Tessellate Collage Continuous Video )
 
 set (CMAKE_CXX_STANDARD 11)
 set(VIPS_LDFLAGS pthread ${VIPS_LDFLAGS})
