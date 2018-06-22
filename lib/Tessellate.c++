@@ -82,6 +82,8 @@ void buildImage( vector< vector< vector< unsigned char > > > &imageData, vector<
     int i = mosaicLocations[k][1];
     int t = mosaicLocations[k][4];
     
+//    cout << j << " " << i << " " << mosaicLocations[k][2] << " " << mosaicLocations[k][3] << " " << t << " " << tileWidth[t] << " " << outputWidth << " " << outputHeight << endl;
+
     for( int x = 0; x < shapeIndices[t].size(); ++x )
     {
       int l = 3 * ( ( i + shapeIndices[t][x]/tileWidth[t] ) * outputWidth + j + shapeIndices[t][x]%tileWidth[t] );
@@ -275,6 +277,9 @@ int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vec
                                                image.extract_area((image.width()-image.height())/2, 0, image.height(), image.height());
   }
 
+  // Resize the image for correct mosaic tile size
+  if( resize != 0 ) image = image.resize( (double)resize / (double)(image.width()) );
+
   int width = image.width();
   int height = image.height();
 
@@ -305,343 +310,65 @@ int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vec
     ret[k].get();
   }
 
-  return 00;
+  return 0;
 }
 
-void createLocations( vector< vector< int > > &mosaicLocations, vector< vector< int > > &mosaicLocations2, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int width, int height, int tessellateType )
+void createLocations( vector< vector< int > > &mosaicLocations, vector< vector< int > > &mosaicLocations2, vector< vector< double > > &offsets, vector< vector< double > > &dimensions, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int width, int height )
 {
-  switch( tessellateType )
+  for( int i = 0; i < offsets.size(); ++i )
   {
-    case 0:
+    double w = (double) mosaicTileWidth;
+    double h = (double) mosaicTileHeight;
+
+    double xHorizontalOffset = w * offsets[i][2];
+    double yHorizontalOffset = h * offsets[i][3];
+
+    double xVerticalOffset = w * offsets[i][4];
+    double yVerticalOffset = h * offsets[i][5];
+
+    double w2 = (double) imageTileWidth;
+    double h2 = (double) imageTileHeight;
+
+    double xHorizontalOffset2 = w2 * offsets[i][2];
+    double yHorizontalOffset2 = h2 * offsets[i][3];
+
+    double xVerticalOffset2 = w2 * offsets[i][4];
+    double yVerticalOffset2 = h2 * offsets[i][5];
+
+    double tileWidth = w * dimensions[offsets[i][4]][0];
+    double tileHeight = h * dimensions[offsets[i][4]][1];
+
+    double tileWidth2 = w2 * dimensions[offsets[i][4]][0];
+    double tileHeight2 = h2 * dimensions[offsets[i][4]][1];
+
+    for( double ySign = -1; ySign <= 1; ySign += 2 )
     {
-      double w = (double) mosaicTileWidth;
-      double h = (double) mosaicTileHeight;
-
-      double hw = w / 2.0;
-
-      double s = 2.0*h/(3.0*w);
-
-      for( int i = mosaicTileHeight, i2 = imageTileHeight; i <= height; i += 4*mosaicTileHeight/3, i2 += 4*imageTileHeight/3 )
+      for( double xSign = -1; xSign <= 1; xSign += 2 )
       {
-        for( int j = mosaicTileWidth, j2 = imageTileWidth; j <= width; j += mosaicTileWidth, j2 += imageTileWidth )
+        double startX = w * offsets[i][0] + tileWidth;
+        double startY = h * offsets[i][1] + tileHeight;
+
+        double startX2 = w2 * offsets[i][0] + tileWidth2;
+        double startY2 = h2 * offsets[i][1] + tileHeight2;
+
+        for( double y = startY, y2 = startY2; (ySign > 0 && startY < height) || (ySign < 0 && startY > -height); startY += ySign*yVerticalOffset, startY2 += ySign*yVerticalOffset2, startX += ySign*xVerticalOffset, startX2 += ySign*xVerticalOffset2)// y += yOffset, y2 += yOffset2 )
         {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 0 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 0 } );
+          for( double x = startX, x2 = startX2, y = startY, y2 = startY2; (xSign > 0 && x < width) || (xSign < 0 && x > -width); x += xSign*xHorizontalOffset, x2 += xSign*xHorizontalOffset2, y += xSign*yHorizontalOffset, y2 += xSign*yHorizontalOffset2 )
+          {
+            if( x - tileWidth >= 0 && y - tileHeight >= 0 && x < width && y < height )
+            {
+              mosaicLocations.push_back({ (int)round(x-tileWidth), (int)round(y-tileHeight), (int)round(x), (int)round(y), int(offsets[i][6]) } );
+
+              mosaicLocations2.push_back({ (int)round(x2-tileWidth2), (int)round(y2-tileHeight2), (int)round(x2), (int)round(y2), int(offsets[i][6]) } );
+            }
+          }
         }
       }
-
-      for( int i = 5*mosaicTileHeight/3, i2 = 5*imageTileHeight/3; i <= height; i += 4*mosaicTileHeight/3, i2 += 4*imageTileHeight/3 )
-      {
-        for( int j = 3*mosaicTileWidth/2, j2 = 3*imageTileWidth/2; j <= width; j += mosaicTileWidth, j2 += imageTileHeight )
-        {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 0 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 0 } );
-        }
-      }
-
-      break;
-    }
-
-    case 1:
-    {
-      double w = (double) mosaicTileWidth;
-      double h = (double) mosaicTileHeight;
-
-      double hw = w / 2.0;
-
-      double s = h/hw;
-
-      for( int i = mosaicTileHeight, i2 = imageTileHeight; i <= height; i += 4*mosaicTileHeight, i2 += 4*imageTileHeight )
-      {
-        for( int j = mosaicTileWidth, j2 = imageTileWidth; j <= width; j += mosaicTileWidth, j2 += imageTileWidth )
-        {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 0 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 0 } );
-        }
-      }
-
-      for( int i = mosaicTileHeight, i2 = imageTileHeight; i <= height; i += 4*mosaicTileHeight, i2 += 4*imageTileHeight )
-      {
-        for( int j = 3*mosaicTileWidth/2, j2 = 3*imageTileWidth/2; j <= width; j += mosaicTileWidth, j2 += imageTileWidth )
-        {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 1 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 1 } );
-        }
-      }
-
-      for( int i = 3*mosaicTileHeight, i2 = 3*imageTileHeight; i <= height; i += 4*mosaicTileHeight, i2 += 4*imageTileHeight )
-      {
-        for( int j = 3*mosaicTileWidth/2, j2 = 3*imageTileWidth/2; j <= width; j += mosaicTileWidth, j2 += imageTileWidth )
-        {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 0 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 0 } );
-        }
-      }
-
-      for( int i = 3*mosaicTileHeight, i2 = 3*imageTileHeight; i <= height; i += 4*mosaicTileHeight, i2 += 4*imageTileHeight )
-      {
-        for( int j = mosaicTileWidth, j2 = imageTileWidth; j <= width; j += mosaicTileWidth, j2 += imageTileWidth )
-        {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 1 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 1 } );
-        }
-      }
-
-      for( int i = 2*mosaicTileHeight, i2 = 2*imageTileHeight; i <= height; i += 4*mosaicTileHeight, i2 += 4*imageTileHeight )
-      {
-        for( int j = mosaicTileWidth, j2 = imageTileWidth; j <= width; j += mosaicTileWidth, j2 += imageTileWidth )
-        {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 2 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 2 } );
-        }
-      }
-
-      for( int i = 4*mosaicTileHeight, i2 = 4*imageTileHeight; i <= height; i += 4*mosaicTileHeight, i2 += 4*imageTileHeight )
-      {
-        for( int j = 3*mosaicTileWidth/2, j2 = 3*imageTileWidth/2; j <= width; j += mosaicTileWidth, j2 += imageTileWidth )
-        {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 2 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 2 } );
-        }
-      }
-
-      break;
-    }
-
-    case 2:
-    {
-      double w = (double) mosaicTileWidth;// * (sqrt(2.0)+1.0);
-      double h = (double) mosaicTileHeight;// * (sqrt(2.0)+1.0);
-
-      double w1 = floor(w / sqrt(2.0));
-      double w2 = floor(w * (1.0/sqrt(2)+1.0));
-      double h1 = floor(h / sqrt(2.0));
-      double h2 = floor(h * (1.0/sqrt(2)+1.0));
-
-      double wOffset = floor(w * (sqrt(2.0)+2.0));
-      double hOffset = floor(h * (sqrt(2.0)+2.0));
-
-      w = floor(w * (sqrt(2.0)+1.0));
-      h = floor(h * (sqrt(2.0)+1.0));
-
-      double w_2 = (double) imageTileWidth;// * (sqrt(2.0)+1.0);
-      double h_2 = (double) imageTileHeight;// * (sqrt(2.0)+1.0);
-
-      double w12 = floor(w_2 / sqrt(2.0));
-      double w22 = floor(w_2 * (1.0/sqrt(2)+1.0));
-      double h12 = floor(h_2 / sqrt(2.0));
-      double h22 = floor(h_2 * (1.0/sqrt(2)+1.0));
-
-      double wOffset2 = floor(w_2 * (sqrt(2.0)+2.0));
-      double hOffset2 = floor(h_2 * (sqrt(2.0)+2.0));
-
-      w_2 = floor(w_2 * (sqrt(2.0)+1.0));
-      h_2 = floor(h_2 * (sqrt(2.0)+1.0));
-
-
-      double s = h/w;
-
-      for( int i = h2, i2 = h22; i <= height; i += hOffset, i2 += hOffset2 )
-      {
-        for( int j = wOffset, j2 = wOffset2; j <= width; j += wOffset, j2 += wOffset2 )
-        {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 0 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 0 } );
-        }
-      }
-
-      for( int i = hOffset, i2 = hOffset2; i <= height; i += hOffset, i2 += hOffset2 )
-      {
-        for( int j = w2, j2 = w22; j <= width; j += wOffset, j2 += wOffset2 )
-        {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 0 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 0 } );
-        }
-      }
-
-      for( int i = h, i2 = h_2; i <= height; i += hOffset, i2 += hOffset2 )
-      {
-        for( int j = w, j2 = w_2; j <= width; j += wOffset, j2 += wOffset2 )
-        {
-          mosaicLocations.push_back({ int((double)j-w), int((double)i-h), j, i, 1 } );
-          mosaicLocations2.push_back({ int((double)j2-w_2), int((double)i2-h_2), j2, i2, 1 } );
-        }
-      }
-
-      for( int i = h+h2, i2 = h_2+h22; i <= height; i += hOffset, i2 += hOffset2 )
-      {
-        for( int j = w+w2, j2 = w_2+w22; j <= width; j += wOffset, j2 += wOffset2 )
-        {
-          mosaicLocations.push_back({ int((double)j-w), int((double)i-h), j, i, 1 } );
-          mosaicLocations2.push_back({ int((double)j2-w_2), int((double)i2-h_2), j2, i2, 1 } );
-        }
-      }
-
-      break;
-    }
-    case 3:
-    {
-      for( int i = mosaicTileHeight, i2 = imageTileHeight; i <= height; i += 3*mosaicTileHeight/2, i2 += 3*imageTileHeight/2 )
-      {
-        for( int j = mosaicTileWidth, j2 = imageTileWidth; j <= width; j += mosaicTileWidth, j2 += imageTileWidth )
-        {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 0 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 0 } );
-        }
-      }
-
-      for( int i = 7*mosaicTileHeight/4, i2 = 7*imageTileHeight/4; i <= height; i += 3*mosaicTileHeight/2, i2 += 3*imageTileHeight/2 )
-      {
-        for( int j = 3*mosaicTileWidth/2, j2 = 3*imageTileWidth/2; j <= width; j += mosaicTileWidth, j2 += imageTileWidth )
-        {
-          mosaicLocations.push_back({ j-mosaicTileWidth, i-mosaicTileHeight, j, i, 0 } );
-          mosaicLocations2.push_back({ j2-imageTileWidth, i2-imageTileHeight, j2, i2, 0 } );
-        }
-      }
-
-      break;
     }
   }
 }
 
-void createShapeIndices( vector< vector< int > > &shapeIndices, int mosaicTileWidth, int mosaicTileHeight, int tessellateType )
-{
-  switch( tessellateType )
-  {
-    case 0:
-    {
-      shapeIndices.resize(1);
-
-      double w = (double) mosaicTileWidth;
-      double h = (double) mosaicTileHeight;
-
-      double hw = w / 2.0;
-
-      double s = 2.0*h/(3.0*w);
-
-      for( double y = 0, p = 0; y < mosaicTileHeight; ++y )
-      {
-        for( double x = 0; x < mosaicTileWidth; ++x, ++p )
-        {
-          if( y >= s * ( x - hw ) && y >= -s * ( x - hw ) && y - h <= s * ( x - hw ) && y - h <= -s * ( x - hw ) )
-          {
-            shapeIndices[0].push_back(p);
-          }
-        }
-      }
-
-      break;
-    }
-
-    case 1:
-    {
-      shapeIndices.resize(3);
-
-      double w = (double) mosaicTileWidth;
-      double h = (double) mosaicTileHeight;
-
-      double hw = w / 2.0;
-
-      double s = h/hw;
-
-      for( double y = 0, p = 0; y < mosaicTileHeight; ++y )
-      {
-        for( double x = 0; x < mosaicTileWidth; ++x, ++p )
-        {
-          if( y >= s * ( x - hw ) && y >= -s * ( x - hw ) )
-          {
-            shapeIndices[0].push_back(p);
-          }
-        }
-      }
-
-      for( double y = 0, p = 0; y < mosaicTileHeight; ++y )
-      {
-        for( double x = 0; x < mosaicTileWidth; ++x, ++p )
-        {
-          if( y - h <= s * ( x - hw ) && y - h <= -s * ( x - hw ) )
-          {
-            shapeIndices[1].push_back(p);
-          }
-        }
-      }
-
-      for( double y = 0, p = 0; y < mosaicTileHeight; ++y )
-      {
-        for( double x = 0; x < mosaicTileWidth; ++x, ++p )
-        {
-          shapeIndices[2].push_back(p);
-        }
-      }
-
-      break;
-    }
-    case 2:
-    {
-      shapeIndices.resize(2);
-
-      double w = (double) mosaicTileWidth;// * (sqrt(2.0)+1.0);
-      double h = (double) mosaicTileHeight;// * (sqrt(2.0)+1.0);
-
-      for( double y = 0, p = 0; y < h; ++y )
-      {
-        for( double x = 0; x < w; ++x, ++p )
-        {
-          shapeIndices[0].push_back(p);
-        }
-      }
-
-      double w1 = floor(w / sqrt(2.0));
-      double w2 = floor(w * (1.0/sqrt(2)+1.0));
-      double h1 = floor(h / sqrt(2.0));
-      double h2 = floor(h * (1.0/sqrt(2)+1.0));
-
-      double wOffset = floor(w * (sqrt(2.0)+2.0));
-      double hOffset = floor(h * (sqrt(2.0)+2.0));
-
-      w = floor(w * (sqrt(2.0)+1.0));
-      h = floor(h * (sqrt(2.0)+1.0));
-
-      double s = h/w;
-
-      for( double y = 0, p = 0; y < h; ++y )
-      {
-        for( double x = 0; x < w; ++x, ++p )
-        {
-          if( y >= -s * ( x - w1 ) && y >= s * ( x - w2 ) && y - h <= s * ( x - w1 ) && y - h <= -s * ( x - w2 ) )
-          {
-            shapeIndices[1].push_back(p);
-          }
-        }
-      }
-      
-      break;
-    }
-    case 3:
-    {
-      shapeIndices.resize(1);
-
-      double w = (double) mosaicTileWidth;// * (sqrt(2.0)+1.0);
-      double h = (double) mosaicTileHeight;// * (sqrt(2.0)+1.0);
-
-      double pi = 3.14159265358979;
-
-      for( double y = 0, p = 0; y < h; ++y )
-      {
-        for( double x = 0; x < w; ++x, ++p )
-        {
-          if( y >= h*(0.125*(cos(2.0*pi*x/w)+1.0)) && y <= h*(-0.125*(cos(2.0*pi*x/w)+1.0)+1.0) )
-          {
-            shapeIndices[0].push_back(p);
-          }
-        }
-      }      
-      break;
-    }
-  }
-}
-
-void RunTessellate( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, bool quiet, bool recursiveSearch, int tessellateType )
+void RunTessellate( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, bool quiet, bool recursiveSearch, string tessellateType )
 {
   bool inputIsDirectory = (vips_foreign_find_save( inputName.c_str() ) == NULL);
   bool isDeepZoom = (vips_foreign_find_save( outputName.c_str() ) == NULL) && !inputIsDirectory;
@@ -689,31 +416,80 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
   bool loadData = (fileName != " ");
 
-  vector< vector< double > > ratios = {
-      {1.0},
-      {1.0,1.0,1.0},
-      {1.0,2.41421356237},
-      {1.0}
-    };
+  vector< vector< double > > dimensions;
+
+  vector< vector< vector< double > > > shapes;
+
+  vector< vector< double > > offsets;
+
+  ifstream tessellationFile( tessellateType );
+
+  string str;
+
+  while( getline(tessellationFile, str) && str != "dimensions:" );
+
+  while( getline(tessellationFile, str) && str != "" )
+  {
+    istringstream iss(str);
+
+    double w, h;
+
+    iss >> w >> h;
+
+    dimensions.push_back(vector< double >({w,h}));
+  }
+
+  shapes.resize( dimensions.size() );
+
+  while( getline(tessellationFile, str) && str != "shapes:" );
+
+  for( int i = 0; i < dimensions.size(); ++i )
+  {
+    while( getline(tessellationFile, str) && str != "shape:" );
+
+    while( getline(tessellationFile, str) && str != "" )
+    {
+      istringstream iss(str);
+
+      double x1, x2, by1, by2, ty1, ty2;
+
+      iss >> x1 >> x2 >> by1 >> by2 >> ty1 >> ty2;
+
+      shapes[i].push_back(vector< double >({x1, x2, by1, by2, ty1, ty2}));
+    }
+  }
+
+  while( getline(tessellationFile, str) && str != "offsets:" );
+
+  while( getline(tessellationFile, str) && str != "" )
+  {
+    istringstream iss(str);
+
+    double x, y, xHorizontalOffset, yHorizontalOffset, xVerticalOffset, yVerticalOffset, shape;
+
+    iss >> x >> y >> xHorizontalOffset >> yHorizontalOffset >> xVerticalOffset >> yVerticalOffset >> shape;
+
+    offsets.push_back(vector< double >({x, y, xHorizontalOffset, yHorizontalOffset, xVerticalOffset, yVerticalOffset, shape}));
+  }
 
   vector< int > tileWidth, tileHeight, tileWidth2, tileHeight2;
 
-  for( int i = 0; i < ratios[tessellateType].size(); ++i )
+  for( int i = 0; i < dimensions.size(); ++i )
   {
-    tileWidth.push_back((double)mosaicTileWidth*ratios[tessellateType][i]);
-    tileHeight.push_back((double)mosaicTileHeight*ratios[tessellateType][i]);
+    tileWidth.push_back((double)mosaicTileWidth*dimensions[i][0]);
+    tileHeight.push_back((double)mosaicTileHeight*dimensions[i][1]);
 
-    tileWidth2.push_back((double)imageTileWidth*ratios[tessellateType][i]);
-    tileHeight2.push_back((double)imageTileHeight*ratios[tessellateType][i]);
+    tileWidth2.push_back((double)imageTileWidth*dimensions[i][0]);
+    tileHeight2.push_back((double)imageTileHeight*dimensions[i][1]);
   }
 
   if( !loadData )
   {
-    mosaicTileData.resize(ratios[tessellateType].size());
+    mosaicTileData.resize(dimensions.size());
 
-    cropData.resize(ratios[tessellateType].size());
+    cropData.resize(dimensions.size());
 
-    if( mosaicTileWidth != imageTileWidth ) imageTileData.resize(ratios[tessellateType].size());
+    if( mosaicTileWidth != imageTileWidth ) imageTileData.resize(dimensions.size());
 
     vector< string > inputDirectoryBlank;
 
@@ -721,30 +497,44 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
     {
       string imageDirectory = inputDirectory[i];
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      for( int j = 0; j < ratios[tessellateType].size(); ++j )
+      for( int j = 0; j < dimensions.size(); ++j )
       {
         generateThumbnails( cropData[j], mosaicTileData[j], imageTileData[j], j == 0 ? inputDirectory : inputDirectoryBlank, imageDirectory, tileWidth[j], tileHeight[j], tileWidth2[j], tileHeight2[j], isDeepZoom, spin, cropStyle, flip, quiet, recursiveSearch );
       }
     }
 
-    numImages = mosaicTileData[0].size();
-
-    if( numImages == 0 ) 
+    for( int j = 0; j < dimensions.size(); ++j )
     {
-      cout << "No valid images found. The directory might not contain any images, or they might be too small, or they might not be a valid format." << endl;
-      return;
+      numImages = mosaicTileData[i].size();
+
+      if( numImages == 0 ) 
+      {
+        cout << "No valid images found. The directory might not contain any images, or they might be too small, or they might not be a valid format." << endl;
+        return;
+      }
     }
   }
 
-  vector< vector< int > > shapeIndices, shapeIndices2, mosaicLocations, mosaicLocations2;
+  vector< Tessellation > tessellations;
 
-  createShapeIndices( shapeIndices, mosaicTileWidth, mosaicTileHeight, tessellateType );
-  createLocations( mosaicLocations, mosaicLocations2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, width, height, tessellateType );
+  vector< vector< int > > shapeIndices(shapes.size()), shapeIndices2(shapes.size()), mosaicLocations, mosaicLocations2;
 
-  if( mosaicTileWidth != imageTileWidth )
+  for( int i = 0; i < shapes.size(); ++i )
   {
-    createShapeIndices( shapeIndices2, imageTileWidth, imageTileHeight, tessellateType );
+    Tessellation tess(shapes[i]);
+    tess.createIndices( shapeIndices[i], tileWidth[i], tileHeight[i] );
+
+    if( mosaicTileWidth != imageTileWidth )
+    {
+      tess.createIndices( shapeIndices2[i], tileWidth2[i], tileHeight2[i] );
+    }
   }
+
+  int tileArea = mosaicTileWidth*mosaicTileHeight*3;
+  int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
+  int numUnique = 0;
+
+  createLocations( mosaicLocations, mosaicLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
 
   int imageWidth = 0, imageHeight = 0;
 
@@ -753,10 +543,6 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
     imageWidth = max(imageWidth,mosaicLocations2[i][2]);
     imageHeight = max(imageHeight,mosaicLocations2[i][3]);
   }
-
-  int tileArea = mosaicTileWidth*mosaicTileHeight*3;
-  int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
-  int numUnique = 0;
 
   vector< vector< vector< int > > > d;
   vector< vector< float > > lab;

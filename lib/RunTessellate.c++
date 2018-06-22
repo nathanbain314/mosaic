@@ -15,7 +15,7 @@ int main( int argc, char **argv )
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
-    ValueArg<int> tessellateTypeArg( "", "type", "Tessellate type pattern", false, 0, "int", cmd);
+    ValueArg<string> tessellateTypeArg( "", "type", "Tessellate type pattern file", false, "tessellation/1.t", "string", cmd);
 
     ValueArg<int> imageTileArg( "i", "imageTileWidth", "Tile width for generating image", false, 0, "int", cmd);
 
@@ -57,7 +57,7 @@ int main( int argc, char **argv )
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
     int imageTileWidth                = imageTileArg.getValue();
-    int tessellateType                = tessellateTypeArg.getValue();
+    string tessellateType             = tessellateTypeArg.getValue();
     string fileName                   = fileArg.getValue();
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
