@@ -123,6 +123,16 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
           // Load image
           VImage image = VImage::vipsload( (char *)(get<0>(cropData[current])).c_str() ).rot(rotAngle[get<3>(cropData[current])]);
 
+          // Convert to a three band image
+          if( image.bands() == 1 )
+          {
+            image = image.bandjoin(image).bandjoin(image);
+          }
+          if( image.bands() == 4 )
+          {
+            image = image.flatten();
+          }
+
           // Find the width of the largest square inside image
           int width = image.width();
           int height = image.height();

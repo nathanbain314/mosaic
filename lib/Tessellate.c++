@@ -31,6 +31,16 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
 
         VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).rot(rotAngle[get<3>(cropData[t][current])]);
 
+        // Convert to a three band image
+        if( image.bands() == 1 )
+        {
+          image = image.bandjoin(image).bandjoin(image);
+        }
+        if( image.bands() == 4 )
+        {
+          image = image.flatten();
+        }
+
         // Find the width of the largest square inside image
         int width = image.width();
         int height = image.height();
@@ -69,12 +79,24 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
   }
 }
 
-void buildImage( vector< vector< vector< unsigned char > > > &imageData, vector< int > &mosaic, vector< vector< int > > mosaicLocations, vector< vector< int > > shapeIndices, string outputImage, vector< int > tileWidth, int outputWidth, int outputHeight )
+void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, vector< vector< int > > mosaicLocations, vector< vector< int > > shapeIndices, string outputImage, vector< int > tileWidth, vector< int > tileHeight, int outputWidth, int outputHeight )
 {
-  cout << "Generating image " << outputImage << endl;
+  // Rotation angles
+  VipsAngle rotAngle[4] = {VIPS_ANGLE_D0,VIPS_ANGLE_D90,VIPS_ANGLE_D180,VIPS_ANGLE_D270};
+
+  // Create list of numbers in thread block
+  vector< int > indices( mosaicLocations.size() );
+  iota( indices.begin(), indices.end(), 0 );
+
+  // Shuffle the points so that patterns do not form
+  shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
+
+  string str = "Generating image " + outputImage;
+
+  ProgressBar *generatingImage = new ProgressBar(mosaicLocations.size(), (char *)str.c_str());
 
   // Create output image data 
-  unsigned char *data = new unsigned char[outputWidth*outputHeight*3];
+  unsigned char *data = ( unsigned char * )calloc (outputHeight*outputWidth*3,sizeof(unsigned char));//new unsigned char[outputWidth*outputHeight*3];
 
   for( int k = 0; k < mosaicLocations.size(); ++k )
   {
@@ -82,17 +104,51 @@ void buildImage( vector< vector< vector< unsigned char > > > &imageData, vector<
     int i = mosaicLocations[k][1];
     int t = mosaicLocations[k][4];
     
-//    cout << j << " " << i << " " << mosaicLocations[k][2] << " " << mosaicLocations[k][3] << " " << t << " " << tileWidth[t] << " " << outputWidth << " " << outputHeight << endl;
+    int current = mosaic[k];
+
+    VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).rot(rotAngle[get<3>(cropData[t][current])]);
+
+    // Convert to a three band image
+    if( image.bands() == 1 )
+    {
+      image = image.bandjoin(image).bandjoin(image);
+    }
+    if( image.bands() == 4 )
+    {
+      image = image.flatten();
+    }
+
+    // Find the width of the largest square inside image
+    int width = image.width();
+    int height = image.height();
+    
+    double newSize = max((double)tileWidth[t]/(double)width,(double)tileHeight[t]/(double)height);
+
+    // Extract square, flip, and rotate based on cropdata, and then save as a deep zoom image
+    image = image.resize(newSize).extract_area(get<1>(cropData[t][current])*newSize, get<2>(cropData[t][current])*newSize, tileWidth[t], tileHeight[t]);
+
+    if( get<4>(cropData[t][current]) )
+    {
+      image = image.flip(VIPS_DIRECTION_HORIZONTAL);
+    }
+
+    unsigned char *tileData = (unsigned char *)image.data();
 
     for( int x = 0; x < shapeIndices[t].size(); ++x )
     {
       int l = 3 * ( ( i + shapeIndices[t][x]/tileWidth[t] ) * outputWidth + j + shapeIndices[t][x]%tileWidth[t] );
 
-      data[l+0] = imageData[t][mosaic[k]][3*shapeIndices[t][x]+0];
-      data[l+1] = imageData[t][mosaic[k]][3*shapeIndices[t][x]+1];
-      data[l+2] = imageData[t][mosaic[k]][3*shapeIndices[t][x]+2];
+      data[l+0] = tileData[3*shapeIndices[t][x]+0];
+      data[l+1] = tileData[3*shapeIndices[t][x]+1];
+      data[l+2] = tileData[3*shapeIndices[t][x]+2];
     }
+
+    generatingImage->Increment();
   }
+
+  generatingImage->Finish();
+
+  cout << "Saving image " << outputImage << endl;
 
   VImage::new_from_memory( data, outputWidth*outputHeight*3, outputWidth, outputHeight, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
 
@@ -100,7 +156,7 @@ void buildImage( vector< vector< vector< unsigned char > > > &imageData, vector<
   delete [] data;
 }
 
-void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, vector< vector< int > > mosaicLocations, vector< vector< int > > shapeIndices, string outputImage, vector< int > tileWidth, vector< int > tileHeight, int outputWidth, int outputHeight )
+void buildImage2( vector< vector< cropType > > &cropData, vector< int > &mosaic, vector< vector< int > > mosaicLocations, vector< vector< int > > shapeIndices, string outputImage, vector< int > tileWidth, vector< int > tileHeight, int outputWidth, int outputHeight )
 {
   int level = (int)ceil(log2( max(outputWidth,outputHeight) ) );
 
@@ -499,13 +555,13 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
       for( int j = 0; j < dimensions.size(); ++j )
       {
-        generateThumbnails( cropData[j], mosaicTileData[j], imageTileData[j], j == 0 ? inputDirectory : inputDirectoryBlank, imageDirectory, tileWidth[j], tileHeight[j], tileWidth2[j], tileHeight2[j], isDeepZoom, spin, cropStyle, flip, quiet, recursiveSearch );
+        generateThumbnails( cropData[j], mosaicTileData[j], imageTileData[j], j == 0 ? inputDirectory : inputDirectoryBlank, imageDirectory, tileWidth[j], tileHeight[j], tileWidth[j], tileHeight[j], isDeepZoom, spin, cropStyle, flip, quiet, recursiveSearch );
       }
     }
 
     for( int j = 0; j < dimensions.size(); ++j )
     {
-      numImages = mosaicTileData[i].size();
+      numImages = mosaicTileData[j].size();
 
       if( numImages == 0 ) 
       {
@@ -606,18 +662,18 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
     if( mosaicTileWidth == imageTileWidth )
     {
-      buildImage( mosaicTileData, mosaic, mosaicLocations, shapeIndices, outputImages[i], tileWidth, width, height );
+      //buildImage( mosaicTileData, mosaic, mosaicLocations, shapeIndices, outputImages[i], tileWidth, width, height );
     }
     else
     {
       // Save image as static image or zoomable image
       if( vips_foreign_find_save( outputImages[i].c_str() ) != NULL )
       {
-        buildImage( imageTileData, mosaic, mosaicLocations2, shapeIndices2, outputImages[i], tileWidth2, imageWidth, imageHeight );
+        buildImage( cropData, mosaic, mosaicLocations2, shapeIndices2, outputImages[i], tileWidth2, tileHeight2, imageWidth, imageHeight );
       }
       else
       {
-        buildImage( cropData, mosaic, mosaicLocations2, shapeIndices2, outputImages[i], tileWidth2, tileHeight2, imageWidth, imageHeight );
+        buildImage2( cropData, mosaic, mosaicLocations2, shapeIndices2, outputImages[i], tileWidth2, tileHeight2, imageWidth, imageHeight );
       }
     }
   }

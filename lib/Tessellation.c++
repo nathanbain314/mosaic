@@ -44,8 +44,7 @@ Quad& Quad::operator=( const Quad& rhs )
 
 bool Quad::isInside( double x, double y, double mosaicTileWidth, double mosaicTileHeight )
 {
-//  cout << x << " " << y << " " << _s[0] << " " << _s[1] << " " << mosaicTileWidth << " " << mosaicTileHeight << " " << ( x >= _x[0] && y - _y[0]*mosaicTileHeight >= _s[0] * ( x - _x[0]*mosaicTileWidth ) && y - _y[2]*mosaicTileHeight <= _s[1] * ( x - _x[2]*mosaicTileWidth ) ) << endl;
-  if( x >= round(_x[0]*mosaicTileWidth) && x <= round(_x[1]*mosaicTileWidth) && round(y - _y[0]*mosaicTileHeight) >= round(mosaicTileHeight / mosaicTileWidth * _s[0] * ( x - _x[0]*mosaicTileWidth )) && round(y - _y[2]*mosaicTileHeight) <= round(mosaicTileHeight / mosaicTileWidth * _s[1] * ( x - _x[2]*mosaicTileWidth )) )
+  if( 0 >= floor(_x[0]*mosaicTileWidth-x) && 0 <= ceil(_x[1]*mosaicTileWidth-x) && 0 >= floor(mosaicTileHeight / mosaicTileWidth * _s[0] * ( x - _x[0]*mosaicTileWidth ) + _y[0]*mosaicTileHeight - y) && 0 <= ceil(mosaicTileHeight / mosaicTileWidth * _s[1] * ( x - _x[2]*mosaicTileWidth ) +  _y[2]*mosaicTileHeight - y ) )
   {
     return true;
   }
