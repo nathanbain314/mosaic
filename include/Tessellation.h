@@ -26,5 +26,5 @@ public:
 
   Tessellation& operator=( const Tessellation& rhs );
 
-  void createIndices( vector< int > &shapeIndices, int mosaicTileWidth, int mosaicTileHeight );
+  void createIndices( vector< int > &shapeIndices, int mosaicTileWidth, int mosaicTileHeight, int tileWidth, int tileHeight );
 };

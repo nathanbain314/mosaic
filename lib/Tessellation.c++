@@ -72,11 +72,11 @@ Tessellation& Tessellation::operator=( const Tessellation& rhs )
   return *this;
 }
 
-void Tessellation::createIndices( vector< int > &shapeIndices, int mosaicTileWidth, int mosaicTileHeight )
+void Tessellation::createIndices( vector< int > &shapeIndices, int mosaicTileWidth, int mosaicTileHeight, int tileWidth, int tileHeight )
 {
-  for( int y = 0, p = 0; y < mosaicTileHeight; ++y )
+  for( int y = 0, p = 0; y < tileHeight; ++y )
   {
-    for( int x = 0; x < mosaicTileWidth; ++x, ++p )
+    for( int x = 0; x < tileWidth; ++x, ++p )
     {
       bool goodPoint = false;
 
