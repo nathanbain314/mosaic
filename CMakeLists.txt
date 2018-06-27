@@ -13,7 +13,7 @@ ENDIF()
 
 include_directories(include)
 
-file(GLOB SOURCE_FILES lib/mosaicTools.c++ lib/Tessellation.c++ lib/progress_bar.c++)
+file(GLOB SOURCE_FILES lib/mosaicTools.c++ lib/Tessellation.c++ lib/mosaicLocations.c++ lib/progress_bar.c++)
 
 set( EXECUTABLES Mosaic Tessellate Collage Continuous Video )
 
