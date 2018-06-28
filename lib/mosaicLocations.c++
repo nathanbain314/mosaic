@@ -208,9 +208,6 @@ void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< ve
   {
     if( chosenShapes.back()[0] >= 0 && chosenShapes.back()[1] >= 0 )
     {
-//        cout << shapes[chosenShapes.back()[2]].size() << endl;
-//        cout << shapes[chosenShapes.back()[2]][0].size() << endl;
-
       for( int k = 0; k < shapes[chosenShapes.back()[2]].size(); ++k )
       {
         for( int l = 0; l < shapes[chosenShapes.back()[2]][k].size(); ++l )
@@ -219,8 +216,6 @@ void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< ve
 
           int x = chosenShapes.back()[0] - starts[chosenShapes.back()[2]] + l;
           int y = chosenShapes.back()[1] + k;
-
-//            cout << x << " " << y << endl;
 
           if( x >= 0 && y >= 0 && x < numHorizontal && y < numVertical )
           {
@@ -250,13 +245,9 @@ void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< ve
     int bestShape = -1;
     int bestIndex = -1;
 
-//    cout << x1 << " " << y1 << " " << chosenShapes.size() << endl;
-
     for( int i = chosenShapes.back()[3]+1; i < shapes.size(); ++i )
     {
       bool goodShape = true;
-
-//      cout << "i " << i << " " << indices.back()[i]
 
       int shape = indices.back()[i];
 
@@ -268,8 +259,6 @@ void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< ve
 
           int x = x1 - starts[shape] + l;
           int y = y1 + k;
-
-//          cout << x << " " << y << " " << shape << endl;
 
           if( x >= 0 && y >= 0 && x < numHorizontal && y < numVertical && grid[y][x] == 1 )
           {
@@ -285,8 +274,6 @@ void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< ve
         break;
       }
     }
-
-//    cout << x1 << " " << y1 << " " << bestShape << " " << bestIndex << endl;
 
     bool hasHole = false;
 
@@ -332,8 +319,6 @@ void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< ve
           int x = x1 - starts[bestShape] + l;
           int y = y1 + k;
 
-//          cout << "grid " << x << " " << y << endl;
-
           if( x >= 0 && y >= 0 && x < numHorizontal && y < numVertical )
           {
             grid[y][x] = 1;
@@ -350,34 +335,7 @@ void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< ve
       random_shuffle( indices.back().begin(), indices.back().end() );
     }
     else
-    {     
-//      cout << "chosen " << chosenShapes.back()[0] << " " << chosenShapes.back()[1] << " " << chosenShapes.back()[2] << endl;
-/*
-      if( chosenShapes.back()[0] >= 0 && chosenShapes.back()[1] >= 0 )
-      {
-//        cout << shapes[chosenShapes.back()[2]].size() << endl;
-//        cout << shapes[chosenShapes.back()[2]][0].size() << endl;
-
-        for( int k = 0; k < shapes[chosenShapes.back()[2]].size(); ++k )
-        {
-          for( int l = 0; l < shapes[chosenShapes.back()[2]][k].size(); ++l )
-          {
-            if( shapes[chosenShapes.back()[2]][k][l] == 0 ) continue;
-
-            int x = chosenShapes.back()[0] - starts[chosenShapes.back()[2]] + l;
-            int y = chosenShapes.back()[1] + k;
-
-//            cout << x << " " << y << endl;
-
-            if( x >= 0 && y >= 0 && x < numHorizontal && y < numVertical )
-            {
-              grid[y][x] = 0;
-            }
-          }
-        }
-      }
-      */
-
+    {
       chosenShapes.pop_back();
       indices.pop_back();
     }
@@ -389,11 +347,8 @@ void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< ve
       for( int l = 0; l < numHorizontal; ++l )
       {
         if( grid[k][l] == 0 ) gridFull = false;
-        //cout << grid[k][l] << " ";
       }
-//      cout << endl;
     }
-  //  cout << endl;
     
   }
 
@@ -411,8 +366,6 @@ void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< ve
     int x2 = x1+shapes[shape][0].size();
     int y2 = y1+shapes[shape].size();
 
-//    cout << x1 << " " << y1 << " " << shape << endl;
-
     if( x1 < 0 || x2 >= numHorizontal || y2 >= numVertical )
     {
       edgeLocations.push_back({ (int)round(x1*mosaicTileWidth), (int)round(y1*mosaicTileHeight), (int)round(x2*mosaicTileWidth), (int)round(y2*mosaicTileHeight), shape } );
@@ -423,7 +376,5 @@ void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< ve
       mosaicLocations.push_back({ (int)round(x1*mosaicTileWidth), (int)round(y1*mosaicTileHeight), (int)round(x2*mosaicTileWidth), (int)round(y2*mosaicTileHeight), shape } );
       mosaicLocations2.push_back({ (int)round(x1*imageTileWidth), (int)round(y1*imageTileHeight), (int)round(x2*imageTileWidth), (int)round(y2*imageTileHeight), shape } );            
     }
-
-//    cout << mosaicLocations[i][0] << " " << mosaicLocations[i][1] << " " << mosaicLocations[i][2] << " " << mosaicLocations[i][3] << endl;
   }
 }
