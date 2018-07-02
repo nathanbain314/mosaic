@@ -1,25 +1,29 @@
 #include "Tessellate.h"
 #include "mosaicLocations.h"
 
-void buildTopLevel( string outputImage, int start, int end, int outputWidth, int outputHeight, vector< vector< cropType > > &cropData, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, vector< int > &tileWidth2, vector< int > &tileHeight2, ProgressBar *topLevel )
+void buildTopLevel( string outputImage, int start, int end, int outputWidth, int outputHeight, vector< vector< cropType > > &cropData, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, vector< int > &tileWidth2, vector< int > &tileHeight2, ProgressBar *topLevel, int maxTileWidth, int maxTileHeight )
 {
+  bool singleImage = (maxTileWidth > 256);
+
   // Rotation angles
   VipsAngle rotAngle[4] = {VIPS_ANGLE_D0,VIPS_ANGLE_D90,VIPS_ANGLE_D180,VIPS_ANGLE_D270};
 
-  for( int tileOffsetY = start; tileOffsetY < end; tileOffsetY += 256 )
+  for( int tileOffsetY = start; tileOffsetY < end; tileOffsetY += maxTileHeight )
   {
-    int tileHeight = min( outputHeight - tileOffsetY, 256 );// + ( tileOffsetY > 0 && tileOffsetY + 256 < outputHeight );
+    int tileHeight = min( outputHeight - tileOffsetY, maxTileHeight );
 
-    for( int tileOffsetX = 0; tileOffsetX < outputWidth; tileOffsetX += 256 )
+    for( int tileOffsetX = 0; tileOffsetX < outputWidth; tileOffsetX += maxTileWidth )
     {
-      if( start == 0 ) topLevel->Increment();
+      if( start == 0 && !singleImage ) topLevel->Increment();
 
-      int tileWidth = min( outputWidth - tileOffsetX, 256 );// + ( tileOffsetX > 0 && tileOffsetX + 256 < outputWidth );
+      int tileWidth = min( outputWidth - tileOffsetX, maxTileWidth );
 
       unsigned char * tileData = ( unsigned char * )calloc (tileHeight*tileWidth*3,sizeof(unsigned char));
 
       for( int k = 0; k < mosaicLocations.size(); ++k )
       {
+        if( singleImage ) topLevel->Increment();
+
         int j = mosaicLocations[k][0];
         int i = mosaicLocations[k][1];
         int j2 = mosaicLocations[k][2];
@@ -33,10 +37,16 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
         VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).rot(rotAngle[get<3>(cropData[t][current])]);
 
         // Convert to a three band image
+        if( image.bands() == 2 )
+        {
+          image = image.flatten();
+        }
+
         if( image.bands() == 1 )
         {
           image = image.bandjoin(image).bandjoin(image);
         }
+
         if( image.bands() == 4 )
         {
           image = image.flatten();
@@ -46,7 +56,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
         int width = image.width();
         int height = image.height();
         
-        double newSize = max((double)tileWidth2[t]/(double)width,(double)tileHeight2[t]/(double)height);
+        double newSize = max((double)tileWidth2[t]/(double)(width-get<1>(cropData[t][current])),(double)tileHeight2[t]/(double)(height-get<2>(cropData[t][current])));
 
         // Extract square, flip, and rotate based on cropdata, and then save as a deep zoom image
         image = image.resize(newSize).extract_area(get<1>(cropData[t][current])*newSize, get<2>(cropData[t][current])*newSize, tileWidth2[t], tileHeight2[t]);
@@ -75,6 +85,8 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
 
       for( int k = 0; k < edgeLocations.size(); ++k )
       {
+        if( singleImage ) topLevel->Increment();
+
         int j = edgeLocations[k][0];
         int i = edgeLocations[k][1];
         int j2 = edgeLocations[k][2];
@@ -86,10 +98,16 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
         VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).rot(rotAngle[get<3>(cropData[t][current])]);
 
         // Convert to a three band image
+        if( image.bands() == 2 )
+        {
+          image = image.flatten();
+        }
+
         if( image.bands() == 1 )
         {
           image = image.bandjoin(image).bandjoin(image);
         }
+
         if( image.bands() == 4 )
         {
           image = image.flatten();
@@ -99,7 +117,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
         int width = image.width();
         int height = image.height();
         
-        double newSize = max((double)tileWidth2[t]/(double)width,(double)tileHeight2[t]/(double)height);
+        double newSize = max((double)tileWidth2[t]/(double)(width-get<1>(cropData[t][current])),(double)tileHeight2[t]/(double)(height-get<2>(cropData[t][current])));
 
         // Extract square, flip, and rotate based on cropdata, and then save as a deep zoom image
         image = image.resize(newSize).extract_area(get<1>(cropData[t][current])*newSize, get<2>(cropData[t][current])*newSize, tileWidth2[t], tileHeight2[t]);
@@ -126,8 +144,21 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
         }
       }
 
-      VImage::new_from_memory( tileData, tileHeight*tileWidth*3, tileWidth, tileHeight, 3, VIPS_FORMAT_UCHAR ).jpegsave((char *)string(outputImage).append(to_string(tileOffsetX/256)+"_"+to_string(tileOffsetY/256)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
-      
+      string tileOutputName = singleImage ? outputImage : string(outputImage).append(to_string(tileOffsetX/256)+"_"+to_string(tileOffsetY/256)+".jpeg");
+
+      if( singleImage )
+      {
+        topLevel->Finish();
+
+        cout << "Saving image" << endl;
+
+        VImage::new_from_memory( tileData, tileHeight*tileWidth*3, tileWidth, tileHeight, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)tileOutputName.c_str());
+      }
+      else
+      {
+        VImage::new_from_memory( tileData, tileHeight*tileWidth*3, tileWidth, tileHeight, 3, VIPS_FORMAT_UCHAR ).jpegsave((char *)tileOutputName.c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+      }
+
       free( tileData );
     }
   }
@@ -135,246 +166,118 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
 
 void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, string outputImage, vector< int > &tileWidth, vector< int > &tileHeight, int outputWidth, int outputHeight )
 {
-  // Rotation angles
-  VipsAngle rotAngle[4] = {VIPS_ANGLE_D0,VIPS_ANGLE_D90,VIPS_ANGLE_D180,VIPS_ANGLE_D270};
-
-  // Create list of numbers in thread block
-  vector< int > indices( mosaicLocations.size() );
-  iota( indices.begin(), indices.end(), 0 );
-
-  // Shuffle the points so that patterns do not form
-  shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
-
-  string str = "Generating image " + outputImage;
-
-  ProgressBar *generatingImage = new ProgressBar(mosaicLocations.size()+edgeLocations.size(), (char *)str.c_str());
-
-  // Create output image data 
-  unsigned char *data = ( unsigned char * )calloc (outputHeight*outputWidth*3,sizeof(unsigned char));//new unsigned char[outputWidth*outputHeight*3];
-
-  for( int k = 0; k < mosaicLocations.size(); ++k )
+  // Save image as static image or zoomable image
+  if( vips_foreign_find_save( outputImage.c_str() ) != NULL )
   {
-    int j = mosaicLocations[k][0];
-    int i = mosaicLocations[k][1];
-    int t = mosaicLocations[k][4];
-    
-    int current = mosaic[k];
+    ProgressBar *topLevel = new ProgressBar(mosaic.size(), "Generating image");
 
-    VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).rot(rotAngle[get<3>(cropData[t][current])]);
-
-    // Convert to a three band image
-    if( image.bands() == 1 )
-    {
-      image = image.bandjoin(image).bandjoin(image);
-    }
-    if( image.bands() == 4 )
-    {
-      image = image.flatten();
-    }
-
-    // Find the width of the largest square inside image
-    int width = image.width();
-    int height = image.height();
-    
-    double newSize = max((double)tileWidth[t]/(double)width,(double)tileHeight[t]/(double)height);
-
-    // Extract square, flip, and rotate based on cropdata, and then save as a deep zoom image
-    image = image.resize(newSize).extract_area(get<1>(cropData[t][current])*newSize, get<2>(cropData[t][current])*newSize, tileWidth[t], tileHeight[t]);
-
-    if( get<4>(cropData[t][current]) )
-    {
-      image = image.flip(VIPS_DIRECTION_HORIZONTAL);
-    }
-
-    unsigned char *tileData = (unsigned char *)image.data();
-
-    int r = 255;
-    int g = rand()%255;
-    int b = rand()%255;
-
-    for( int x = 0; x < shapeIndices[t].size(); ++x )
-    {
-      int l = 3 * ( ( i + shapeIndices[t][x]/tileWidth[t] ) * outputWidth + j + shapeIndices[t][x]%tileWidth[t] );
-
-      data[l+0] = tileData[3*shapeIndices[t][x]+0];
-      data[l+1] = tileData[3*shapeIndices[t][x]+1];
-      data[l+2] = tileData[3*shapeIndices[t][x]+2];
-    }
-
-    generatingImage->Increment();
+    buildTopLevel( outputImage, 0, outputHeight, outputWidth, outputHeight, cropData, mosaic, mosaicLocations, edgeLocations, shapeIndices, tileWidth, tileHeight, topLevel, outputWidth, outputHeight );
   }
-
-  for( int k = 0; k < edgeLocations.size(); ++k )
+  else
   {
-    int j = edgeLocations[k][0];
-    int i = edgeLocations[k][1];
-    int t = edgeLocations[k][4];
+    int level = (int)ceil(log2( max(outputWidth,outputHeight) ) );
+
+    if( outputImage.back() == '/' ) outputImage = outputImage.substr(0, outputImage.size()-1);
+
+    g_mkdir(string(outputImage).append("_files/").c_str(), 0777);
+    g_mkdir(string(outputImage).append("_files/").append(to_string(level)).c_str(), 0777);
+
+    int threads = sysconf(_SC_NPROCESSORS_ONLN);
+
+    ProgressBar *topLevel = new ProgressBar(ceil((double)outputWidth/256.0)*ceil((double)outputHeight/((double)threads*256.0)), "Building top level");
+
+    future< void > ret[threads];
+
+    for( int k = 0; k < threads; ++k )
+    {
+      int start = k*outputHeight/threads;
+      int end = (k+1)*outputHeight/threads;
+
+      start = (start / 256 ) * 256;
+      if( k+1 < threads ) end = (end / 256 ) * 256;
+
+      ret[k] = async( launch::async, &buildTopLevel, string(outputImage).append("_files/"+to_string(level)+"/"), start, end, outputWidth, outputHeight, ref(cropData), ref(mosaic), ref(mosaicLocations), ref(edgeLocations), ref(shapeIndices), ref(tileWidth), ref(tileHeight), topLevel, 256, 256 );
+    }
+
+    // Wait for threads to finish
+    for( int k = 0; k < threads; ++k )
+    {
+      ret[k].get();
+    }
     
-    int current = mosaic[k+mosaicLocations.size()];
+    topLevel->Finish();
 
-    VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).rot(rotAngle[get<3>(cropData[t][current])]);
+    ofstream dzi_file;
+    dzi_file.open(string(outputImage).append(".dzi").c_str());
+    dzi_file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << endl;
+    dzi_file << "<Image xmlns=\"http://schemas.microsoft.com/deepzoom/2008\" Format=\"jpeg\" Overlap=\"0\" TileSize=\"256\">" << endl;
+    dzi_file << "    <Size Height=\"" << outputHeight << "\" Width=\"" << outputWidth << "\"/>" << endl;
+    dzi_file << "</Image>" << endl;
+    dzi_file.close();
 
-    // Convert to a three band image
-    if( image.bands() == 1 )
+    int numLevels = 0;
+    for( int o = ceil((double)outputWidth/256.0); o > 1; o = ceil((double)o/2.0) ) numLevels += o;
+
+    ProgressBar *lowerLevels = new ProgressBar(numLevels, "Building lower levels");
+
+    outputWidth = (int)ceil((double)outputWidth/ 128.0 );
+    outputHeight = (int)ceil((double)outputHeight/ 128.0 );
+
+    for( ; level > 0; --level )
     {
-      image = image.bandjoin(image).bandjoin(image);
-    }
-    if( image.bands() == 4 )
-    {
-      image = image.flatten();
-    }
+      outputWidth = (int)ceil((double)outputWidth/ 2.0 );
+      outputHeight = (int)ceil((double)outputHeight/ 2.0 );
 
-    // Find the width of the largest square inside image
-    int width = image.width();
-    int height = image.height();
-    
-    double newSize = max((double)tileWidth[t]/(double)width,(double)tileHeight[t]/(double)height);
+      string current = string(outputImage).append("_files/"+to_string(level-1)+"/");
+      string upper = string(outputImage).append("_files/"+to_string(level)+"/");
 
-    // Extract square, flip, and rotate based on cropdata, and then save as a deep zoom image
-    image = image.resize(newSize).extract_area(get<1>(cropData[t][current])*newSize, get<2>(cropData[t][current])*newSize, tileWidth[t], tileHeight[t]);
+      g_mkdir((char *)current.c_str(), 0777);
 
-    if( get<4>(cropData[t][current]) )
-    {
-      image = image.flip(VIPS_DIRECTION_HORIZONTAL);
-    }
-
-    unsigned char *tileData = (unsigned char *)image.data();
-
-int r = 255;
-    int g = rand()%255;
-    int b = rand()%255;
-
-    for( int x = 0; x < shapeIndices[t].size(); ++x )
-    {
-      int x1 = j + shapeIndices[t][x]%tileWidth[t];
-      int y1 = i + shapeIndices[t][x]/tileWidth[t];
-      int l = 3 * ( y1 * outputWidth + x1 );
-
-      if( x1 >= 0 && x1 < outputWidth && y1 >= 0 && y1 < outputHeight )
+      for(int i = 1; i < outputWidth; i+=2)
       {
-        data[l+0] = tileData[3*shapeIndices[t][x]+0];
-        data[l+1] = tileData[3*shapeIndices[t][x]+1];
-        data[l+2] = tileData[3*shapeIndices[t][x]+2];
+        lowerLevels->Increment();
+
+        for(int j = 1; j < outputHeight; j+=2)
+        {
+          (VImage::jpegload((char *)string(upper).append(to_string(i-1)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+          join(VImage::jpegload((char *)string(upper).append(to_string(i)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
+          join(VImage::jpegload((char *)string(upper).append(to_string(i-1)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+          join(VImage::jpegload((char *)string(upper).append(to_string(i)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL),VIPS_DIRECTION_VERTICAL).
+          jpegsave((char *)string(current).append(to_string(i>>1)+"_"+to_string(j>>1)+".jpeg").c_str() );
+        }
+      }
+      if(outputWidth%2 == 1)
+      {
+        for(int j = 1; j < outputHeight; j+=2)
+        {
+          (VImage::jpegload((char *)string(upper).append(to_string(outputWidth-1)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+          join(VImage::jpegload((char *)string(upper).append(to_string(outputWidth-1)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_VERTICAL)).
+          jpegsave((char *)string(current).append(to_string(outputWidth>>1)+"_"+to_string(j>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+        }
+      }
+      if(outputHeight%2 == 1)
+      {
+        for(int j = 1; j < outputWidth; j+=2)
+        {
+          (VImage::jpegload((char *)string(upper).append(to_string(j-1)+"_"+to_string(outputHeight-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+          join(VImage::jpegload((char *)string(upper).append(to_string(j)+"_"+to_string(outputHeight-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
+          jpegsave((char *)string(current).append(to_string(j>>1)+"_"+to_string(outputHeight>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
+        }
+      }
+      if(outputWidth%2 == 1 && outputHeight%2 == 1)
+      {
+        VImage::jpegload((char *)string(upper).append(to_string(outputWidth-1)+"_"+to_string(outputHeight-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+        jpegsave((char *)string(current).append(to_string(outputWidth>>1)+"_"+to_string(outputHeight>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
       }
     }
 
-    generatingImage->Increment();
+    lowerLevels->Finish();
+
+    // Generate html file to view deep zoom image
+    ofstream htmlFile(string(outputImage).append(".html").c_str());
+    htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<style>\nhtml,\nbody,\n#collage\n{\nposition: fixed;\nleft: 0;\ntop: 0;\nwidth: 100%;\nheight: 100%;\n}\n</style>\n\n<div id=\"collage\"></div>\n\n<script>\nvar viewer = OpenSeadragon({\nid: 'collage',\nprefixUrl: 'icons/',\ntileSources:   \"" + outputImage + ".dzi\",\nminZoomImageRatio: 0,\nmaxZoomImageRatio: 1\n});\n</script>\n</body>\n</html>";
+    htmlFile.close();
   }
-
-  generatingImage->Finish();
-
-  cout << "Saving image " << outputImage << endl;
-
-  VImage::new_from_memory( data, outputWidth*outputHeight*3, outputWidth, outputHeight, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
-
-  // Free the data
-  delete [] data;
-}
-
-void buildImage2( vector< vector< cropType > > &cropData, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, string outputImage, vector< int > &tileWidth, vector< int > &tileHeight, int outputWidth, int outputHeight )
-{
-  int level = (int)ceil(log2( max(outputWidth,outputHeight) ) );
-
-  if( outputImage.back() == '/' ) outputImage = outputImage.substr(0, outputImage.size()-1);
-
-  g_mkdir(string(outputImage).append("_files/").c_str(), 0777);
-  g_mkdir(string(outputImage).append("_files/").append(to_string(level)).c_str(), 0777);
-
-  int threads = sysconf(_SC_NPROCESSORS_ONLN);
-
-  ProgressBar *topLevel = new ProgressBar(ceil((double)outputWidth/256.0)*ceil((double)outputHeight/((double)threads*256.0)), "Building top level");
-
-  future< void > ret[threads];
-
-  for( int k = 0; k < threads; ++k )
-  {
-    int start = k*outputHeight/threads;
-    int end = (k+1)*outputHeight/threads;
-
-    start = (start / 256 ) * 256;
-    if( k+1 < threads ) end = (end / 256 ) * 256;
-
-    ret[k] = async( launch::async, &buildTopLevel, string(outputImage).append("_files/"+to_string(level)+"/"), start, end, outputWidth, outputHeight, ref(cropData), ref(mosaic), ref(mosaicLocations), ref(edgeLocations), ref(shapeIndices), ref(tileWidth), ref(tileHeight), topLevel );
-  }
-
-  // Wait for threads to finish
-  for( int k = 0; k < threads; ++k )
-  {
-    ret[k].get();
-  }
-  
-  topLevel->Finish();
-
-  ofstream dzi_file;
-  dzi_file.open(string(outputImage).append(".dzi").c_str());
-  dzi_file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << endl;
-  dzi_file << "<Image xmlns=\"http://schemas.microsoft.com/deepzoom/2008\" Format=\"jpeg\" Overlap=\"0\" TileSize=\"256\">" << endl;
-  dzi_file << "    <Size Height=\"" << outputHeight << "\" Width=\"" << outputWidth << "\"/>" << endl;
-  dzi_file << "</Image>" << endl;
-  dzi_file.close();
-
-  int numLevels = 0;
-  for( int o = ceil((double)outputWidth/256.0); o > 1; o = ceil((double)o/2.0) ) numLevels += o;
-
-  ProgressBar *lowerLevels = new ProgressBar(numLevels, "Building lower levels");
-
-  outputWidth = (int)ceil((double)outputWidth/ 128.0 );
-  outputHeight = (int)ceil((double)outputHeight/ 128.0 );
-
-  for( ; level > 0; --level )
-  {
-    outputWidth = (int)ceil((double)outputWidth/ 2.0 );
-    outputHeight = (int)ceil((double)outputHeight/ 2.0 );
-
-    string current = string(outputImage).append("_files/"+to_string(level-1)+"/");
-    string upper = string(outputImage).append("_files/"+to_string(level)+"/");
-
-    g_mkdir((char *)current.c_str(), 0777);
-
-    for(int i = 1; i < outputWidth; i+=2)
-    {
-      lowerLevels->Increment();
-
-      for(int j = 1; j < outputHeight; j+=2)
-      {
-        (VImage::jpegload((char *)string(upper).append(to_string(i-1)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
-        join(VImage::jpegload((char *)string(upper).append(to_string(i)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
-        join(VImage::jpegload((char *)string(upper).append(to_string(i-1)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
-        join(VImage::jpegload((char *)string(upper).append(to_string(i)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL),VIPS_DIRECTION_VERTICAL).
-        jpegsave((char *)string(current).append(to_string(i>>1)+"_"+to_string(j>>1)+".jpeg").c_str() );
-      }
-    }
-    if(outputWidth%2 == 1)
-    {
-      for(int j = 1; j < outputHeight; j+=2)
-      {
-        (VImage::jpegload((char *)string(upper).append(to_string(outputWidth-1)+"_"+to_string(j-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
-        join(VImage::jpegload((char *)string(upper).append(to_string(outputWidth-1)+"_"+to_string(j)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_VERTICAL)).
-        jpegsave((char *)string(current).append(to_string(outputWidth>>1)+"_"+to_string(j>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
-      }
-    }
-    if(outputHeight%2 == 1)
-    {
-      for(int j = 1; j < outputWidth; j+=2)
-      {
-        (VImage::jpegload((char *)string(upper).append(to_string(j-1)+"_"+to_string(outputHeight-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
-        join(VImage::jpegload((char *)string(upper).append(to_string(j)+"_"+to_string(outputHeight-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)),VIPS_DIRECTION_HORIZONTAL)).
-        jpegsave((char *)string(current).append(to_string(j>>1)+"_"+to_string(outputHeight>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );
-      }
-    }
-    if(outputWidth%2 == 1 && outputHeight%2 == 1)
-    {
-      VImage::jpegload((char *)string(upper).append(to_string(outputWidth-1)+"_"+to_string(outputHeight-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
-      jpegsave((char *)string(current).append(to_string(outputWidth>>1)+"_"+to_string(outputHeight>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
-    }
-  }
-
-  lowerLevels->Finish();
-
-  // Generate html file to view deep zoom image
-  ofstream htmlFile(string(outputImage).append(".html").c_str());
-  htmlFile << "<!DOCTYPE html>\n<html>\n<head><script src=\"js/openseadragon.min.js\"></script></head>\n<body>\n<style>\nhtml,\nbody,\n#collage\n{\nposition: fixed;\nleft: 0;\ntop: 0;\nwidth: 100%;\nheight: 100%;\n}\n</style>\n\n<div id=\"collage\"></div>\n\n<script>\nvar viewer = OpenSeadragon({\nid: 'collage',\nprefixUrl: 'icons/',\ntileSources:   \"" + outputImage + ".dzi\",\nminZoomImageRatio: 0,\nmaxZoomImageRatio: 1\n});\n</script>\n</body>\n</html>";
-  htmlFile.close();
 }
 
 int gcd(int a, int b) {
@@ -835,15 +738,7 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
     }
     else
     {
-      // Save image as static image or zoomable image
-      if( vips_foreign_find_save( outputImages[i].c_str() ) != NULL )
-      {
-        buildImage( cropData, mosaic, mosaicLocations2, edgeLocations2, shapeIndices2, outputImages[i], tileWidth2, tileHeight2, imageWidth, imageHeight );
-      }
-      else
-      {
-        buildImage2( cropData, mosaic, mosaicLocations2, edgeLocations2, shapeIndices2, outputImages[i], tileWidth2, tileHeight2, imageWidth, imageHeight );
-      }
+      buildImage( cropData, mosaic, mosaicLocations2, edgeLocations2, shapeIndices2, outputImages[i], tileWidth2, tileHeight2, imageWidth, imageHeight );
     }
   }
 }

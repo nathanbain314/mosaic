@@ -199,8 +199,6 @@ void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< ve
   // Shuffle the points so that patterns do not form
   random_shuffle( indices[0].begin(), indices[0].end() );
 
-  indices[0][0]=1;
-
   bool gridFull = false;
 
   //for( int p = 0; p < 500; ++p )
