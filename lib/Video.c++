@@ -139,7 +139,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     {
       string imageDirectory = inputDirectory[i];
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      generateThumbnails( cropData, mosaicTileData, imageTileData, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, recursiveSearch );
+      generateThumbnails( cropData, mosaicTileData, imageTileData, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, false, recursiveSearch );
 
       idx.resize(mosaicTileData.size());
       iota(idx.begin()+numImages, idx.end(), numImages);
