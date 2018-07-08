@@ -262,7 +262,7 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
         
         float r,g,b;
         // Convert rgb to rgb16
-        vips_col_sRGB2scRGB_16(c[l],c[l+1],c[l+2], &r,&g,&b );
+        vips_col_sRGB2scRGB_8(c[l],c[l+1],c[l+2], &r,&g,&b );
         // Convert rgb16 to xyz
         vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
         // Convert xyz to lab
@@ -459,8 +459,6 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
 
     if( repeat > 0 )
     {
-      set< int > eraseData;
-
       int imagesLeft = num_images;
 
       // Outside of square so that closer images are not the same

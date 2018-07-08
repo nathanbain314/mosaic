@@ -219,8 +219,8 @@ rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int
           {
             float l1,a1,b1,l2,a2,b2;
             // Convert rgb to rgb16
-            vips_col_sRGB2scRGB_16(imageData[3ULL*index+0ULL],imageData[3ULL*index+1ULL],imageData[3ULL*index+2ULL], &l1,&a1,&b1 );
-            vips_col_sRGB2scRGB_16(images[k][3*p+0],images[k][3*p+1],images[k][3*p+2], &l2,&a2,&b2 );
+            vips_col_sRGB2scRGB_8(imageData[3ULL*index+0ULL],imageData[3ULL*index+1ULL],imageData[3ULL*index+2ULL], &l1,&a1,&b1 );
+            vips_col_sRGB2scRGB_8(images[k][3*p+0],images[k][3*p+1],images[k][3*p+2], &l2,&a2,&b2 );
             // Convert rgb16 to xyz
             vips_col_scRGB2XYZ( l1, a1, b1, &l1, &a1, &b1 );
             vips_col_scRGB2XYZ( l2, a2, b2, &l2, &a2, &b2 );

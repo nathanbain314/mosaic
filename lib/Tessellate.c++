@@ -280,17 +280,279 @@ void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, 
   }
 }
 
-int gcd(int a, int b) {
-    return b == 0 ? a : gcd(b, a % b);
-}
-
-int generateRGBBlock( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > shapeIndices, vector< int > &indices, int repeat, unsigned char * c, int start, int end, vector< int > tileWidth, int width, ProgressBar* buildingMosaic, bool quiet )
+int generateLABBlock( vector< vector< vector< float > > > &imageData, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > shapeIndices, vector< int > &indices, int repeat, unsigned char * c, int start, int end, vector< int > &tileWidth, vector< int > &tileHeight, int width, ProgressBar* buildingMosaic, bool quiet )
 {
   // Whether to update progressbar
   bool show = !quiet && !(start);
 
   // Color difference of images
   int out_dist_sqr;
+
+  // For every index
+  for( int p = start; p < end; ++p )
+  {
+    int k = indices[p];
+    int j = mosaicLocations[k][0];
+    int i = mosaicLocations[k][1];
+    int t = mosaicLocations[k][4];
+
+    int num_images = imageData[t].size();
+
+    // Update progressbar if necessary
+    if(show) buildingMosaic->Increment();
+
+    vector< float > d(shapeIndices[t].size()*3);
+
+//    cout << shapeIndices[t].size() << endl;
+
+    // Get rgb data about tile and save in vector
+    for( int x = 0; x < shapeIndices[t].size(); ++x )
+    {
+      int l = 3 * ( ( i + shapeIndices[t][x]/tileWidth[t] ) * width + j + shapeIndices[t][x]%tileWidth[t] );
+
+      float r,g,b;
+      // Convert rgb to rgb8
+      vips_col_sRGB2scRGB_8(c[l],c[l+1],c[l+2], &r,&g,&b );
+      // Convert rgb16 to xyz
+      vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
+      // Convert xyz to lab
+      vips_col_XYZ2Lab( r, g, b, &d[3*x], &d[3*x+1], &d[3*x+2] );
+    }
+
+    int best = 0;
+    double difference = DBL_MAX;
+
+    set< int > eraseData;
+
+    if( repeat > 0 )
+    {
+      // Outside of square so that closer images are not the same
+      for( int r = 1; r <= repeat; ++r )
+      {
+        for( int k2 = 0; eraseData.size() < imageData[t].size()-1 && k2 < mosaicLocations.size(); ++k2 )
+        {
+          int j2 = mosaicLocations[k2][0];
+          int i2 = mosaicLocations[k2][1];
+          int t2 = mosaicLocations[k2][4];
+
+          if( t != t2 || mosaic[k2] < 0 ) continue;
+
+          if( j2 >= j - r*tileWidth[t] && j2 <= j + r*tileWidth[t] && i2 >= i - r*tileHeight[t] && i2 <= i + r*tileHeight[t] )
+          {
+            eraseData.insert(mosaic[k2]);
+          }
+        }
+      }
+    }
+
+    for( int l = 0; l < num_images; ++l )
+    {
+      if( eraseData.find(l) != eraseData.end() ) continue;
+
+      double sum = 0;
+      for( int j = 0; j < d.size(); j+=3 )
+      {
+        sum += vips_col_dE00( imageData[t][l][j], imageData[t][l][j+1], imageData[t][l][j+2], d[j], d[j+1], d[j+2] );
+//        cout << imageData[t][l][j] << " " << imageData[t][l][j+1] << " " << imageData[t][l][j+2] << " " << d[j] << " " << d[j+1] << " " << d[j+2] << endl;
+//        cout << vips_col_dE00( imageData[t][l][j], imageData[t][l][j+1], imageData[t][l][j+2], d[j], d[j+1], d[j+2] ) << endl;
+//        cin >> best;
+      }
+
+      // Update for best color difference
+      if( sum < difference )
+      {
+        difference = sum;
+        best = l;
+      }
+    }
+
+    // Set mosaic tile data
+    mosaic[k] = best;
+
+//    cout << best << " " << num_images << " " << d.size() << endl;
+  }
+
+  return 0;
+}
+
+int generateLABBlockEdge( vector< vector< vector< float > > > &imageData, vector< int > &mosaic, int mosaicOffset, vector< vector< int > > &edgeLocations, vector< vector< int > > shapeIndices, vector< int > &indices, int repeat, unsigned char * c, int start, int end, vector< int > &tileWidth, int width, int height, ProgressBar* buildingMosaic, bool quiet )
+{
+  // Whether to update progressbar
+  bool show = !quiet && !(start);
+
+  // Color difference of images
+  int out_dist_sqr;
+
+  // For every index
+  for( int p = start; p < end; ++p )
+  {
+    int k = indices[p];
+    int j = edgeLocations[k][0];
+    int i = edgeLocations[k][1];
+    int t = edgeLocations[k][4];
+
+    int num_images = imageData[t].size();
+
+    // Update progressbar if necessary
+    if(show) buildingMosaic->Increment();
+
+    vector< int > edgeShape;
+
+    vector< float > d(shapeIndices[t].size()*3);
+
+    // Get rgb data about tile and save in vector
+    for( int x = 0; x < shapeIndices[t].size(); ++x )
+    {
+      int x1 = j + shapeIndices[t][x]%tileWidth[t];
+      int y1 = i + shapeIndices[t][x]/tileWidth[t];
+      int l = 3 * ( y1 * width + x1 );
+
+      if( x1 >= 0 && x1 < width && y1 >= 0 && y1 < height )
+      {
+        edgeShape.push_back(x);
+
+        float r,g,b;
+        // Convert rgb to rgb16
+        vips_col_sRGB2scRGB_8(c[l],c[l+1],c[l+2], &r,&g,&b );
+        // Convert rgb16 to xyz
+        vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
+        // Convert xyz to lab
+        vips_col_XYZ2Lab( r, g, b, &d[3*x], &d[3*x+1], &d[3*x+2] );
+      }
+    }
+
+    double difference = DBL_MAX;
+    int best = 0;
+
+    for( int l = 0; l < num_images; ++l )
+    {
+      double sum = 0;
+
+      for( int j = 0; j < edgeShape.size(); j+=3 )
+      {
+        int x = 3*edgeShape[j];
+
+        sum += vips_col_dE00( imageData[t][l][x], imageData[t][l][x+1], imageData[t][l][x+2], d[x], d[x+1], d[x+2] );
+      }
+
+      // Update for best color difference
+      if( sum < difference )
+      {
+        difference = sum;
+        best = l;
+      }
+    }
+
+//    cout << best << " " << num_images << endl;
+
+    // Set mosaic tile data
+    mosaic[k+mosaicOffset] = best;
+  }
+
+  return 0;
+}
+
+int generateMosaic( vector< vector< vector< float > > > &imageData, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, vector< int > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool quiet, vector< int > &tileWidth, vector< int > &tileHeight )
+{
+  // Whether to show progressbar
+  quiet = quiet || ( buildingMosaic == NULL );
+
+  // Load input image
+  VImage image = VImage::vipsload( (char *)inputImage.c_str() );
+
+  // Convert to a three band image
+  if( image.bands() == 1 )
+  {
+    image = image.bandjoin(image).bandjoin(image);
+  }
+  if( image.bands() == 4 )
+  {
+    image = image.flatten();
+  }
+
+  // Crop out the middle square if specified
+  if(square)
+  {
+    image = (image.width() < image.height()) ? image.extract_area(0, (image.height()-image.width())/2, image.width(), image.width()) :
+                                               image.extract_area((image.width()-image.height())/2, 0, image.height(), image.height());
+  }
+
+  // Resize the image for correct mosaic tile size
+  if( resize != 0 ) image = image.resize( (double)resize / (double)(image.width()) );
+
+  int width = image.width();
+  int height = image.height();
+
+  // Get image data
+  unsigned char * c = ( unsigned char * )image.data();
+
+  // Number of threads for multithreading: needs to be a square number
+  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+
+  // Create list of numbers in thread block
+  vector< int > indices( mosaicLocations.size() );
+  iota( indices.begin(), indices.end(), 0 );
+
+  // Shuffle the points so that patterns do not form
+  shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
+
+  // Break mosaic into blocks and find best matching tiles inside each block on a different thread
+  future< int > ret[threads];
+
+  for( int i = 0; i < threads; ++i )
+  {
+    ret[i] = async( launch::async, &generateLABBlock, ref(imageData), ref(mosaic), ref(mosaicLocations), ref(shapeIndices), ref(indices), repeat, c, i*indices.size()/threads, (i+1)*indices.size()/threads, ref(tileWidth), ref(tileHeight), width, buildingMosaic, quiet );
+  }
+
+  // Wait for threads to finish
+  for( int k = 0; k < threads; ++k )
+  {
+    ret[k].get();
+  }
+
+  vector< int > edgeIndices( edgeLocations.size() );
+  iota( edgeIndices.begin(), edgeIndices.end(), 0 );
+
+  // Shuffle the points so that patterns do not form
+  shuffle( edgeIndices.begin(), edgeIndices.end(), default_random_engine(time(NULL)) );
+
+  if( !quiet ) buildingMosaic->Finish();
+
+  ProgressBar *buildingMosaicEdge = new ProgressBar(edgeLocations.size()/threads, "Building mosaic edge");
+
+  for( int i = 0; i < threads; ++i )
+  {
+    ret[i] = async( launch::async, &generateLABBlockEdge, ref(imageData), ref(mosaic), mosaicLocations.size(), ref(edgeLocations), ref(shapeIndices), ref(edgeIndices), repeat, c, i*edgeIndices.size()/threads, (i+1)*edgeIndices.size()/threads, ref(tileWidth), width, height, buildingMosaicEdge, quiet );
+  }
+
+  // Wait for threads to finish
+  for( int k = 0; k < threads; ++k )
+  {
+    ret[k].get();
+  }
+
+  if( !quiet ) buildingMosaicEdge->Finish();
+
+  return 0;
+}
+
+int generateRGBBlock( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > shapeIndices, vector< int > &indices, int repeat, unsigned char * c, int start, int end, vector< int > &tileWidth, vector< int > &tileHeight, int width, ProgressBar* buildingMosaic, bool quiet )
+{
+  // Whether to update progressbar
+  bool show = !quiet && !(start);
+
+  // Color difference of images
+  int out_dist_sqr;
+
+  typedef KDTreeSingleIndexDynamicAdaptor< L2_Simple_Adaptor<int, my_kd_tree_t>, my_kd_tree_t> dynamic_kdtree;
+
+  vector< unique_ptr< dynamic_kdtree > > mat_index2;//(tileArea, d, 10 );
+
+  for( int i = 0; i < mat_index.size(); ++i )
+  {
+    unique_ptr< dynamic_kdtree > ptr(new dynamic_kdtree(mat_index[i]->m_data[0].size(), *mat_index[i], KDTreeSingleIndexAdaptorParams(10)));
+    mat_index2.push_back( move(ptr) );//3*shapeIndices[i].size(),d[i],10);
+  }
 
   // For every index
   for( int p = start; p < end; ++p )
@@ -317,7 +579,39 @@ int generateRGBBlock( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< i
 
     size_t ret_index;
 
-    mat_index[t]->query( &d[0], 1, &ret_index, &out_dist_sqr );
+    if( repeat > 0 )
+    {
+      int imagesLeft = mat_index[t]->kdtree_get_point_count();;
+
+      // Outside of square so that closer images are not the same
+      for( int r = 1; r <= repeat; ++r )
+      {
+        for( int k2 = 0; imagesLeft > 1 && k2 < mosaicLocations.size(); ++k2 )
+        {
+          int j2 = mosaicLocations[k2][0];
+          int i2 = mosaicLocations[k2][1];
+          int t2 = mosaicLocations[k2][4];
+
+          if( t != t2 || mosaic[k2] < 0 ) continue;
+
+          if( j2 >= j - r*tileWidth[t] && j2 <= j + r*tileWidth[t] && i2 >= i - r*tileHeight[t] && i2 <= i + r*tileHeight[t] )
+          {
+            mat_index2[t]->removePoint(mosaic[k2]);
+            --imagesLeft;
+          }
+        }
+      }
+
+      nanoflann::KNNResultSet<int> resultSet(1);
+      resultSet.init(&ret_index, &out_dist_sqr );
+      mat_index2[t]->findNeighbors(resultSet, &d[0], nanoflann::SearchParams(10));
+
+      mat_index2[t]->addPointsBack();
+    }
+    else
+    {
+      mat_index[t]->query( &d[0], 1, &ret_index, &out_dist_sqr );
+    }
 
     // Set mosaic tile data
     mosaic[k] = ret_index;
@@ -369,19 +663,19 @@ int generateRGBBlockEdge( vector< unique_ptr< my_kd_tree_t > > &mat_index, vecto
     int bestSum = INT_MAX;
     int best = 0;
 
-    for( int i = 0; i < mat_index[t]->kdtree_get_point_count(); ++i )
+    for( int l = 0; l < mat_index[t]->kdtree_get_point_count(); ++l )
     {
       int sum = 0;
 
       for( int j = 0; j < edgeShape.size(); j+=3 )
       {
         int x = 3*edgeShape[j];
-        sum += (d[j+0]-mat_index[t]->m_data[i][x+0]) * (d[j+0]-mat_index[t]->m_data[i][x+0]) + (d[j+1]-mat_index[t]->m_data[i][x+1]) * (d[j+1]-mat_index[t]->m_data[i][x+1]) + (d[j+2]-mat_index[t]->m_data[i][x+2]) * (d[j+2]-mat_index[t]->m_data[i][x+2]);
+        sum += (d[j+0]-mat_index[t]->m_data[l][x+0]) * (d[j+0]-mat_index[t]->m_data[l][x+0]) + (d[j+1]-mat_index[t]->m_data[l][x+1]) * (d[j+1]-mat_index[t]->m_data[l][x+1]) + (d[j+2]-mat_index[t]->m_data[l][x+2]) * (d[j+2]-mat_index[t]->m_data[l][x+2]);
       }
 
       if( sum < bestSum )
       {
-        best = i;
+        best = l;
         bestSum = sum;
       }
     }
@@ -393,7 +687,7 @@ int generateRGBBlockEdge( vector< unique_ptr< my_kd_tree_t > > &mat_index, vecto
   return 0;
 }
 
-int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > shapeIndices, vector< int > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool quiet, vector< int > tileWidth )
+int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, vector< int > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool quiet, vector< int > &tileWidth, vector< int > &tileHeight )
 {
   // Whether to show progressbar
   quiet = quiet || ( buildingMosaic == NULL );
@@ -442,7 +736,7 @@ int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vec
 
   for( int i = 0; i < threads; ++i )
   {
-    ret[i] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(mosaicLocations), ref(shapeIndices), ref(indices), repeat, c, i*indices.size()/threads, (i+1)*indices.size()/threads, tileWidth, width, buildingMosaic, quiet );
+    ret[i] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(mosaicLocations), ref(shapeIndices), ref(indices), repeat, c, i*indices.size()/threads, (i+1)*indices.size()/threads, ref(tileWidth), ref(tileHeight), width, buildingMosaic, quiet );
   }
 
   // Wait for threads to finish
@@ -463,7 +757,7 @@ int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vec
 
   for( int i = 0; i < threads; ++i )
   {
-    ret[i] = async( launch::async, &generateRGBBlockEdge, ref(mat_index), ref(mosaic), mosaicLocations.size(), ref(edgeLocations), ref(shapeIndices), ref(edgeIndices), repeat, c, i*edgeIndices.size()/threads, (i+1)*edgeIndices.size()/threads, tileWidth, width, height, buildingMosaicEdge, quiet );
+    ret[i] = async( launch::async, &generateRGBBlockEdge, ref(mat_index), ref(mosaic), mosaicLocations.size(), ref(edgeLocations), ref(shapeIndices), ref(edgeIndices), repeat, c, i*edgeIndices.size()/threads, (i+1)*edgeIndices.size()/threads, ref(tileWidth), width, height, buildingMosaicEdge, quiet );
   }
 
   // Wait for threads to finish
@@ -676,10 +970,38 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
   }
 
   vector< vector< vector< int > > > d;
-  vector< vector< float > > lab;
+  vector< vector< vector< float > > > lab;
 
   if( trueColor  )
   {
+    lab.resize(shapeIndices.size());
+
+    float r,g,b;
+
+    for( int i = 0; i < shapeIndices.size(); ++i )
+    {
+      tileArea = shapeIndices[i].size();
+//      cout << shapeIndices[i].size() << endl;
+
+      lab[i] = vector< vector< float > >( mosaicTileData[i].size(), vector< float >(3*tileArea) );
+
+//      cout << mosaicTileData[i].size() << endl;
+
+      for( int j = 0; j < mosaicTileData[i].size(); ++j )
+      {
+        for( int p = 0; p < tileArea; ++p )
+        {
+//          cout << (int)mosaicTileData[i][j][3*shapeIndices[i][p]+0] << " " << (int)mosaicTileData[i][j][3*shapeIndices[i][p]+1] << " " << (int)mosaicTileData[i][j][3*shapeIndices[i][p]+2] << endl;
+
+          vips_col_sRGB2scRGB_8(mosaicTileData[i][j][3*shapeIndices[i][p]+0],mosaicTileData[i][j][3*shapeIndices[i][p]+1],mosaicTileData[i][j][3*shapeIndices[i][p]+2], &r,&g,&b );
+          vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
+          vips_col_XYZ2Lab( r, g, b, &lab[i][j][3*p+0], &lab[i][j][3*p+1], &lab[i][j][3*p+2] );
+//          cout << lab[i][j][3*p+0] << " " << lab[i][j][3*p+1] << " " << lab[i][j][3*p+2] << endl;
+//          cin >> repeat;
+//          cout << "here\n";
+        }
+      }
+    }
   }
   else
   {
@@ -710,10 +1032,13 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
   vector< unique_ptr< my_kd_tree_t > > mat_index;//(tileArea, d, 10 );
 
-  for( int i = 0; i < shapeIndices.size(); ++i )
+  if( !trueColor )
   {
-    unique_ptr< my_kd_tree_t > ptr(new my_kd_tree_t(3*shapeIndices[i].size(),d[i],10));
-    mat_index.push_back( move(ptr) );//3*shapeIndices[i].size(),d[i],10);
+    for( int i = 0; i < shapeIndices.size(); ++i )
+    {
+      unique_ptr< my_kd_tree_t > ptr(new my_kd_tree_t(3*shapeIndices[i].size(),d[i],10));
+      mat_index.push_back( move(ptr) );//3*shapeIndices[i].size(),d[i],10);
+    }
   }
 
   for( int i = 0; i < inputImages.size(); ++i )
@@ -726,10 +1051,11 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
     if( trueColor  )
     {
+      numUnique = generateMosaic( lab, mosaicLocations, edgeLocations, shapeIndices, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet, tileWidth, tileHeight );
     }
     else
     {
-      numUnique = generateMosaic( mat_index, mosaicLocations, edgeLocations, shapeIndices, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet, tileWidth );
+      numUnique = generateMosaic( mat_index, mosaicLocations, edgeLocations, shapeIndices, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet, tileWidth, tileHeight );
     }
 
     if( mosaicTileWidth == imageTileWidth )

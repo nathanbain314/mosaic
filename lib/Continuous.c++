@@ -242,7 +242,7 @@ void RunContinuous( vector< string > inputDirectory, string outputDirectory, int
     {
       for( int p = 0; p < tileArea; p+=3 )
       {
-        vips_col_sRGB2scRGB_16(startData[j][p],startData[j][p+1],startData[j][p+2], &r,&g,&b );
+        vips_col_sRGB2scRGB_8(startData[j][p],startData[j][p+1],startData[j][p+2], &r,&g,&b );
         vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
         vips_col_XYZ2Lab( r, g, b, &lab[j][p], &lab[j][p+1], &lab[j][p+2] );
       }
