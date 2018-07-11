@@ -155,8 +155,7 @@ rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int
       int width = dimensions[k].first;
       int height = dimensions[k].second;
 
-      double maxDifference = bestDifference * (width+1) * (height+1);
-      double skipDifference = maxDifference;
+      double skipDifference = bestDifference * (width+1) * (height+1);
 
       // Compute data for point rotation
       double cosAngle = cos(angle);
