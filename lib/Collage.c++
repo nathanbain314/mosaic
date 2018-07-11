@@ -139,7 +139,7 @@ int rotateY( double x, double y, double cosAngle, double sinAngle, double halfWi
 rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int imageHeight, int skip, int iteration, vector< int > &lastUsed, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char * imageData, unsigned char * computeMaskData, int angleOffset, bool trueColor )
 {
   int bestImage = -1;
-  double bestDifference = DBL_MAX, bestAngle = 0;
+  double bestDifference = 3<<16, bestAngle = 0;
 
   // Run through every image in thread area
   // Round down to nearest even number
@@ -154,6 +154,9 @@ rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int
       double angle = a * 3.14159265/180.0;
       int width = dimensions[k].first;
       int height = dimensions[k].second;
+
+      double maxDifference = bestDifference * (width+1) * (height+1);
+      double skipDifference = maxDifference;
 
       // Compute data for point rotation
       double cosAngle = cos(angle);
@@ -182,7 +185,7 @@ rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int
       double yOffset2 = sinAngle*halfWidth + (cosAngle-1.0)*halfHeight;
 
       // Traverse data for rotated image to find difference from input image
-      for( int iy = max( y - newHeight/2, 0 ), i = iy - y + newHeight/2, endy = min( imageHeight - y + newHeight/2, newHeight); i < endy; ++i, ++iy )
+      for( int iy = max( y - newHeight/2, 0 ), i = iy - y + newHeight/2, endy = min( imageHeight - y + newHeight/2, newHeight); i < endy && difference < skipDifference; ++i, ++iy )
       {
         int ix = max( x - newWidth/2, 0 );
         int j = ix - x + newWidth/2;
@@ -194,17 +197,20 @@ rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int
         double icos = (double)i * cosAngle;
         double isin = (double)i * sinAngle;
 
-        for( ; j < endx; ++j, ++index )
+        for( ; j < endx && difference < skipDifference; ++j, ++index )
         {
-          // Make sure the the point is not fully colored
-          if( computeMaskData[index] == 255 ) continue;
-
           // New x and y of rotated image point
           int newX = (double)j*cosAngle - isin - xOffset2 - xOffset;
           int newY = (double)j*sinAngle + icos - yOffset2 - yOffset;
 
           // Make sure that the point is within the image
           if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
+
+          // Update the maxValue the difference can be to be a candidate for best image
+          skipDifference -= bestDifference;
+
+          // Make sure the the point is not fully colored
+          if( computeMaskData[index] == 255 ) continue;
 
           // Point in image
           int p = width*newY + newX;
@@ -214,6 +220,9 @@ rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int
 
           // Update the number of pixels that are used
           ++usedPixels;
+
+          // Update skipDifference
+          skipDifference += bestDifference;
 
           if( trueColor )
           {

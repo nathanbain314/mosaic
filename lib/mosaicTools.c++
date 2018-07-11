@@ -9,7 +9,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
   // Used for processing image
   int size, xOffset, yOffset, width, height, mosaicTileArea = mosaicTileWidth*mosaicTileHeight*3, imageTileArea = imageTileWidth*imageTileHeight*3;
-  bool different = mosaicTileWidth != imageTileWidth;
+  bool different = mosaicTileWidth != imageTileWidth && !exclude;
 
   unsigned char *c1, *c2;
 

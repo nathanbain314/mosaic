@@ -916,7 +916,7 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
         }
         if(!found)
         {
-          generateThumbnails( cropData[j], mosaicTileData[j], imageTileData[j], j == 0 ? inputDirectory : inputDirectoryBlank, imageDirectory, tileWidth[j], tileHeight[j], tileWidth[j], tileHeight[j], isDeepZoom, spin, cropStyle, flip, quiet, recursiveSearch );
+          generateThumbnails( cropData[j], mosaicTileData[j], imageTileData[j], j == 0 ? inputDirectory : inputDirectoryBlank, imageDirectory, tileWidth[j], tileHeight[j], tileWidth[j], tileHeight[j], true, spin, cropStyle, flip, quiet, recursiveSearch );
         }
       }
     }
