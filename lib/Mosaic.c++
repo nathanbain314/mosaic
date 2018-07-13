@@ -121,7 +121,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
           mosaic[i][j] = numTiles++;
 
           // Load image
-          VImage image = VImage::vipsload( (char *)(get<0>(cropData[current])).c_str() ).rot(rotAngle[get<3>(cropData[current])]);
+          VImage image = VImage::vipsload( (char *)(get<0>(cropData[current])).c_str() ).autorot().rot(rotAngle[get<3>(cropData[current])]);
 
           // Convert to a three band image
           if( image.bands() == 1 )
@@ -484,8 +484,8 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     outputImages.push_back( outputName );
   }
 
-  int width = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).width();
-  int height = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).height();
+  int width = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).autorot().width();
+  int height = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).autorot().height();
 
   if( mosaicTileWidth == 0 ) mosaicTileWidth = width/numHorizontal;
   if( imageTileWidth == 0 || isDeepZoom ) imageTileWidth = mosaicTileWidth;

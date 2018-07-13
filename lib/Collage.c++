@@ -43,7 +43,7 @@ void generateCollageThumbnails( string imageDirectory, vector< string > &inputDi
       str = names[i];
 
       // Load image and create white one band image of the same size
-      VImage image = VImage::vipsload( (char *)str.c_str() );
+      VImage image = VImage::vipsload( (char *)str.c_str() ).autorot();
 
       int width = image.width();
       int height = image.height();
@@ -407,7 +407,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
 
 void buildCollage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int angleOffset, int fillPercentage, bool trueColor, int skip )
 {
-  VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );
+  VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() ).autorot();
 
   // Converts 1 and 4 band images to a 3 band image
   if( image.bands() == 1 )

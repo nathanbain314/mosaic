@@ -34,7 +34,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
 
         int current = mosaic[k];
 
-        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).rot(rotAngle[get<3>(cropData[t][current])]);
+        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).autorot().rot(rotAngle[get<3>(cropData[t][current])]);
 
         // Convert to a three band image
         if( image.bands() == 2 )
@@ -95,7 +95,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
         
         int current = mosaic[k+mosaicLocations.size()];
 
-        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).rot(rotAngle[get<3>(cropData[t][current])]);
+        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).autorot().rot(rotAngle[get<3>(cropData[t][current])]);
 
         // Convert to a three band image
         if( image.bands() == 2 )
@@ -458,7 +458,7 @@ int generateMosaic( vector< vector< vector< float > > > &imageData, vector< vect
   quiet = quiet || ( buildingMosaic == NULL );
 
   // Load input image
-  VImage image = VImage::vipsload( (char *)inputImage.c_str() );
+  VImage image = VImage::vipsload( (char *)inputImage.c_str() ).autorot();
 
   // Convert to a three band image
   if( image.bands() == 1 )
@@ -693,7 +693,7 @@ int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vec
   quiet = quiet || ( buildingMosaic == NULL );
 
   // Load input image
-  VImage image = VImage::vipsload( (char *)inputImage.c_str() );
+  VImage image = VImage::vipsload( (char *)inputImage.c_str() ).autorot();
 
   // Convert to a three band image
   if( image.bands() == 1 )
@@ -803,8 +803,8 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
     outputImages.push_back( outputName );
   }
 
-  int width = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).width();
-  int height = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).height();
+  int width = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).autorot().width();
+  int height = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).autorot().height();
 
   if( mosaicTileWidth == 0 ) mosaicTileWidth = width/numHorizontal;
   if( imageTileWidth == 0 ) imageTileWidth = mosaicTileWidth;

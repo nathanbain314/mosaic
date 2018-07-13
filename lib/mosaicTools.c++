@@ -56,7 +56,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
       for( int r = 0; r < (spin ? 4:1); ++r )
       {
-        VImage initImage = VImage::vipsload((char *)str.c_str()).rot(rotAngle[r]);
+        VImage initImage = VImage::vipsload((char *)str.c_str()).autorot().rot(rotAngle[r]);
 
         // Get the width, height, and smallest and largest sizes
         width = initImage.width();// VImage::new_memory().vipsload( (char *)str.c_str() ).width();
@@ -331,7 +331,7 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   quiet = quiet || ( buildingMosaic == NULL );
 
   // Load input image
-  VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() );//.colourspace( VIPS_INTERPRETATION_LAB );
+  VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() ).autorot();//.colourspace( VIPS_INTERPRETATION_LAB );
 
   // Convert to a three band image
   if( image.bands() == 1 )
@@ -531,7 +531,7 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
   int num_images = mat_index.kdtree_get_point_count();
 
   // Load input image
-  VImage image = VImage::vipsload( (char *)inputImage.c_str() );
+  VImage image = VImage::vipsload( (char *)inputImage.c_str() ).autorot();
 
   // Convert to a three band image
   if( image.bands() == 1 )

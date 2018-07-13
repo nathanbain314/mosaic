@@ -59,8 +59,8 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
   sort(inputImages.begin(), inputImages.end());
   sort(outputImages.begin(), outputImages.end());
 
-  int width = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).width();
-  int height = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).height();
+  int width = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).autorot().width();
+  int height = VImage::new_memory().vipsload( (char *)inputImages[0].c_str() ).autorot().height();
 
   if( mosaicTileWidth == 0 ) mosaicTileWidth = width/numHorizontal;
   if( imageTileWidth == 0 ) imageTileWidth = mosaicTileWidth;
@@ -234,7 +234,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
   for( int p = 0; p < inputImages.size(); ++p )
   {
-    VImage image = VImage::vipsload( (char *)inputImages[p].c_str() );
+    VImage image = VImage::vipsload( (char *)inputImages[p].c_str() ).autorot();
     image = image.resize( (double)(numHorizontal*mosaicTileWidth) / (double)(image.width()) );
     unsigned char * c = ( unsigned char * )image.data();
 
