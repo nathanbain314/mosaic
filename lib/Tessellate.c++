@@ -93,6 +93,8 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
         int i2 = edgeLocations[k][3];
         int t = edgeLocations[k][4];
         
+        if( j >= tileOffsetX + tileWidth || j2 < tileOffsetX || i >= tileOffsetY + tileHeight || i2 < tileOffsetY ) continue;
+
         int current = mosaic[k+mosaicLocations.size()];
 
         VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).autorot().rot(rotAngle[get<3>(cropData[t][current])]);
