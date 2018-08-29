@@ -1,5 +1,5 @@
 # mosaic
-![de00](http://nathanbain.com/wikiImages/trueColor.png)
+![de00](http://nathanbain.com/wikiImages/RunMosaic/trueColor.png)
 
 This repository contains code for building photomosaics, high-definition photomosaics, mosaics made of mosaics, collages made of rotated transparent images, and video mosaics.
 

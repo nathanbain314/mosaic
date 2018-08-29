@@ -73,6 +73,172 @@ void createLocations( vector< vector< int > > &mosaicLocations, vector< vector< 
   }
 }
 
+void createMultisizeSquaresLocations( string inputImage, vector< vector< int > > &shapeIndices, vector< vector< int > > &mosaicLocations, vector< vector< int > > &mosaicLocations2, vector< vector< int > > &edgeLocations, vector< vector< int > > &edgeLocations2, vector< vector< double > > &offsets, vector< vector< double > > &dimensions, vector< int > &tileWidth, vector< int > &tileHeight, vector< int > &tileWidth2, vector< int > &tileHeight2, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int width, int height )
+{  
+  createLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, width, height );
+
+  // Load input image
+  VImage image = VImage::vipsload( (char *)inputImage.c_str() ).autorot().colourspace(VIPS_INTERPRETATION_B_W);
+
+  // Resize the image for correct mosaic tile size
+  image = image.resize( (double)width / (double)(image.width()) );
+
+  // Get image data
+  unsigned char * c = ( unsigned char * )image.data();
+
+  for( int l = 0; l < mosaicLocations.size(); ++l )
+  {
+    int j = mosaicLocations[l][0];
+    int i = mosaicLocations[l][1];
+    int t = mosaicLocations[l][4];
+
+    vector< double > d(shapeIndices[t].size());
+
+    for( int x = 0; x < shapeIndices[t].size(); ++x )
+    {
+      int p = ( ( i + shapeIndices[t][x]/tileWidth[t] ) * image.width() + j + shapeIndices[t][x]%tileWidth[t] );
+
+      d[x] = c[p];
+    }
+
+    double avg = 0;
+
+    for( int x = 0; x < d.size(); ++x )
+    {
+      avg += d[x];
+    }
+
+    avg /= d.size();
+
+    double deviation = 0;
+
+    for( int x = 0; x < d.size(); ++x )
+    {
+      deviation += (d[x] - avg)*(d[x] - avg);
+    }
+
+    deviation /= d.size();
+
+    if( deviation > 200 && t < shapeIndices.size() - 1 )
+    {
+      int x = mosaicLocations[l][2];
+      int y = mosaicLocations[l][3];
+
+      mosaicLocations.erase(mosaicLocations.begin() + l);
+
+      mosaicLocations.push_back({ (int)round((double)x-tileWidth[t+1]), (int)round((double)y-tileHeight[t+1]), x, y, t+1 } );
+      mosaicLocations.push_back({ (int)round((double)x-tileWidth[t+1]), (int)round((double)y-tileHeight[t]), x, (int)round((double)y-tileHeight[t+1]), t+1 } );
+      mosaicLocations.push_back({ (int)round((double)x-tileWidth[t]), (int)round((double)y-tileHeight[t+1]), (int)round((double)x-tileWidth[t+1]), y, t+1 } );
+      mosaicLocations.push_back({ (int)round((double)x-tileWidth[t]), (int)round((double)y-tileHeight[t]), (int)round((double)x-tileWidth[t+1]), (int)round((double)y-tileHeight[t+1]), t+1 } );
+
+      x = mosaicLocations2[l][2];
+      y = mosaicLocations2[l][3];
+
+      mosaicLocations2.erase(mosaicLocations2.begin() + l);
+
+      mosaicLocations2.push_back({ (int)round((double)x-tileWidth2[t+1]), (int)round((double)y-tileHeight2[t+1]), x, y, t+1 } );
+      mosaicLocations2.push_back({ (int)round((double)x-tileWidth2[t+1]), (int)round((double)y-tileHeight2[t]), x, (int)round((double)y-tileHeight2[t+1]), t+1 } );
+      mosaicLocations2.push_back({ (int)round((double)x-tileWidth2[t]), (int)round((double)y-tileHeight2[t+1]), (int)round((double)x-tileWidth2[t+1]), y, t+1 } );
+      mosaicLocations2.push_back({ (int)round((double)x-tileWidth2[t]), (int)round((double)y-tileHeight2[t]), (int)round((double)x-tileWidth2[t+1]), (int)round((double)y-tileHeight2[t+1]), t+1 } );
+
+      --l;
+    }
+  }
+}
+
+void createMultisizeTrianglesLocations( string inputImage, vector< vector< int > > &shapeIndices, vector< vector< int > > &mosaicLocations, vector< vector< int > > &mosaicLocations2, vector< vector< int > > &edgeLocations, vector< vector< int > > &edgeLocations2, vector< vector< double > > &offsets, vector< vector< double > > &dimensions, vector< int > &tileWidth, vector< int > &tileHeight, vector< int > &tileWidth2, vector< int > &tileHeight2, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int width, int height )
+{  
+  createLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, width, height );
+
+  // Load input image
+  VImage image = VImage::vipsload( (char *)inputImage.c_str() ).autorot().colourspace(VIPS_INTERPRETATION_B_W);
+
+  // Resize the image for correct mosaic tile size
+  image = image.resize( (double)width / (double)(image.width()) );
+
+  // Get image data
+  unsigned char * c = ( unsigned char * )image.data();
+
+  for( int l = 0; l < mosaicLocations.size(); ++l )
+  {
+    int j = mosaicLocations[l][0];
+    int i = mosaicLocations[l][1];
+    int t = mosaicLocations[l][4];
+
+    vector< double > d(shapeIndices[t].size());
+
+    for( int x = 0; x < shapeIndices[t].size(); ++x )
+    {
+      int p = ( ( i + shapeIndices[t][x]/tileWidth[t] ) * image.width() + j + shapeIndices[t][x]%tileWidth[t] );
+
+      d[x] = c[p];
+    }
+
+    double avg = 0;
+
+    for( int x = 0; x < d.size(); ++x )
+    {
+      avg += d[x];
+    }
+
+    avg /= d.size();
+
+    double deviation = 0;
+
+    for( int x = 0; x < d.size(); ++x )
+    {
+      deviation += (d[x] - avg)*(d[x] - avg);
+    }
+
+    deviation /= d.size();
+
+    if( deviation > 200 && t < shapeIndices.size() - 2 )
+    {
+      if( t%2 == 0 )
+      {
+        int x = mosaicLocations[l][2];
+        int y = mosaicLocations[l][3];
+
+        mosaicLocations.push_back({ (int)round((double)x-tileWidth[t+2]), (int)round((double)y-tileHeight[t+2]), x, y, t+2 } );
+        mosaicLocations.push_back({ (int)round((double)x-tileWidth[t]), (int)round((double)y-tileHeight[t+2]), (int)round((double)x-tileWidth[t+2]), y, t+2 } );
+        mosaicLocations.push_back({ (int)round((double)x-3*tileWidth[t+2]/2), (int)round((double)y-tileHeight[t]), (int)round((double)x-tileWidth[t+2]/2), (int)round((double)y-tileHeight[t+2]), t+2 } );
+        mosaicLocations.push_back({ (int)round((double)x-3*tileWidth[t+2]/2), (int)round((double)y-tileHeight[t+2]), (int)round((double)x-tileWidth[t+2]/2), y, t+3 } );        
+
+        x = mosaicLocations2[l][2];
+        y = mosaicLocations2[l][3];
+
+        mosaicLocations2.push_back({ (int)round((double)x-tileWidth2[t+2]), (int)round((double)y-tileHeight2[t+2]), x, y, t+2 } );
+        mosaicLocations2.push_back({ (int)round((double)x-tileWidth2[t]), (int)round((double)y-tileHeight2[t+2]), (int)round((double)x-tileWidth2[t+2]), y, t+2 } );
+        mosaicLocations2.push_back({ (int)round((double)x-3*tileWidth2[t+2]/2), (int)round((double)y-tileHeight2[t]), (int)round((double)x-tileWidth2[t+2]/2), (int)round((double)y-tileHeight2[t+2]), t+2 } );
+        mosaicLocations2.push_back({ (int)round((double)x-3*tileWidth2[t+2]/2), (int)round((double)y-tileHeight2[t+2]), (int)round((double)x-tileWidth2[t+2]/2), y, t+3 } );        
+      }
+      else
+      {
+        int x = mosaicLocations[l][2];
+        int y = mosaicLocations[l][3];
+
+        mosaicLocations.push_back({ (int)round((double)x-tileWidth[t+2]), (int)round((double)y-tileHeight[t]), x, (int)round((double)y-tileHeight[t+2]), t+2 } );
+        mosaicLocations.push_back({ (int)round((double)x-tileWidth[t]), (int)round((double)y-tileHeight[t]), (int)round((double)x-tileWidth[t+2]), (int)round((double)y-tileHeight[t+2]), t+2 } );
+        mosaicLocations.push_back({ (int)round((double)x-3*tileWidth[t+2]/2), (int)round((double)y-tileHeight[t+2]), (int)round((double)x-tileWidth[t+2]/2), y, t+2 } );
+        mosaicLocations.push_back({ (int)round((double)x-3*tileWidth[t+2]/2), (int)round((double)y-tileHeight[t]), (int)round((double)x-tileWidth[t+2]/2), (int)round((double)y-tileHeight[t+2]), t+1 } );
+
+        x = mosaicLocations2[l][2];
+        y = mosaicLocations2[l][3];
+
+        mosaicLocations2.push_back({ (int)round((double)x-tileWidth2[t+2]), (int)round((double)y-tileHeight2[t]), x, (int)round((double)y-tileHeight2[t+2]), t+2 } );
+        mosaicLocations2.push_back({ (int)round((double)x-tileWidth2[t]), (int)round((double)y-tileHeight2[t]), (int)round((double)x-tileWidth2[t+2]), (int)round((double)y-tileHeight2[t+2]), t+2 } );
+        mosaicLocations2.push_back({ (int)round((double)x-3*tileWidth2[t+2]/2), (int)round((double)y-tileHeight2[t+2]), (int)round((double)x-tileWidth2[t+2]/2), y, t+2 } );
+        mosaicLocations2.push_back({ (int)round((double)x-3*tileWidth2[t+2]/2), (int)round((double)y-tileHeight2[t]), (int)round((double)x-tileWidth2[t+2]/2), (int)round((double)y-tileHeight2[t+2]), t+1 } );
+      }
+
+      mosaicLocations.erase(mosaicLocations.begin() + l);
+      mosaicLocations2.erase(mosaicLocations2.begin() + l);
+
+      --l;
+    }
+  }
+}
+
 void createTetrisLocations( vector< vector< int > > &mosaicLocations, vector< vector< int > > &mosaicLocations2, vector< vector< int > > &edgeLocations, vector< vector< int > > &edgeLocations2, vector< vector< double > > &offsets, vector< vector< double > > &dimensions, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int width, int height, int numHorizontal, int numVertical )
 {
   vector< int > starts = 

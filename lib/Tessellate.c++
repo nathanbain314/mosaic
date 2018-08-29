@@ -268,7 +268,7 @@ void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, 
       }
       if(outputWidth%2 == 1 && outputHeight%2 == 1)
       {
-        VImage::jpegload((char *)string(upper).append(to_string(outputWidth-1)+"_"+to_string(outputHeight-1)+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+        VImage::jpegload((char *)string(upper).append(to_string(outputWidth-1)+"_"+to_string(outputHeight-1)+".jpeg").c_str()).resize(0.5).
         jpegsave((char *)string(current).append(to_string(outputWidth>>1)+"_"+to_string(outputHeight>>1)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
       }
     }
@@ -304,8 +304,6 @@ int generateLABBlock( vector< vector< vector< float > > > &imageData, vector< in
     if(show) buildingMosaic->Increment();
 
     vector< float > d(shapeIndices[t].size()*3);
-
-//    cout << shapeIndices[t].size() << endl;
 
     // Get rgb data about tile and save in vector
     for( int x = 0; x < shapeIndices[t].size(); ++x )
@@ -355,9 +353,6 @@ int generateLABBlock( vector< vector< vector< float > > > &imageData, vector< in
       for( int j = 0; j < d.size(); j+=3 )
       {
         sum += vips_col_dE00( imageData[t][l][j], imageData[t][l][j+1], imageData[t][l][j+2], d[j], d[j+1], d[j+2] );
-//        cout << imageData[t][l][j] << " " << imageData[t][l][j+1] << " " << imageData[t][l][j+2] << " " << d[j] << " " << d[j+1] << " " << d[j+2] << endl;
-//        cout << vips_col_dE00( imageData[t][l][j], imageData[t][l][j+1], imageData[t][l][j+2], d[j], d[j+1], d[j+2] ) << endl;
-//        cin >> best;
       }
 
       // Update for best color difference
@@ -370,8 +365,6 @@ int generateLABBlock( vector< vector< vector< float > > > &imageData, vector< in
 
     // Set mosaic tile data
     mosaic[k] = best;
-
-//    cout << best << " " << num_images << " " << d.size() << endl;
   }
 
   return 0;
@@ -444,8 +437,6 @@ int generateLABBlockEdge( vector< vector< vector< float > > > &imageData, vector
         best = l;
       }
     }
-
-//    cout << best << " " << num_images << endl;
 
     // Set mosaic tile data
     mosaic[k+mosaicOffset] = best;
@@ -954,13 +945,24 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
   int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
   int numUnique = 0;
 
-  if( offsets.size() > 0 )
+  string tessellateTypeName = tessellateType.substr(tessellateType.find_last_of("/") + 1);
+
+  if( tessellateTypeName == "tetris.t" )
   {
-    createLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
+    createTetrisLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight, numHorizontal, numVertical );
+  }
+  else if( tessellateTypeName == "multisizeSquares.t" )
+  {
+    createMultisizeSquaresLocations( inputImages[0], shapeIndices, mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, tileWidth, tileHeight, tileWidth2, tileHeight2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
+
+  }
+  else if( tessellateTypeName == "multisizeTriangles.t" )
+  {
+    createMultisizeTrianglesLocations( inputImages[0], shapeIndices, mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, tileWidth, tileHeight, tileWidth2, tileHeight2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
   }
   else
   {
-    createTetrisLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight, numHorizontal, numVertical );
+    createLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
   }
 
   int imageWidth = 0, imageHeight = 0;
@@ -983,24 +985,16 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
     for( int i = 0; i < shapeIndices.size(); ++i )
     {
       tileArea = shapeIndices[i].size();
-//      cout << shapeIndices[i].size() << endl;
 
       lab[i] = vector< vector< float > >( mosaicTileData[i].size(), vector< float >(3*tileArea) );
-
-//      cout << mosaicTileData[i].size() << endl;
 
       for( int j = 0; j < mosaicTileData[i].size(); ++j )
       {
         for( int p = 0; p < tileArea; ++p )
         {
-//          cout << (int)mosaicTileData[i][j][3*shapeIndices[i][p]+0] << " " << (int)mosaicTileData[i][j][3*shapeIndices[i][p]+1] << " " << (int)mosaicTileData[i][j][3*shapeIndices[i][p]+2] << endl;
-
           vips_col_sRGB2scRGB_8(mosaicTileData[i][j][3*shapeIndices[i][p]+0],mosaicTileData[i][j][3*shapeIndices[i][p]+1],mosaicTileData[i][j][3*shapeIndices[i][p]+2], &r,&g,&b );
           vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
           vips_col_XYZ2Lab( r, g, b, &lab[i][j][3*p+0], &lab[i][j][3*p+1], &lab[i][j][3*p+2] );
-//          cout << lab[i][j][3*p+0] << " " << lab[i][j][3*p+1] << " " << lab[i][j][3*p+2] << endl;
-//          cin >> repeat;
-//          cout << "here\n";
         }
       }
     }
