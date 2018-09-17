@@ -660,9 +660,9 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
   {
     vector< vector< int > > mosaic( numVertical, vector< int >( numHorizontal, -1 ) );
 
-    int sqrtThreads = ceil(sqrt(sysconf(_SC_NPROCESSORS_ONLN)));
+    int threads = sysconf(_SC_NPROCESSORS_ONLN);
 
-    ProgressBar *buildingMosaic = new ProgressBar((numVertical/sqrtThreads)*(numHorizontal/sqrtThreads), "Building mosaic");
+    ProgressBar *buildingMosaic = new ProgressBar(numVertical*numHorizontal/threads, "Building mosaic");
 
     if( trueColor  )
     {
