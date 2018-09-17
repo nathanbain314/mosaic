@@ -1,55 +1,19 @@
 #include "mosaicTools.h"
 
-void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< string > &inputDirectory, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight,  bool exclude, bool spin, int cropStyle, bool flip, bool quiet, bool recursiveSearch )
+void processImages( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< string > &names, int start, int end, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int minWidth, int minHeight, bool spin, bool different, int cropStyle, bool flip, bool quiet, ProgressBar *processing_images )
 {
-  // Used for reading directory
-  DIR *dir;
-  struct dirent *ent;
   string str;
 
-  // Used for processing image
   int size, xOffset, yOffset, width, height, mosaicTileArea = mosaicTileWidth*mosaicTileHeight*3, imageTileArea = imageTileWidth*imageTileHeight*3;
-  bool different = mosaicTileWidth != imageTileWidth && !exclude;
 
   unsigned char *c1, *c2;
-
-  // Minimum size allowed: must be at least as large as mosaicTileWidth and imageTileWidth, and 256 if exclude is set
-  int minWidth = max(mosaicTileWidth,imageTileWidth);
-  int minHeight = max(mosaicTileHeight,imageTileHeight);
-
-  int num_images = 0;
-
-  vector< string > names;
-
-  cout << "Reading directory " << imageDirectory << endl;
-
-  // Count the number of valid image files in the directory
-  if ((dir = opendir (imageDirectory.c_str())) != NULL) 
-  {
-    while ((ent = readdir (dir)) != NULL)
-    {
-      if( ent->d_name[0] != '.' && vips_foreign_find_load( string( imageDirectory + ent->d_name ).c_str() ) != NULL )
-      {
-        names.push_back( imageDirectory + ent->d_name );
-        cout << "\rFound " << ++num_images << " images " << flush;
-      }
-      else if( recursiveSearch && ent->d_name[0] != '.' && ent->d_type == DT_DIR )
-      {
-        inputDirectory.push_back( imageDirectory + ent->d_name );
-      }
-    }
-  }
-
-  cout << endl;
-
-  ProgressBar *processing_images = new ProgressBar(num_images, "Processing images");
 
   VipsAngle rotAngle[4] = {VIPS_ANGLE_D0,VIPS_ANGLE_D90,VIPS_ANGLE_D180,VIPS_ANGLE_D270};
 
   // Iterate through all images in directory
-  for( int i = 0; i < num_images; ++i )
+  for( int i = start; i < end; ++i )
   {
-    if( !quiet ) processing_images->Increment();
+    if( !quiet && !start ) processing_images->Increment();
     try
     {
       str = names[i];
@@ -80,22 +44,22 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
         {
           // Crop the middle square
           case 0:
-            image = initImage.thumbnail_image(mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN ));
+            image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
             break;
           // Crop the square with the most entropy
           case 1:
-            image = initImage.thumbnail_image(mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN ));
+            image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN ));
             break;
           // Crop the square most likely to 
           case 2:
-            image = initImage.thumbnail_image(mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
+            image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
             break;
           // Shrink the image to be cropped later
           case 3:
             int w2 = width/minRatio;
             int h2 = height/minRatio;
 
-            image = initImage.thumbnail_image(w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 )); 
+            image = VImage::thumbnail((char *)str.c_str(),w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 )); 
             break;
         }
 
@@ -120,22 +84,22 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
           {
             // Crop the middle square
             case 0:
-              image2 = initImage.thumbnail_image(imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN ));
+              image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN ));
               break;
             // Crop the square with the most entropy
             case 1:
-              image2 = initImage.thumbnail_image(imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN ));
+              image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN ));
               break;
             // Crop the square most likely to 
             case 2:
-              image2 = initImage.thumbnail_image(imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
+              image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
               break;
             // Shrink the image to be cropped later
             case 3:
               int w2 = (width*imageTileWidth)/(mosaicTileWidth*minRatio);
               int h2 = (height*imageTileWidth)/(mosaicTileWidth*minRatio);
 
-              image2 = initImage.thumbnail_image(w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 ));
+              image2 = VImage::thumbnail((char *)str.c_str(),w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 ));
               break;
           }
 
@@ -217,14 +181,82 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
     {
     }
   }
+}
+
+void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< string > &inputDirectory, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight,  bool exclude, bool spin, int cropStyle, bool flip, bool quiet, bool recursiveSearch )
+{
+  // Used for reading directory
+  DIR *dir;
+  struct dirent *ent;
+  string str;
+
+  // Used for processing image
+  int size, xOffset, yOffset, width, height, mosaicTileArea = mosaicTileWidth*mosaicTileHeight*3, imageTileArea = imageTileWidth*imageTileHeight*3;
+  bool different = mosaicTileWidth != imageTileWidth && !exclude;
+
+  unsigned char *c1, *c2;
+
+  // Minimum size allowed: must be at least as large as mosaicTileWidth and imageTileWidth, and 256 if exclude is set
+  int minWidth = max(mosaicTileWidth,imageTileWidth);
+  int minHeight = max(mosaicTileHeight,imageTileHeight);
+
+  int num_images = 0;
+
+  vector< string > names;
+
+  cout << "Reading directory " << imageDirectory << endl;
+
+  // Count the number of valid image files in the directory
+  if ((dir = opendir (imageDirectory.c_str())) != NULL) 
+  {
+    while ((ent = readdir (dir)) != NULL)
+    {
+      if( ent->d_name[0] != '.' && vips_foreign_find_load( string( imageDirectory + ent->d_name ).c_str() ) != NULL )
+      {
+        names.push_back( imageDirectory + ent->d_name );
+        cout << "\rFound " << ++num_images << " images " << flush;
+      }
+      else if( recursiveSearch && ent->d_name[0] != '.' && ent->d_type == DT_DIR )
+      {
+        inputDirectory.push_back( imageDirectory + ent->d_name );
+      }
+    }
+  }
+
+  cout << endl;
+
+  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+
+  ProgressBar *processing_images = new ProgressBar(num_images/threads, "Processing images");
+
+  vector< cropType > cropDataThread[threads];
+  vector< vector< unsigned char > > mosaicTileDataThread[threads];
+  vector< vector< unsigned char > > imageTileDataThread[threads];
+
+  future< void > ret[threads];
+
+  for( int k = 0; k < threads; ++k )
+  {
+    ret[k] = async( launch::async, &processImages, ref(cropDataThread[k]), ref(mosaicTileDataThread[k]), ref(imageTileDataThread[k]), ref(names), k*num_images/threads, (k+1)*num_images/threads, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, minWidth, minHeight, spin, different, cropStyle, flip, quiet, processing_images );
+  }
+
+  // Wait for threads to finish
+  for( int k = 0; k < threads; ++k )
+  {
+    ret[k].get();
+
+    cropData.insert(cropData.end(), cropDataThread[k].begin(), cropDataThread[k].end());
+    mosaicTileData.insert(mosaicTileData.end(), mosaicTileDataThread[k].begin(), mosaicTileDataThread[k].end());
+    imageTileData.insert(imageTileData.end(), imageTileDataThread[k].begin(), imageTileDataThread[k].end());
+  }
 
   if( !quiet ) processing_images->Finish();
 }
 
-int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic, bool quiet )
+int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int start, int end, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic, bool quiet )
 {
   // Whether to update progressbar
-  bool show = !quiet && !(blockX+blockY);
+  bool show = !quiet && !(start);
 
   // Vector lab tile data
   vector< float > d(tileWidth*tileHeight*3);
@@ -232,21 +264,14 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
   int num_images = imageData.size();
 
   // For every index
-  for( int p = 0; p < indices.size(); ++p )
+  for( int p = start; p < end; ++p )
   {
     // Get position of tile
-    int i = indices[p] / blockWidth;
-    int j = indices[p] % blockWidth;
-    
-    // Skip if outside of the array
-    if( i >= blockHeight || j >= blockWidth ) continue;
+    int i = indices[p] / width;
+    int j = indices[p] % width;
     
     // Update progressbar if necessary
     if(show) buildingMosaic->Increment();
-
-    // Add offset position
-    i += blockY;
-    j += blockX;
 
     // Start and end of tiles to check for repeating images
     int xEnd = ( (j+repeat+1<(int)mosaic[0].size()) ? j+repeat+1 : mosaic[0].size() );
@@ -374,29 +399,24 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   // Whether an image was used or not
   vector< bool > used( num_images, false );
 
-  // Number of threads for multithreading: needs to be a square number
-  int sqrtThreads = ceil(sqrt(sysconf(_SC_NPROCESSORS_ONLN)));
-  int threads = sqrtThreads*sqrtThreads;
+  int threads = sysconf(_SC_NPROCESSORS_ONLN);
 
   // Totat number of tiles in block
-  int total = ceil((double)numVertical/(double)sqrtThreads)*ceil((double)numHorizontal/(double)sqrtThreads);
+  int total = numVertical*numHorizontal;
 
   // Create list of numbers in thread block
   vector< int > indices( total );
   iota( indices.begin(), indices.end(), 0 );
 
   // Shuffle the points so that patterens do not form
-  if( repeat > 0 ) shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
+  shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
 
   // Break mosaic into blocks and find best matching tiles inside each block on a different thread
   future< int > ret[threads];
 
-  for( int i = 0, k = 0; i < sqrtThreads; ++i )
+  for( int k = 0; k < threads; ++k )
   {
-    for( int j = 0; j < sqrtThreads; ++j, ++k )
-    {
-      ret[k] = async( launch::async, &generateLABBlock, ref(imageData), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic, quiet );
-    }
+    ret[k] = async( launch::async, &generateLABBlock, ref(imageData), ref(mosaic), ref(indices), ref(used), repeat, c, k*indices.size()/threads, (k+1)*indices.size()/threads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic, quiet );
   }
 
   // Wait for threads to finish
@@ -409,10 +429,10 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   return accumulate(used.begin(), used.end(), 0);
 }
 
-int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int blockX, int blockY, int blockWidth, int blockHeight, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic, bool quiet )
+int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, int start, int end, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic, bool quiet )
 {
   // Whether to update progressbar
-  bool show = !quiet && !(blockX+blockY);
+  bool show = !quiet && !(start);
 
   // Color difference of images
   int out_dist_sqr;
@@ -427,21 +447,14 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
   dynamic_kdtree index(mat_index.m_data[0].size(), mat_index, KDTreeSingleIndexAdaptorParams(10) );
 
   // For every index
-  for( int p = 0; p < indices.size(); ++p )
+  for( int p = start; p < end; ++p )
   {
     // Get position of tile
-    int i = indices[p] / blockWidth;
-    int j = indices[p] % blockWidth;
-    
-    // Skip if outside of the array
-    if( i >= blockHeight || j >= blockWidth ) continue;
-    
+    int i = indices[p] / numHorizontal;
+    int j = indices[p] % numHorizontal;
+
     // Update progressbar if necessary
     if(show) buildingMosaic->Increment();
-
-    // Add offset position
-    i += blockY;
-    j += blockX;
 
     // Get rgb data about tile and save in vector
     for( int y = 0, n = 0; y < tileHeight; ++y )
@@ -572,28 +585,24 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
   vector< bool > used( num_images, false );
 
   // Number of threads for multithreading: needs to be a square number
-  int sqrtThreads = ceil(sqrt(sysconf(_SC_NPROCESSORS_ONLN)));
-  int threads = sqrtThreads*sqrtThreads;
+  int threads = sysconf(_SC_NPROCESSORS_ONLN);
 
   // Totat number of tiles in block
-  int total = ceil((double)numVertical/(double)sqrtThreads)*ceil((double)numHorizontal/(double)sqrtThreads);
+  int total = numVertical*numHorizontal;
 
   // Create list of numbers in thread block
   vector< int > indices( total );
   iota( indices.begin(), indices.end(), 0 );
 
   // Shuffle the points so that patterens do not form
-  if( repeat > 0 ) shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
+  shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
 
   // Break mosaic into blocks and find best matching tiles inside each block on a different thread
   future< int > ret[threads];
 
-  for( int i = 0, k = 0; i < sqrtThreads; ++i )
+  for( int k = 0; k < threads; ++k )
   {
-    for( int j = 0; j < sqrtThreads; ++j, ++k )
-    {
-      ret[k] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(indices), ref(used), repeat, c, j*numHorizontal/sqrtThreads, i*numVertical/sqrtThreads, (j+1)*numHorizontal/sqrtThreads-j*numHorizontal/sqrtThreads, (i+1)*numVertical/sqrtThreads-i*numVertical/sqrtThreads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic, quiet );
-    }
+    ret[k] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(indices), ref(used), repeat, c, k*indices.size()/threads, (k+1)*indices.size()/threads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic, quiet );
   }
 
   // Wait for threads to finish

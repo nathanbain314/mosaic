@@ -654,7 +654,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     g_mkdir(outputName.c_str(), 0777);
   }
 
-  my_kd_tree_t mat_index(tileArea, d, 10 );
+  my_kd_tree_t mat_index(tileArea, d, 2 );
 
   for( int i = 0; i < inputImages.size(); ++i )
   {
