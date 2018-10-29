@@ -34,7 +34,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
 
         int current = mosaic[k];
 
-        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).autorot().rot(rotAngle[get<3>(cropData[t][current])]);
+        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).colourspace(VIPS_INTERPRETATION_sRGB).autorot().rot(rotAngle[get<3>(cropData[t][current])]);
 
         // Convert to a three band image
         if( image.bands() == 2 )
@@ -97,7 +97,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
 
         int current = mosaic[k+mosaicLocations.size()];
 
-        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).autorot().rot(rotAngle[get<3>(cropData[t][current])]);
+        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).colourspace(VIPS_INTERPRETATION_sRGB).autorot().rot(rotAngle[get<3>(cropData[t][current])]);
 
         // Convert to a three band image
         if( image.bands() == 2 )
@@ -902,7 +902,7 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
           {
             cropData[j] = cropData[k];
             mosaicTileData[j] = mosaicTileData[k];
-            imageTileData[j] = imageTileData[k];
+            //imageTileData[j] = imageTileData[k];
             found = true;
             break;
           }
@@ -1056,7 +1056,7 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
     if( mosaicTileWidth == imageTileWidth )
     {
-      //buildImage( mosaicTileData, mosaic, mosaicLocations, shapeIndices, outputImages[i], tileWidth, width, height );
+      buildImage( cropData, mosaic, mosaicLocations, edgeLocations, shapeIndices, outputImages[i], tileWidth, tileHeight, imageWidth, imageHeight );
     }
     else
     {

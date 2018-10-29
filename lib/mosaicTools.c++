@@ -18,7 +18,7 @@ void processImages( vector< cropType > &cropData, vector< vector< unsigned char 
     {
       str = names[i];
 
-      for( int r = 0; r < (spin ? 4:1); ++r )
+      for( int r = 0; r < (spin ? 2:1); ++r )
       {
         VImage initImage = VImage::vipsload((char *)str.c_str()).autorot().rot(rotAngle[r]);
 
@@ -39,27 +39,30 @@ void processImages( vector< cropType > &cropData, vector< vector< unsigned char 
 
         VImage image2, image;
 
+        int rw = r%2?mosaicTileHeight:mosaicTileWidth;
+        int rh = r%2?mosaicTileWidth:mosaicTileHeight;
+
         // Shrink the image and crop based on cropping style
         switch( cropStyle )
         {
           // Crop the middle square
           case 0:
-            image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
+            image = VImage::thumbnail((char *)str.c_str(),rw,VImage::option()->set( "height", rh )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
             break;
           // Crop the square with the most entropy
           case 1:
-            image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN ));
+            image = VImage::thumbnail((char *)str.c_str(),rw,VImage::option()->set( "height", rh )->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
             break;
           // Crop the square most likely to 
           case 2:
-            image = VImage::thumbnail((char *)str.c_str(),mosaicTileWidth,VImage::option()->set( "height", mosaicTileHeight )->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
+            image = VImage::thumbnail((char *)str.c_str(),rw,VImage::option()->set( "height", rh )->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
             break;
           // Shrink the image to be cropped later
           case 3:
-            int w2 = width/minRatio;
-            int h2 = height/minRatio;
+            int w2 = (r%2?height:width)/minRatio;
+            int h2 = (r%2?width:height)/minRatio;
 
-            image = VImage::thumbnail((char *)str.c_str(),w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 )); 
+            image = VImage::thumbnail((char *)str.c_str(),w2,VImage::option()->set( "height", h2 )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
             break;
         }
 
@@ -80,26 +83,29 @@ void processImages( vector< cropType > &cropData, vector< vector< unsigned char 
         // If the mosaicTileWidth and imageTileWidth are different then shrink and crop again
         if( different )
         {
+          rw = r%2?imageTileHeight:imageTileWidth;
+          rh = r%2?imageTileWidth:imageTileHeight;
+
           switch( cropStyle )
           {
             // Crop the middle square
             case 0:
-              image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN ));
+              image2 = VImage::thumbnail((char *)str.c_str(),rw,VImage::option()->set( "height", rh )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
               break;
             // Crop the square with the most entropy
             case 1:
-              image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN ));
+              image2 = VImage::thumbnail((char *)str.c_str(),rw,VImage::option()->set( "height", rh )->set( "crop", VIPS_INTERESTING_ENTROPY )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
               break;
             // Crop the square most likely to 
             case 2:
-              image2 = VImage::thumbnail((char *)str.c_str(),imageTileWidth,VImage::option()->set( "height", imageTileHeight )->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN ));
+              image2 = VImage::thumbnail((char *)str.c_str(),rw,VImage::option()->set( "height", rh )->set( "crop", VIPS_INTERESTING_ATTENTION )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
               break;
             // Shrink the image to be cropped later
             case 3:
-              int w2 = (width*imageTileWidth)/(mosaicTileWidth*minRatio);
-              int h2 = (height*imageTileWidth)/(mosaicTileWidth*minRatio);
+              int w2 = ((r%2?height:width)*imageTileWidth)/(mosaicTileWidth*minRatio);
+              int h2 = ((r%2?width:height)*imageTileWidth)/(mosaicTileWidth*minRatio);
 
-              image2 = VImage::thumbnail((char *)str.c_str(),w2,VImage::option()->set( "size", VIPS_SIZE_DOWN )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "height", h2 ));
+              image2 = VImage::thumbnail((char *)str.c_str(),w2,VImage::option()->set( "height", h2 )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
               break;
           }
 
@@ -128,23 +134,29 @@ void processImages( vector< cropType > &cropData, vector< vector< unsigned char 
             // Mirror the image if flip is set
             for( int ff = flip; ff >= 0; --ff)
             {
-              if(flip) newImage = newImage.flip(VIPS_DIRECTION_HORIZONTAL);
-
-              // Get the image data
-              c1 = (unsigned char *)newImage.data();
-
-              // Push the data onto the vector
-              mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
-
-              if( different )
+              if(flip)
               {
-                if(flip) newImage2 = newImage2.flip(VIPS_DIRECTION_HORIZONTAL);
-                c2 = (unsigned char *)newImage2.data();
-                imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+                newImage = newImage.flip(VIPS_DIRECTION_HORIZONTAL);
+                if(different) newImage2 = newImage2.flip(VIPS_DIRECTION_HORIZONTAL);
               }
 
-              // Save the data detailing the image name, crop offset, mirror status, and rotation
-              cropData.push_back( make_tuple(str,(!vertical)*minRatio*(double)ii,vertical*minRatio*(double)ii,r,ff) );
+              for( int rr = 0; rr < (spin ? 3:1); rr += 2 )
+              {
+                // Get the image data
+                c1 = (unsigned char *)newImage.rot(rotAngle[rr]).data();
+
+                // Push the data onto the vector
+                mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
+
+                if( different )
+                {
+                  c2 = (unsigned char *)newImage2.rot(rotAngle[rr]).data();
+                  imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+                }
+
+                // Save the data detailing the image name, crop offset, mirror status, and rotation
+                cropData.push_back( make_tuple(str,(!vertical)*minRatio*(double)ii,vertical*minRatio*(double)ii,r+rr,ff) );
+              }
             }
           }
         }
@@ -160,19 +172,24 @@ void processImages( vector< cropType > &cropData, vector< vector< unsigned char 
               if( different ) image2 = image2.flip(VIPS_DIRECTION_HORIZONTAL);
             }
 
-            // Get the image data
-            c1 = (unsigned char *)image.data();
-
-            // Push the data onto the vector
-            mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
-
-            if( different )
+            for( int rr = 0; rr < (spin ? 3:1); rr += 2 )
             {
-              c2 = (unsigned char *)image2.data();
-              imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
-            }
+              // Get the image data
+              c1 = (unsigned char *)image.rot(rotAngle[rr]).data();
 
-            cropData.push_back( make_tuple(str,xOffset*minRatio,yOffset*minRatio,r,ff) );
+              image.rot(rotAngle[rr]).vipssave("out2.png");
+
+              // Push the data onto the vector
+              mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
+
+              if( different )
+              {
+                c2 = (unsigned char *)image2.rot(rotAngle[rr]).data();
+                imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
+              }
+
+              cropData.push_back( make_tuple(str,xOffset*minRatio,yOffset*minRatio,r+rr,ff) );
+            }
           }
         }
       }
@@ -227,7 +244,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
   int threads = sysconf(_SC_NPROCESSORS_ONLN);
 
-  ProgressBar *processing_images = new ProgressBar(num_images/threads, "Processing images");
+  ProgressBar *processing_images = new ProgressBar(ceil((double)num_images/threads), "Processing images");
 
   vector< cropType > cropDataThread[threads];
   vector< vector< unsigned char > > mosaicTileDataThread[threads];
@@ -247,7 +264,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
     cropData.insert(cropData.end(), cropDataThread[k].begin(), cropDataThread[k].end());
     mosaicTileData.insert(mosaicTileData.end(), mosaicTileDataThread[k].begin(), mosaicTileDataThread[k].end());
-    imageTileData.insert(imageTileData.end(), imageTileDataThread[k].begin(), imageTileDataThread[k].end());
+    if( mosaicTileWidth != imageTileWidth ) imageTileData.insert(imageTileData.end(), imageTileDataThread[k].begin(), imageTileDataThread[k].end());
   }
 
   if( !quiet ) processing_images->Finish();
