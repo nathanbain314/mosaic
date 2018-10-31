@@ -1,4 +1,5 @@
 #include "Tessellate.h"
+#include "shapeIndices.h"
 #include "mosaicLocations.h"
 
 void buildTopLevel( string outputImage, int start, int end, int outputWidth, int outputHeight, vector< vector< cropType > > &cropData, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, vector< int > &tileWidth2, vector< int > &tileHeight2, ProgressBar *topLevel, int maxTileWidth, int maxTileHeight )
@@ -837,25 +838,28 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
   shapes.resize( dimensions.size() );
 
-  while( getline(tessellationFile, str) && str != "shapes:" );
+  while( getline(tessellationFile, str) && str != "shapes:" && str != "offsets:" );
 
-  for( int i = 0; i < dimensions.size(); ++i )
+  if( str == "shapes:" )
   {
-    while( getline(tessellationFile, str) && str != "shape:" );
-
-    while( getline(tessellationFile, str) && str != "" )
+    for( int i = 0; i < dimensions.size(); ++i )
     {
-      istringstream iss(str);
+      while( getline(tessellationFile, str) && str != "shape:" );
 
-      double x1, x2, by1, by2, ty1, ty2;
+      while( getline(tessellationFile, str) && str != "" )
+      {
+        istringstream iss(str);
 
-      iss >> x1 >> x2 >> by1 >> by2 >> ty1 >> ty2;
+        double x1, x2, by1, by2, ty1, ty2;
 
-      shapes[i].push_back(vector< double >({x1, x2, by1, by2, ty1, ty2}));
+        iss >> x1 >> x2 >> by1 >> by2 >> ty1 >> ty2;
+
+        shapes[i].push_back(vector< double >({x1, x2, by1, by2, ty1, ty2}));
+      }
     }
-  }
 
-  while( getline(tessellationFile, str) && str != "offsets:" );
+    while( getline(tessellationFile, str) && str != "offsets:" );
+  }
 
   while( getline(tessellationFile, str) && str != "" )
   {
@@ -930,17 +934,6 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
   vector< vector< int > > shapeIndices(shapes.size()), shapeIndices2(shapes.size()), mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2;
 
-  for( int i = 0; i < shapes.size(); ++i )
-  {
-    Tessellation tess(shapes[i]);
-    tess.createIndices( shapeIndices[i], mosaicTileWidth, mosaicTileHeight, tileWidth[i], tileHeight[i] );
-
-    if( mosaicTileWidth != imageTileWidth )
-    {
-      tess.createIndices( shapeIndices2[i], imageTileWidth, imageTileHeight, tileWidth2[i], tileHeight2[i] );
-    }
-  }
-
   int tileArea = mosaicTileWidth*mosaicTileHeight*3;
   int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
   int numUnique = 0;
@@ -960,17 +953,53 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
   {
     createMultisizeTrianglesLocations( inputImages[0], shapeIndices, mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, tileWidth, tileHeight, tileWidth2, tileHeight2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
   }
+  else if( tessellateTypeName == "jigsaw.t" )
+  {
+    createJigsawLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
+  }
   else
   {
     createLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
   }
 
-  int imageWidth = 0, imageHeight = 0;
+  int imageWidth = numHorizontal * imageTileWidth, imageHeight = numVertical * imageTileHeight;
 
   for( int i = 0; i < mosaicLocations2.size(); ++i )
   {
-    imageWidth = max(imageWidth,mosaicLocations2[i][2]);
-    imageHeight = max(imageHeight,mosaicLocations2[i][3]);
+//    imageWidth = max(imageWidth,mosaicLocations2[i][2]);
+//    imageHeight = max(imageHeight,mosaicLocations2[i][3]);
+  }
+
+  if( tessellateTypeName == "circles.t" )
+  {
+    createCircleIndices( shapeIndices[0], mosaicTileWidth, mosaicTileHeight, tileWidth[0], tileHeight[0] );
+
+    if( mosaicTileWidth != imageTileWidth )
+    {
+      createCircleIndices( shapeIndices2[0], imageTileWidth, imageTileHeight, tileWidth2[0], tileHeight2[0] );
+    }
+  }
+  else if( tessellateTypeName == "jigsaw.t" )
+  {
+    createJigsawIndices( shapeIndices, mosaicTileWidth, mosaicTileHeight, tileWidth, tileHeight );
+
+    if( mosaicTileWidth != imageTileWidth )
+    {
+      createJigsawIndices( shapeIndices2, imageTileWidth, imageTileHeight, tileWidth2, tileHeight2 );
+    }
+  }
+  else
+  {
+    for( int i = 0; i < shapes.size(); ++i )
+    {
+      Tessellation tess(shapes[i]);
+      tess.createIndices( shapeIndices[i], mosaicTileWidth, mosaicTileHeight, tileWidth[i], tileHeight[i] );
+
+      if( mosaicTileWidth != imageTileWidth )
+      {
+        tess.createIndices( shapeIndices2[i], imageTileWidth, imageTileHeight, tileWidth2[i], tileHeight2[i] );
+      }
+    }
   }
 
   vector< vector< vector< int > > > d;

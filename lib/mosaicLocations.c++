@@ -73,6 +73,88 @@ void createLocations( vector< vector< int > > &mosaicLocations, vector< vector< 
   }
 }
 
+void createJigsawLocations( vector< vector< int > > &mosaicLocations, vector< vector< int > > &mosaicLocations2, vector< vector< int > > &edgeLocations, vector< vector< int > > &edgeLocations2, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int width, int height )
+{
+  int numHorizontal = width / mosaicTileWidth;
+  int numVertical = height / mosaicTileHeight;
+
+  int grid[numVertical][numHorizontal];
+
+  for( int y = 0; y < numVertical; ++y )
+  {
+    for( int x = 0; x < numHorizontal; ++x )
+    {
+      vector< int > indices(16);
+      iota( indices.begin(), indices.end(), 0 );
+
+      // Shuffle the points so that patterns do not form
+      random_shuffle( indices.begin(), indices.end() );
+
+      for( int i = 0; i < 16; ++i )
+      {
+        int n = indices[i];
+
+        int a = ( n >> 3 ) & 1;
+        int b = ( n >> 2 ) & 1;
+        int c = ( n >> 1 ) & 1;
+        int d = ( n >> 0 ) & 1;
+
+        bool goodShape = true;
+
+        if( y == 0 && a == 0 )
+        {
+          goodShape = false;
+        }
+
+        if( y == numVertical - 1 && b == 0 )
+        {
+          goodShape = false;
+        }
+
+        if( x == 0 && c == 0 )
+        {
+          goodShape = false;
+        }
+
+        if( x == numHorizontal-1 && d == 0 )
+        {
+          goodShape = false;
+        }
+
+        if( y > 0 && (( grid[y-1][x] >> 2 ) & 1) == a )
+        {
+          goodShape = false;
+        }
+
+        if( x > 0 && (( grid[y][x-1] >> 0 ) & 1) == c )
+        {
+          goodShape = false;
+        }
+
+        if( goodShape )
+        {
+          if( y == 0 || y == numVertical-1 || x == 0 || x == numHorizontal-1 )
+          {
+            edgeLocations.push_back({ x*mosaicTileWidth-int((double)c*(double)mosaicTileWidth*0.3), y*mosaicTileHeight-int((double)a*(double)mosaicTileHeight*0.3), (x+1)*mosaicTileWidth+int((double)(c+d)*(double)mosaicTileWidth*0.3), (y+1)*mosaicTileHeight+int((double)(a+b)*(double)mosaicTileHeight*0.3), n } );
+
+            edgeLocations2.push_back({ x*imageTileWidth-int((double)c*(double)imageTileWidth*0.3), y*imageTileHeight-int((double)a*(double)imageTileHeight*0.3), (x+1)*imageTileWidth+int((double)(c+d)*(double)imageTileWidth*0.3), (y+1)*imageTileHeight+int((double)(a+b)*(double)imageTileHeight*0.3), n } );
+          }
+          else
+          {
+            mosaicLocations.push_back({ x*mosaicTileWidth-int((double)c*(double)mosaicTileWidth*0.3), y*mosaicTileHeight-int((double)a*(double)mosaicTileHeight*0.3), (x+1)*mosaicTileWidth+int((double)(c+d)*(double)mosaicTileWidth*0.3), (y+1)*mosaicTileHeight+int((double)(a+b)*(double)mosaicTileHeight*0.3), n } );
+
+            mosaicLocations2.push_back({ x*imageTileWidth-int((double)c*(double)imageTileWidth*0.3), y*imageTileHeight-int((double)a*(double)imageTileHeight*0.3), (x+1)*imageTileWidth+int((double)(c+d)*(double)imageTileWidth*0.3), (y+1)*imageTileHeight+int((double)(a+b)*(double)imageTileHeight*0.3), n } );
+          }
+
+          grid[y][x] = n;
+
+          break;
+        }
+      }
+    }
+  }
+}
+
 void createMultisizeSquaresLocations( string inputImage, vector< vector< int > > &shapeIndices, vector< vector< int > > &mosaicLocations, vector< vector< int > > &mosaicLocations2, vector< vector< int > > &edgeLocations, vector< vector< int > > &edgeLocations2, vector< vector< double > > &offsets, vector< vector< double > > &dimensions, vector< int > &tileWidth, vector< int > &tileHeight, vector< int > &tileWidth2, vector< int > &tileHeight2, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int width, int height )
 {  
   createLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, width, height );
