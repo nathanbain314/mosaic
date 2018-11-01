@@ -47,7 +47,7 @@ void processImages( vector< cropType > &cropData, vector< vector< unsigned char 
         {
           // Crop the middle square
           case 0:
-            image = VImage::thumbnail((char *)str.c_str(),rw,VImage::option()->set( "height", rh )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
+            image = VImage::thumbnail((char *)str.c_str(),rw,VImage::option()->set( "height", rh )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true ));
             break;
           // Crop the square with the most entropy
           case 1:
@@ -62,13 +62,15 @@ void processImages( vector< cropType > &cropData, vector< vector< unsigned char 
             int w2 = (r%2?height:width)/minRatio;
             int h2 = (r%2?width:height)/minRatio;
 
-            image = VImage::thumbnail((char *)str.c_str(),w2,VImage::option()->set( "height", h2 )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true )).rot(rotAngle[r]);
+            image = VImage::thumbnail((char *)str.c_str(),w2,VImage::option()->set( "height", h2 )->set( "crop", VIPS_INTERESTING_CENTRE )->set( "size", VIPS_SIZE_DOWN )->set( "auto_rotate", true ));
             break;
         }
 
         // Offset of crop
         xOffset = min(-(int)image.xoffset(),(int)ceil(maxRatio/minRatio*(double)mosaicTileWidth) - mosaicTileWidth);
         yOffset = min(-(int)image.yoffset(),(int)ceil(maxRatio/minRatio*(double)mosaicTileHeight) - mosaicTileHeight);
+
+        image = image.rot(rotAngle[r]);
 
         // Convert image to 3 band image
         if( image.bands() == 1 )
@@ -155,6 +157,7 @@ void processImages( vector< cropType > &cropData, vector< vector< unsigned char 
                 }
 
                 // Save the data detailing the image name, crop offset, mirror status, and rotation
+//                cropData.push_back( make_tuple(str,(1-r)*(!vertical)*minRatio*(double)ii+r*vertical*minRatio*(double)ii,r*(!vertical)*minRatio*(double)ii+(1-r)*vertical*minRatio*(double)ii,r+rr,ff) );
                 cropData.push_back( make_tuple(str,(!vertical)*minRatio*(double)ii,vertical*minRatio*(double)ii,r+rr,ff) );
               }
             }
@@ -177,8 +180,6 @@ void processImages( vector< cropType > &cropData, vector< vector< unsigned char 
               // Get the image data
               c1 = (unsigned char *)image.rot(rotAngle[rr]).data();
 
-              image.rot(rotAngle[rr]).vipssave("out2.png");
-
               // Push the data onto the vector
               mosaicTileData.push_back( vector< unsigned char >(c1, c1 + mosaicTileArea) );
 
@@ -188,7 +189,7 @@ void processImages( vector< cropType > &cropData, vector< vector< unsigned char 
                 imageTileData.push_back( vector< unsigned char >(c2, c2 + imageTileArea) );
               }
 
-              cropData.push_back( make_tuple(str,xOffset*minRatio,yOffset*minRatio,r+rr,ff) );
+              cropData.push_back( make_tuple(str,(1-r)*xOffset*minRatio+r*yOffset*minRatio,r*xOffset*minRatio+(1-r)*yOffset*minRatio,r+rr,ff) );
             }
           }
         }
@@ -221,7 +222,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
   vector< string > names;
 
-  cout << "Reading directory " << imageDirectory << endl;
+  cout << "Reading directory " << imageDirectory << " for tilesize " << mosaicTileWidth << "x" << mosaicTileHeight << endl;
 
   // Count the number of valid image files in the directory
   if ((dir = opendir (imageDirectory.c_str())) != NULL) 
@@ -242,7 +243,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
   cout << endl;
 
-  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+  int threads = 1;//sysconf(_SC_NPROCESSORS_ONLN);
 
   ProgressBar *processing_images = new ProgressBar(ceil((double)num_images/threads), "Processing images");
 

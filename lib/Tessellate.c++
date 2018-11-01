@@ -35,7 +35,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
 
         int current = mosaic[k];
 
-        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).colourspace(VIPS_INTERPRETATION_sRGB).autorot().rot(rotAngle[get<3>(cropData[t][current])]);
+        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).colourspace(VIPS_INTERPRETATION_sRGB).autorot().rot(rotAngle[get<3>(cropData[t][current])&1]);
 
         // Convert to a three band image
         if( image.bands() == 2 )
@@ -67,7 +67,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
           image = image.flip(VIPS_DIRECTION_HORIZONTAL);
         }
 
-        unsigned char *data = (unsigned char *)image.data();
+        unsigned char *data = (unsigned char *)image.rot(rotAngle[get<3>(cropData[t][current])&2]).data();
 
         for( int p = 0; p < shapeIndices[t].size(); ++p )
         {
@@ -98,7 +98,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
 
         int current = mosaic[k+mosaicLocations.size()];
 
-        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).colourspace(VIPS_INTERPRETATION_sRGB).autorot().rot(rotAngle[get<3>(cropData[t][current])]);
+        VImage image = VImage::vipsload( (char *)(get<0>(cropData[t][current])).c_str() ).colourspace(VIPS_INTERPRETATION_sRGB).autorot().rot(rotAngle[get<3>(cropData[t][current])&1]);
 
         // Convert to a three band image
         if( image.bands() == 2 )
@@ -130,7 +130,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
           image = image.flip(VIPS_DIRECTION_HORIZONTAL);
         }
 
-        unsigned char *data = (unsigned char *)image.data();
+        unsigned char *data = (unsigned char *)image.rot(rotAngle[get<3>(cropData[t][current])&2]).data();
 
         for( int p = 0; p < shapeIndices[t].size(); ++p )
         {
