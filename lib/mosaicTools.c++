@@ -243,7 +243,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
   cout << endl;
 
-  int threads = 1;//sysconf(_SC_NPROCESSORS_ONLN);
+  int threads = sysconf(_SC_NPROCESSORS_ONLN);
 
   ProgressBar *processing_images = new ProgressBar(ceil((double)num_images/threads), "Processing images");
 
