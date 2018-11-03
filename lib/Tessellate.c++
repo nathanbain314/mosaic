@@ -67,7 +67,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
           image = image.flip(VIPS_DIRECTION_HORIZONTAL);
         }
 
-        unsigned char *data = (unsigned char *)image.rot(rotAngle[get<3>(cropData[t][current])&2]).data();
+        unsigned char *data = get<3>(cropData[t][current])&2 ? (unsigned char *)image.rot(rotAngle[get<3>(cropData[t][current])&2]).data() : (unsigned char *)image.data();
 
         for( int p = 0; p < shapeIndices[t].size(); ++p )
         {
@@ -130,7 +130,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
           image = image.flip(VIPS_DIRECTION_HORIZONTAL);
         }
 
-        unsigned char *data = (unsigned char *)image.rot(rotAngle[get<3>(cropData[t][current])&2]).data();
+        unsigned char *data = get<3>(cropData[t][current])&2 ? (unsigned char *)image.rot(rotAngle[get<3>(cropData[t][current])&2]).data() : (unsigned char *)image.data();
 
         for( int p = 0; p < shapeIndices[t].size(); ++p )
         {
