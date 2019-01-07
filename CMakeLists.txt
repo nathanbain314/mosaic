@@ -13,9 +13,9 @@ ENDIF()
 
 include_directories(include)
 
-file(GLOB SOURCE_FILES lib/mosaicTools.c++ lib/Tessellation.c++ lib/shapeIndices.c++ lib/mosaicLocations.c++ lib/progress_bar.c++)
+file(GLOB SOURCE_FILES "lib/PolygonFitting/*" lib/mosaicTools.c++ lib/Tessellation.c++ lib/shapeIndices.c++ lib/mosaicLocations.c++ lib/progress_bar.c++)
 
-set( EXECUTABLES Mosaic Tessellate Collage Continuous Video )
+set( EXECUTABLES Mosaic Tessellate Collage Continuous Video MosaicPuzzle )
 
 set (CMAKE_CXX_STANDARD 11)
 set(VIPS_LDFLAGS pthread ${VIPS_LDFLAGS})
