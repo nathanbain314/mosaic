@@ -12,6 +12,7 @@
 #include <set>
 #include <tuple>
 #include <stack>
+#include <functional>
 #include <time.h>
 
 #include <vips/vips8>
