@@ -1,4 +1,4 @@
-#include "Polygon.h"
+#include "PolygonFitting/Polygon.h"
 
 Polygon::Polygon( vector< Vertex > &_vertices, vector< Edge > &_edges )
 {
