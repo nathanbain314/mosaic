@@ -732,7 +732,7 @@ void polygonFromAlphaImage( Polygon &P, string imageName, double resize )
     {
       for( int j = 0; j < width; ++j, ++p )
       {
-        valid[p] = data[p] > 20;
+        valid[p] = data[p] > 0;
       }
     }
 
@@ -741,12 +741,12 @@ void polygonFromAlphaImage( Polygon &P, string imageName, double resize )
       for( int j = 0; j < width; ++j, ++p )
       {
         int numAround = 0;
-        numAround += ( i==0 || valid[(i-1)*width+j] );
-        numAround += ( i==height-1 || valid[(i+1)*width+j] );
-        numAround += ( j==0 || valid[i*width+j-1] );
-        numAround += ( j==width-1 || valid[i*width+j+1] );
+        numAround += ( i>0 && valid[(i-1)*width+j] );
+        numAround += ( i<height-1 && valid[(i+1)*width+j] );
+        numAround += ( j>0 && valid[i*width+j-1] );
+        numAround += ( j<width-1 && valid[i*width+j+1] );
 
-        if( data[p] > 20 && numAround < 4 )
+        if( data[p] > 0 && numAround < 4 )
         {
           vertices.push_back( Vertex( j*resize, i*resize ) );
         }
@@ -769,6 +769,7 @@ void polygonFromAlphaImage( Polygon &P, string imageName, double resize )
     P.offsetBy(origin);
   }
 }
+
 void removeExtrasP( Polygon &P, double epsilon )
 {
   vector< int > indices(P.vertices.size());
@@ -1007,51 +1008,6 @@ void concavePolygonFromAlphaImage( Polygon &P, string imageName, double resize )
 
     P.offsetBy(origin);
   }
-
-  return;
-
-  vector< int > indices(P.vertices.size());
-
-  for( int i = 0; i < P.vertices.size(); ++i )
-  {
-    indices[i] = find(P.vertices.begin(),P.vertices.end(),P.vertices[i]) - P.vertices.begin();
-  }
-
-  for( int i = 0; i < P.edges.size(); ++i )
-  {
-    P.edges[i].v1 = indices[P.edges[i].v1];
-    P.edges[i].v2 = indices[P.edges[i].v2];
-  }
-
-  // Remove non loop branches until there aren't any more
-  for( bool removed = true; removed == true; )
-  {
-    removed = false;
-    vector< int > count = vector< int >( P.vertices.size(), 0 );
-
-    for( int i = 0; i < P.edges.size(); ++i )
-    {
-      count[ P.edges[i].v1 ]++;
-      count[ P.edges[i].v2 ]++;
-    }
-
-    for( int i = P.edges.size()-1; i >= 0; --i )
-    {
-      if( count[ P.edges[i].v1 ] < 2 || count[ P.edges[i].v2 ] < 2 )
-      {
-        P.edges.erase(P.edges.begin() + i);
-        removed = true;
-      }
-      if( count[ P.edges[i].v1 ] > 2 && count[ P.edges[i].v2 ] > 2 )
-      {
-        --count[ P.edges[i].v1 ];
-        --count[ P.edges[i].v2 ];
-        P.edges.erase(P.edges.begin() + i);
-        removed = true;
-      }
-    }
-  }
-  
 }
 
 void convexPolygonFromVertices( vector< Vertex > &vertices, Polygon &P )

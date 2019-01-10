@@ -245,7 +245,7 @@ void generateImagePolygons( string imageDirectory, vector< string > &inputDirect
       convexPolygonFromVertices( P2.vertices, P );
       */
 
-      polygonFromAlphaImage( P, names[i], 5 );
+      polygonFromAlphaImage( P, names[i], 1 );
 
       decimate(P,.01);
 
