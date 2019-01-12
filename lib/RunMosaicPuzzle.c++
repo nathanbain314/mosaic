@@ -15,6 +15,8 @@ int main( int argc, char **argv )
 
     SwitchArg skipNearByArg( "s", "skipNearBy", "Skip images if they nearby cells used them", cmd, false );
 
+    SwitchArg secondPassArg( "g", "gapfill", "Do another pass to fill the gaps", cmd, false );
+
     ValueArg<double> fillWeightArg( "f", "fillWeight", "Weight of cell fill value", false, 1.0, "double", cmd);
 
     ValueArg<double> renderScaleArg( "r", "renderScale", "Scale for rendering the mosaic", false, 1.0, "double", cmd);
@@ -22,10 +24,6 @@ int main( int argc, char **argv )
     ValueArg<double> buildScaleArg( "b", "buildScale", "Scale for building the mosaic", false, 1.0, "double", cmd);
 
     ValueArg<double> angleOffsetArg( "a", "angleOffset", "Angle to offset images by to find best rotation", false, 360.0, "double", cmd);
-
-//    ValueArg<int> numrelaxationsArg( "", "numrelaxations", "Number of numrelaxations to use for cells", false, 50, "int", cmd);
-
-    ValueArg<int> numPassesArg( "", "passes", "Number of passes to compute", false, 1, "int", cmd);
 
     ValueArg<int> numCellsArg( "n", "numCells", "Number of cells to use", true, 100, "int", cmd);
 
@@ -43,9 +41,8 @@ int main( int argc, char **argv )
     bool trueColor                    = colorArg.getValue();
     bool skipNearBy                   = skipNearByArg.getValue();
     bool recursiveSearch              = recursiveArg.getValue();
+    bool secondPass                   = secondPassArg.getValue();
     int numCells                      = numCellsArg.getValue();
-    int numrelaxations                = 100;//numrelaxationsArg.getValue();
-    int numPasses                     = numPassesArg.getValue();
     double sizePower                  = fillWeightArg.getValue();
     double renderScale                = renderScaleArg.getValue();
     double buildScale                 = buildScaleArg.getValue();
@@ -53,7 +50,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunMosaicPuzzle( inputName , outputName, inputDirectory, numCells, numrelaxations, numPasses, renderScale, buildScale, angleOffset, trueColor, skipNearBy, sizePower );
+    RunMosaicPuzzle( inputName , outputName, inputDirectory, numCells, secondPass, renderScale, buildScale, angleOffset, trueColor, skipNearBy, sizePower );
   }
   catch (ArgException &e)  // catch any exceptions
   {

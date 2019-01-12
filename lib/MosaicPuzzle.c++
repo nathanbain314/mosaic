@@ -365,7 +365,7 @@ void computeLargerPolygon( vector< Vertex > &vertices, vector< Edge > &edges, Ve
 
 tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int cellDistance, vector< Polygon > &imagePolygons, vector< Polygon > &concavePolygons, vector< Polygon > &polygons, vector< tuple< int, double, double, Vertex > > &bestValues, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char *inputData, int inputWidth, int inputHeight, double buildScale, double angleOffset, bool skipNearby, bool trueColor, double sizePower, bool doDraw, ProgressBar *drawingImages )
 {
-  vector< int > skipValues;
+  set< int > skipValues;
 
   vector< Vertex > vertices;
   vector< Edge > edges;
@@ -386,25 +386,28 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
 
   vector< int > outsidePolygons;
 
-  for( int i1 = 0; i1 < polygons.size(); ++i1 )
+  if( skipNearby )
   {
-    if( i1 == i2 ) continue;
-
-    Vertex center(0,0);
-
-    for( int j2 = 0; j2 < polygons[i1].vertices.size(); ++j2 )
+    for( int i1 = 0; i1 < polygons.size(); ++i1 )
     {
-      center.x += polygons[i1].vertices[j2].x;
-      center.y += polygons[i1].vertices[j2].y;
-    }
+      if( i1 == i2 ) continue;
 
-    center.x /= polygons[i1].vertices.size();
-    center.y /= polygons[i1].vertices.size();
+      Vertex center(0,0);
 
-    if( distance( get<3>( bestValues[i2] ), center ) < 4*cellDistance )
-    {
-      outsidePolygons.push_back( i1 );
-      skipValues.push_back( get<0>( bestValues[i1] ) );
+      for( int j2 = 0; j2 < polygons[i1].vertices.size(); ++j2 )
+      {
+        center.x += polygons[i1].vertices[j2].x;
+        center.y += polygons[i1].vertices[j2].y;
+      }
+
+      center.x /= polygons[i1].vertices.size();
+      center.y /= polygons[i1].vertices.size();
+
+      if( distance( get<3>( bestValues[i2] ), center ) < 4*cellDistance )
+      {
+        outsidePolygons.push_back( i1 );
+        skipValues.insert( get<0>( bestValues[i1] ) );
+      }
     }
   }
 
@@ -459,7 +462,8 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
 
   for( int k1 = 0, k = 0; k1 < imagePolygons.size(); ++k1, ++k )
   {    
-    if( skipNearby && find( skipValues.begin(), skipValues.end(), k ) != skipValues.end() ) continue;
+    if( skipNearby && skipValues.size() < imagePolygons.size() && find( skipValues.begin(), skipValues.end(), k ) != skipValues.end() ) continue;
+
     Polygon P = imagePolygons[k1];
 
     double scale, rotation;
@@ -604,13 +608,51 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
   return make_tuple( bestImage, bestScale, bestRotation, bestOffset );
 }
 
-
-void generateBestValues( int start, int end, vector< int > &indices, vector< Polygon > &polygons, vector< Polygon > &imagePolygons, vector< tuple< int, double, double, Vertex > > &bestValues, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char *inputData, int inputWidth, int inputHeight, double buildScale, double angleOffset, bool trueColor, double sizePower, ProgressBar *findingBestImages )
+void generateBestValues( int start, int end, vector< int > &indices, vector< Polygon > &polygons, vector< Polygon > &imagePolygons, vector< tuple< int, double, double, Vertex > > &bestValues, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char *inputData, int inputWidth, int inputHeight, double buildScale, double angleOffset, bool trueColor, double sizePower, double cellDistance, bool skipNearby, ProgressBar *findingBestImages )
 {
   for( int st = start; st < end; ++st )
   {
     int i1 = indices[st];
     Polygon R = polygons[i1];
+
+
+    set< int > skipValues;
+
+    if( skipNearby )
+    {
+      Vertex center1(0,0);
+
+      for( int j2 = 0; j2 < polygons[i1].vertices.size(); ++j2 )
+      {
+        center1.x += polygons[i1].vertices[j2].x;
+        center1.y += polygons[i1].vertices[j2].y;
+      }
+
+      center1.x /= polygons[i1].vertices.size();
+      center1.y /= polygons[i1].vertices.size();
+
+      for( int i2 = 0; i2 < polygons.size(); ++i2 )
+      {
+        if( i1 == i2 || get<0>( bestValues[i2] ) < 0 ) continue;
+
+        Vertex center(0,0);
+
+        for( int j2 = 0; j2 < polygons[i2].vertices.size(); ++j2 )
+        {
+          center.x += polygons[i2].vertices[j2].x;
+          center.y += polygons[i2].vertices[j2].y;
+        }
+
+        center.x /= polygons[i2].vertices.size();
+        center.y /= polygons[i2].vertices.size();
+
+        if( distance( center1, center ) < 4*cellDistance )
+        {
+          skipValues.insert( get<0>( bestValues[i2] ) );
+        }
+      }
+    }
+
 
     int bestImage = 0;
     double bestScale = 0;
@@ -620,7 +662,9 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
 
     for( int k1 = 0, k = 0; k1 < imagePolygons.size(); ++k1, ++k )
     {
-      Polygon P = imagePolygons[k1];
+      if( skipNearby && skipValues.size() < imagePolygons.size() && find( skipValues.begin(), skipValues.end(), k ) != skipValues.end() ) continue;
+
+      Polygon P = imagePolygons[k];
 
       double scale, rotation;
 
@@ -771,7 +815,7 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
   }
 }
 
-void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, int numrelaxations, int numPasses, double renderScale, double buildScale, double angleOffset, bool trueColor, bool skipNearby, double sizePower )
+void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, double renderScale, double buildScale, double angleOffset, bool trueColor, bool skipNearby, double sizePower )
 {
   vector< Polygon > polygons, imagePolygons, concavePolygons;
   vector< vector< unsigned char > > images, masks;
@@ -793,32 +837,8 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
   int outputWidth = inputWidth;
   int outputHeight = inputHeight;
 
-  generateVoronoiPolygons( polygons, count, numrelaxations, outputWidth, outputHeight );
+  generateVoronoiPolygons( polygons, count, 100, outputWidth, outputHeight );
 
-  vector< tuple< int, double, double, Vertex > > bestValues(polygons.size(), make_tuple(0,0,0,Vertex(0,0)) );
-
-  int threads = sysconf(_SC_NPROCESSORS_ONLN);
-
-  ProgressBar *findingBestImages = new ProgressBar(polygons.size()*imagePolygons.size()/threads, "Finding best images");
-
-  vector< int > indices( polygons.size() );
-  iota( indices.begin(), indices.end(), 0 );
-
-  // Shuffle the points so that patterens do not form
-  shuffle( indices.begin(), indices.end(), default_random_engine(0));//time(NULL)) );
-
-  future< void > ret[threads];
-
-  for( int k = 0; k < threads; ++k )
-  {
-    ret[k] = async( launch::async, &generateBestValues, k*indices.size()/threads, (k+1)*indices.size()/threads, ref(indices), ref(polygons), ref(imagePolygons), ref(bestValues), ref(images), ref(masks), ref(dimensions), inputData, inputWidth, inputHeight, buildScale, angleOffset, trueColor, sizePower, findingBestImages );
-  }
-
-  // Wait for threads to finish
-  for( int k = 0; k < threads; ++k )
-  {
-    ret[k].get();
-  }
 
   double cellrange[4] = {1000000000,1000000000,-1000000000,-1000000000};
 
@@ -834,6 +854,32 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
   double cellDistance = 4*(cellrange[3]-cellrange[1])*(cellrange[3]-cellrange[1]) + (cellrange[2]-cellrange[0])*(cellrange[2]-cellrange[0]);
 
+
+  vector< tuple< int, double, double, Vertex > > bestValues(polygons.size(), make_tuple(-1,0,0,Vertex(0,0)) );
+
+  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+
+  ProgressBar *findingBestImages = new ProgressBar(polygons.size()*imagePolygons.size()/threads, "Finding best images");
+
+  vector< int > indices( polygons.size() );
+  iota( indices.begin(), indices.end(), 0 );
+
+  // Shuffle the points so that patterens do not form
+  shuffle( indices.begin(), indices.end(), default_random_engine(0));//time(NULL)) );
+
+  future< void > ret[threads];
+
+  for( int k = 0; k < threads; ++k )
+  {
+    ret[k] = async( launch::async, &generateBestValues, k*indices.size()/threads, (k+1)*indices.size()/threads, ref(indices), ref(polygons), ref(imagePolygons), ref(bestValues), ref(images), ref(masks), ref(dimensions), inputData, inputWidth, inputHeight, buildScale, angleOffset, trueColor, sizePower, cellDistance, skipNearby, findingBestImages );
+  }
+
+  // Wait for threads to finish
+  for( int k = 0; k < threads; ++k )
+  {
+    ret[k].get();
+  }
+
   findingBestImages->Finish();
 
 
@@ -842,43 +888,45 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
   vector< int > indices2( ceil((double)polygons.size()/threads) );
 
-  ProgressBar *drawingImages = new ProgressBar(numPasses*imagePolygons.size()*indices2.size(), "Drawing images");
-
   iota( indices2.begin(), indices2.end(), 0 );
 
   // Shuffle the points so that patterns do not form
   shuffle( indices2.begin(), indices2.end(), default_random_engine(10));//time(NULL)) );
 
-  for( int np = 0; np < numPasses; ++np )
-  for( int i3 = 0; i3 < indices2.size(); ++i3 )
+  if( secondPass )
   {
-    future< tuple< int, double, double, Vertex > > ret[threads];
+    ProgressBar *fillingGaps = new ProgressBar(secondPass*imagePolygons.size()*indices2.size(), "Filling gaps");
 
-    for( int k = 0; k < threads; ++k )
+    for( int i3 = 0; i3 < indices2.size(); ++i3 )
     {
-      int i2 = indices2[i3]+k*indices2.size();
-      if( i2 >= polygons.size() ) continue;
+      future< tuple< int, double, double, Vertex > > ret[threads];
 
-      ret[k] = async( launch::async, &generateSecondPassBestValues, i2, cellDistance, ref(imagePolygons), ref(concavePolygons), ref(polygons), ref(bestValues), ref(images), ref(masks), ref(dimensions), inputData, inputWidth, inputHeight, buildScale, angleOffset, skipNearby, trueColor, sizePower, k==0, drawingImages );
+      for( int k = 0; k < threads; ++k )
+      {
+        int i2 = indices2[i3]+k*indices2.size();
+        if( i2 >= polygons.size() ) continue;
+
+        ret[k] = async( launch::async, &generateSecondPassBestValues, i2, cellDistance, ref(imagePolygons), ref(concavePolygons), ref(polygons), ref(bestValues), ref(images), ref(masks), ref(dimensions), inputData, inputWidth, inputHeight, buildScale, angleOffset, skipNearby, trueColor, sizePower, k==0, fillingGaps );
+      }
+
+      // Wait for threads to finish
+      for( int k = 0; k < threads; ++k )
+      {
+        int i2 = indices2[i3]+k*indices2.size();
+        if( i2 >= polygons.size() ) continue;
+
+        bestValues[i2] = ret[k].get();
+      }
     }
 
-    // Wait for threads to finish
-    for( int k = 0; k < threads; ++k )
-    {
-      int i2 = indices2[i3]+k*indices2.size();
-      if( i2 >= polygons.size() ) continue;
-
-      bestValues[i2] = ret[k].get();
-    }
+    fillingGaps->Finish();
   }
-
-  drawingImages->Finish();
 
   outputWidth *= renderScale;
   outputHeight *= renderScale;
 
 
-  drawingImages = new ProgressBar(polygons.size(), "Drawing images2");
+  ProgressBar *drawingImages = new ProgressBar(polygons.size(), "Rendering output");
 
   double maxScale = -1;
 
@@ -988,6 +1036,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
   drawingImages->Finish();
 
-  VImage::new_from_memory( outputData, 3*outputWidth*outputHeight, outputWidth, outputHeight, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
+  cout << "Generating image " << outputImage << endl;
 
+  VImage::new_from_memory( outputData, 3*outputWidth*outputHeight, outputWidth, outputHeight, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImage.c_str());
 }
