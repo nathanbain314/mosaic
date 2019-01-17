@@ -4,15 +4,6 @@
 #define JC_VORONOI_IMPLEMENTATION
 #include "jc_voronoi.h"
 
-// Remaps the point from the input space to image space
-static inline jcv_point remap(const jcv_point* pt, const jcv_point* min, const jcv_point* max, const jcv_point* scale)
-{
-  jcv_point p;
-  p.x = (pt->x - min->x)/(max->x - min->x) * scale->x;
-  p.y = (pt->y - min->y)/(max->y - min->y) * scale->y;
-  return p;
-}
-
 Vertex compute2DPolygonCentroid( vector< Vertex > &vertices )
 {
   Vertex centroid( 0, 0 );
@@ -65,8 +56,20 @@ static void relax_points(const jcv_diagram* diagram, jcv_point* points)
   }
 }
 
-void generateVoronoiPolygonsFromPoints( vector< Polygon > &polygons, jcv_point* points, int count, int numrelaxations, int width, int height, int *pointIndex, int *pointIndex2 )
+void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrelaxations, int width, int height )
 {
+  jcv_point* points = 0;
+
+  points = (jcv_point*)malloc( sizeof(jcv_point) * (size_t)count);
+
+  srand(0);
+
+  for( int i = 0; i < count; ++i )
+  {
+    points[i].x = (float)(rand()%width);
+    points[i].y = (float)(rand()%height);
+  }
+
   jcv_rect bounding_box = { { 0.0f, 0.0f }, { (float)width, (float)height } };
   jcv_diagram diagram;
   const jcv_site* sites;
@@ -94,9 +97,6 @@ void generateVoronoiPolygonsFromPoints( vector< Polygon > &polygons, jcv_point* 
 
     graph_edge = sites[i].edges;
 
-    pointIndex[sites[i].index] = i;
-    pointIndex2[i] = sites[i].index;
-
     while (graph_edge)
     {
       P.addVertex( graph_edge->pos[0].x, graph_edge->pos[0].y );
@@ -113,74 +113,6 @@ void generateVoronoiPolygonsFromPoints( vector< Polygon > &polygons, jcv_point* 
   }
 
   jcv_diagram_free(&diagram);
-}
-
-void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrelaxations, int width, int height )
-{
-  jcv_point* points = 0;
-
-  points = (jcv_point*)malloc( sizeof(jcv_point) * (size_t)count);
-
-  int pointoffset = 0; // move the points inwards, for aestetic reasons
-
-  srand(0);
-
-  for( int i = 0; i < count; ++i )
-  {
-    points[i].x = (float)(pointoffset + rand() % (width-2*pointoffset));
-    points[i].y = (float)(pointoffset + rand() % (height-2*pointoffset));
-  }
-
-  jcv_rect* rect = 0;
-
-  for( int i = 0; i < numrelaxations; ++i )
-  {
-    jcv_diagram diagram;
-    memset(&diagram, 0, sizeof(jcv_diagram));
-    jcv_diagram_generate(count, (const jcv_point*)points, rect, &diagram);
-
-    relax_points(&diagram, points);
-
-    jcv_diagram_free( &diagram );
-  }
-
-  jcv_diagram diagram;
-  jcv_point dimensions;
-  dimensions.x = (jcv_real)width;
-  dimensions.y = (jcv_real)height;
-
-  memset(&diagram, 0, sizeof(jcv_diagram));
-  jcv_diagram_generate(count, (const jcv_point*)points, rect, &diagram);
-
-  const jcv_site* sites = jcv_diagram_get_sites( &diagram );
-  for( int i = 0; i < diagram.numsites; ++i )
-  {
-    Polygon P;
-
-    const jcv_site* site = &sites[i];
-
-    jcv_point s = remap(&site->p, &diagram.min, &diagram.max, &dimensions );
-
-    const jcv_graphedge* e = site->edges;
-    while( e )
-    {
-      jcv_point p0 = remap(&e->pos[0], &diagram.min, &diagram.max, &dimensions );
-      jcv_point p1 = remap(&e->pos[1], &diagram.min, &diagram.max, &dimensions );
-
-      e = e->next;
-
-      P.addVertex( p0.x, p0.y );
-      P.addVertex( p1.x, p1.y );
-
-      P.addEdge( P.vertices.size()-2, P.vertices.size()-1 );
-    }
-
-    P.makeClockwise();
-
-    polygons.push_back( P );
-  }
-
-  jcv_diagram_free( &diagram );
 }
 
 void generateImagePolygons( string imageDirectory, vector< string > &inputDirectory, vector< Polygon > &imagePolygons, vector< Polygon > &concavePolygons, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double buildScale, double renderScale, bool recursiveSearch )
