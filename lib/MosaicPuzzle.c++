@@ -318,28 +318,25 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
 
   vector< int > outsidePolygons;
 
-  if( skipNearby )
+  for( int i1 = 0; i1 < polygons.size(); ++i1 )
   {
-    for( int i1 = 0; i1 < polygons.size(); ++i1 )
+    if( i1 == i2 ) continue;
+
+    Vertex center(0,0);
+
+    for( int j2 = 0; j2 < polygons[i1].vertices.size(); ++j2 )
     {
-      if( i1 == i2 ) continue;
+      center.x += polygons[i1].vertices[j2].x;
+      center.y += polygons[i1].vertices[j2].y;
+    }
 
-      Vertex center(0,0);
+    center.x /= polygons[i1].vertices.size();
+    center.y /= polygons[i1].vertices.size();
 
-      for( int j2 = 0; j2 < polygons[i1].vertices.size(); ++j2 )
-      {
-        center.x += polygons[i1].vertices[j2].x;
-        center.y += polygons[i1].vertices[j2].y;
-      }
-
-      center.x /= polygons[i1].vertices.size();
-      center.y /= polygons[i1].vertices.size();
-
-      if( distance( get<3>( bestValues[i2] ), center ) < 4*cellDistance )
-      {
-        outsidePolygons.push_back( i1 );
-        skipValues.insert( get<0>( bestValues[i1] ) );
-      }
+    if( distance( get<3>( bestValues[i2] ), center ) < 4*cellDistance )
+    {
+      outsidePolygons.push_back( i1 );
+      skipValues.insert( get<0>( bestValues[i1] ) );
     }
   }
 
