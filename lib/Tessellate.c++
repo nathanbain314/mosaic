@@ -940,35 +940,6 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
   string tessellateTypeName = tessellateType.substr(tessellateType.find_last_of("/") + 1);
 
-  if( tessellateTypeName == "tetris.t" )
-  {
-    createTetrisLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight, numHorizontal, numVertical );
-  }
-  else if( tessellateTypeName == "multisizeSquares.t" )
-  {
-    createMultisizeSquaresLocations( inputImages[0], shapeIndices, mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, tileWidth, tileHeight, tileWidth2, tileHeight2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
-
-  }
-  else if( tessellateTypeName == "multisizeTriangles.t" )
-  {
-    createMultisizeTrianglesLocations( inputImages[0], shapeIndices, mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, tileWidth, tileHeight, tileWidth2, tileHeight2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
-  }
-  else if( tessellateTypeName == "jigsaw.t" )
-  {
-    createJigsawLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
-  }
-  else
-  {
-    createLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
-  }
-
-  int imageWidth = numHorizontal * imageTileWidth, imageHeight = numVertical * imageTileHeight;
-
-  for( int i = 0; i < mosaicLocations2.size(); ++i )
-  {
-//    imageWidth = max(imageWidth,mosaicLocations2[i][2]);
-//    imageHeight = max(imageHeight,mosaicLocations2[i][3]);
-  }
 
   if( tessellateTypeName == "circles.t" )
   {
@@ -1001,6 +972,32 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
       }
     }
   }
+
+
+
+  if( tessellateTypeName == "tetris.t" )
+  {
+    createTetrisLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight, numHorizontal, numVertical );
+  }
+  else if( tessellateTypeName == "multisizeSquares.t" )
+  {
+    createMultisizeSquaresLocations( inputImages[0], shapeIndices, mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, tileWidth, tileHeight, tileWidth2, tileHeight2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
+
+  }
+  else if( tessellateTypeName == "multisizeTriangles.t" )
+  {
+    createMultisizeTrianglesLocations( inputImages[0], shapeIndices, mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, tileWidth, tileHeight, tileWidth2, tileHeight2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
+  }
+  else if( tessellateTypeName == "jigsaw.t" )
+  {
+    createJigsawLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
+  }
+  else
+  {
+    createLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
+  }
+
+  int imageWidth = numHorizontal * imageTileWidth, imageHeight = numVertical * imageTileHeight;
 
   vector< vector< vector< int > > > d;
   vector< vector< vector< float > > > lab;

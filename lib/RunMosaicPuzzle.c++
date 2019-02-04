@@ -50,7 +50,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunMosaicPuzzle( inputName , outputName, inputDirectory, numCells, secondPass, renderScale, buildScale, angleOffset, trueColor, skipNearBy, sizePower );
+    RunMosaicPuzzle( inputName , outputName, inputDirectory, numCells, secondPass, renderScale, buildScale, angleOffset, trueColor, skipNearBy, sizePower, recursiveSearch );
   }
   catch (ArgException &e)  // catch any exceptions
   {

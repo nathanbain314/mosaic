@@ -28,7 +28,6 @@ Vertex compute2DPolygonCentroid( vector< Vertex > &vertices )
   return centroid;
 }
 
-
 static void relax_points(const jcv_diagram* diagram, jcv_point* points)
 {
   const jcv_site* sites = jcv_diagram_get_sites(diagram);
@@ -115,67 +114,20 @@ void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrel
   jcv_diagram_free(&diagram);
 }
 
-void generateImagePolygons( string imageDirectory, vector< string > &inputDirectory, vector< Polygon > &imagePolygons, vector< Polygon > &concavePolygons, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double buildScale, double renderScale, bool recursiveSearch )
+void generateImagePolygonsThread( int start, int end, vector< string > &names, vector< Polygon > &imagePolygons, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, ProgressBar *processing_images )
 {
-  DIR *dir;
-  struct dirent *ent;
-  string str;
-
-  int num_images = 0;
-
-  vector< string > names;
-
-  cout << "Reading directory " << imageDirectory << endl;
-
-  // Count the number of valid image files in the directory
-  if ((dir = opendir (imageDirectory.c_str())) != NULL) 
-  {
-    while ((ent = readdir (dir)) != NULL)
-    {   
-      if( ent->d_name[0] != '.' && vips_foreign_find_load( string( imageDirectory + ent->d_name ).c_str() ) != NULL )
-      {
-        // Saves the full directory position of valid images
-        names.push_back( imageDirectory + ent->d_name );
-        cout << "\rFound " << ++num_images << " images " << flush;
-      }
-      else if( recursiveSearch && ent->d_name[0] != '.' && ent->d_type == DT_DIR )
-      {
-        inputDirectory.push_back( imageDirectory + ent->d_name );
-      }
-    }
-  }
-
-  cout << endl;
-
-  ProgressBar *processing_images = new ProgressBar(num_images, "Processing images");
   unsigned char *imageData, *maskData;
 
   // Iterate through all images in directory
-  for( int i = 0; i < num_images; ++i )
+  for( int i = start; i < end; ++i )
   {
     try
     {
-      str = names[i];
+      string str = names[i];
+
+//      cout << str << endl;
 
       Polygon P, P2;
-
-      /*
-      concavePolygonFromAlphaImage( P2, names[i], 1 );
-
-      decimate(P2,.01);
-
-      removeExtrasP( P2, .01 );
-
-      decimate(P2,.02);
-
-      removeExtrasP( P2, .01 );
-
-      P2.center();
-
-
-
-      convexPolygonFromVertices( P2.vertices, P );
-      */
 
       polygonFromAlphaImage( P, names[i], 1 );
 
@@ -191,8 +143,6 @@ void generateImagePolygons( string imageDirectory, vector< string > &inputDirect
 
       imagePolygons.push_back( P );
       
-      concavePolygons.push_back( P2 );
-
       // Load image and create white one band image of the same size
       VImage image = VImage::vipsload( (char *)str.c_str() ).autorot().colourspace(VIPS_INTERPRETATION_sRGB);
 
@@ -234,16 +184,75 @@ void generateImagePolygons( string imageDirectory, vector< string > &inputDirect
       masks.push_back( vector< unsigned char >(maskData, maskData + (width*height)));
       dimensions.push_back( pair< int, int >(width,height) );
 
-      processing_images->Increment();
+      if( start == 0 ) processing_images->Increment();
     }
     catch (...)
     {
     }
   }
+}
+
+void generateImagePolygons( string imageDirectory, vector< string > &inputDirectory, vector< Polygon > &imagePolygons, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, bool recursiveSearch )
+{
+  DIR *dir;
+  struct dirent *ent;
+  string str;
+
+  int num_images = 0;
+
+  vector< string > names;
+
+  cout << "Reading directory " << imageDirectory << endl;
+
+  // Count the number of valid image files in the directory
+  if ((dir = opendir (imageDirectory.c_str())) != NULL) 
+  {
+    while ((ent = readdir (dir)) != NULL)
+    {   
+      if( ent->d_name[0] != '.' && vips_foreign_find_load( string( imageDirectory + ent->d_name ).c_str() ) != NULL )
+      {
+        // Saves the full directory position of valid images
+        names.push_back( imageDirectory + ent->d_name );
+        cout << "\rFound " << ++num_images << " images " << flush;
+      }
+      else if( recursiveSearch && ent->d_name[0] != '.' && ent->d_type == DT_DIR )
+      {
+        inputDirectory.push_back( imageDirectory + ent->d_name );
+      }
+    }
+  }
+
+  cout << endl;
+
+  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+
+  ProgressBar *processing_images = new ProgressBar(ceil((double)num_images/threads), "Processing images");
+
+  vector< vector< unsigned char > > imagesThread[threads];
+  vector< vector< unsigned char > > masksThread[threads];
+  vector< pair< int, int > > dimensionsThread[threads];
+  vector< Polygon > imagePolygonsThread[threads];
+
+  future< void > ret[threads];
+
+  for( int k = 0; k < threads; ++k )
+  {
+    ret[k] = async( launch::async, &generateImagePolygonsThread, k*num_images/threads, (k+1)*num_images/threads, ref(names), ref(imagePolygonsThread[k]), ref(imagesThread[k]), ref(masksThread[k]), ref(dimensionsThread[k]), processing_images );
+  }
+
+  // Wait for threads to finish
+  for( int k = 0; k < threads; ++k )
+  {
+    ret[k].get();
+
+    images.insert(images.end(), imagesThread[k].begin(), imagesThread[k].end());
+    masks.insert(masks.end(), masksThread[k].begin(), masksThread[k].end());
+    dimensions.insert(dimensions.end(), dimensionsThread[k].begin(), dimensionsThread[k].end());
+    imagePolygons.insert(imagePolygons.end(), imagePolygonsThread[k].begin(), imagePolygonsThread[k].end());
+  }
 
   processing_images->Finish();
 }
-
 
 int rotateX( double x, double y, double cosAngle, double sinAngle, double halfWidth, double halfHeight )
 {
@@ -295,7 +304,7 @@ void computeLargerPolygon( vector< Vertex > &vertices, vector< Edge > &edges, Ve
   P.addEdge(P.vertices.size()-2,P.vertices.size()-1);
 }
 
-tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int cellDistance, vector< Polygon > &imagePolygons, vector< Polygon > &concavePolygons, vector< Polygon > &polygons, vector< tuple< int, double, double, Vertex > > &bestValues, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char *inputData, int inputWidth, int inputHeight, double buildScale, double angleOffset, bool skipNearby, bool trueColor, double sizePower, bool doDraw, ProgressBar *drawingImages )
+tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int cellDistance, vector< Polygon > &imagePolygons, vector< Polygon > &polygons, vector< tuple< int, double, double, Vertex > > &bestValues, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char *inputData, int inputWidth, int inputHeight, double buildScale, double angleOffset, bool skipNearby, bool trueColor, double sizePower, bool doDraw, ProgressBar *drawingImages )
 {
   set< int > skipValues;
 
@@ -744,9 +753,9 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
   }
 }
 
-void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, double renderScale, double buildScale, double angleOffset, bool trueColor, bool skipNearby, double sizePower )
+void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, double renderScale, double buildScale, double angleOffset, bool trueColor, bool skipNearby, double sizePower, bool recursiveSearch )
 {
-  vector< Polygon > polygons, imagePolygons, concavePolygons;
+  vector< Polygon > polygons, imagePolygons;
   vector< vector< unsigned char > > images, masks;
   vector< pair< int, int > > dimensions;
 
@@ -754,7 +763,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
   {
     string imageDirectory = inputDirectory[i];
     if( imageDirectory.back() != '/' ) imageDirectory += '/';
-    generateImagePolygons( imageDirectory, inputDirectory, imagePolygons, concavePolygons, images, masks, dimensions, buildScale, renderScale, false );
+    generateImagePolygons( imageDirectory, inputDirectory, imagePolygons, images, masks, dimensions, recursiveSearch );
   }
 
   VImage inputImage = VImage::vipsload((char *)inputName.c_str()).autorot().resize(buildScale);
@@ -835,7 +844,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
         int i2 = indices2[i3]+k*indices2.size();
         if( i2 >= polygons.size() ) continue;
 
-        ret[k] = async( launch::async, &generateSecondPassBestValues, i2, cellDistance, ref(imagePolygons), ref(concavePolygons), ref(polygons), ref(bestValues), ref(images), ref(masks), ref(dimensions), inputData, inputWidth, inputHeight, buildScale, angleOffset, skipNearby, trueColor, sizePower, k==0, fillingGaps );
+        ret[k] = async( launch::async, &generateSecondPassBestValues, i2, cellDistance, ref(imagePolygons), ref(polygons), ref(bestValues), ref(images), ref(masks), ref(dimensions), inputData, inputWidth, inputHeight, buildScale, angleOffset, skipNearby, trueColor, sizePower, k==0, fillingGaps );
       }
 
       // Wait for threads to finish
