@@ -403,12 +403,12 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
       mosaic[height/2][width/2] = numTiles;
       if( first )
       {
-        VImage::jpegload((char *)directory.str().append(to_string(mosaic[height-1][width-1])+"_files/0/0_0.jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+        VImage::jpegload((char *)directory.str().append(to_string(mosaic[height-1][width-1])+"_files/0/0_0.jpeg").c_str()).resize(0.5).
         jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
       }
       else
       {
-        VImage::jpegload((char *)input.str().append(to_string(mosaic[height-1][width-1])+".jpeg").c_str(), VImage::option()->set( "shrink", 2)).
+        VImage::jpegload((char *)input.str().append(to_string(mosaic[height-1][width-1])+".jpeg").c_str()).resize(0.5).
         jpegsave((char *)image.str().append(to_string(numTiles)+".jpeg").c_str(), VImage::option()->set( "optimize_coding", true )->set( "strip", true ) );  
       }
     }

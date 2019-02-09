@@ -10,7 +10,7 @@ ProgressBar::ProgressBar(unsigned long n_, const char* description_, std::ostrea
     description = description_;
     out = &out_;
 	
-	unit_bar = "=";
+	unit_bar = "\u25A0";
 	unit_space = " ";
 	desc_width = std::strlen(description);	// character width of description field
 
@@ -53,7 +53,7 @@ int ProgressBar::GetBarLength(){
 
 	// get console width and according adjust the length of the progress bar
 
-    int bar_length = static_cast<int>((GetConsoleWidth() - desc_width - CHARACTER_WIDTH_PERCENTAGE) / 2.);
+    int bar_length = static_cast<int>((GetConsoleWidth() - desc_width - CHARACTER_WIDTH_PERCENTAGE - 7) );
 
 	return bar_length;
 }

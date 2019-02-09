@@ -768,6 +768,24 @@ void polygonFromAlphaImage( Polygon &P, string imageName, double resize )
 
     P.offsetBy(origin);
   }
+  else
+  {
+    P.addVertex(0,0);
+    P.addVertex(width,0);
+    P.addEdge(0,1);
+
+    P.addVertex(width,0);
+    P.addVertex(width,height);
+    P.addEdge(2,3);
+
+    P.addVertex(width,height);
+    P.addVertex(0,height);
+    P.addEdge(4,5);
+
+    P.addVertex(0,height);
+    P.addVertex(0,0);
+    P.addEdge(6,7);
+  }
 }
 
 void removeExtrasP( Polygon &P, double epsilon )
