@@ -214,6 +214,12 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
   unsigned char *c1, *c2;
 
+  if( exclude )
+  {
+    imageTileWidth = mosaicTileWidth < mosaicTileHeight ? 256*mosaicTileWidth/mosaicTileHeight : 256;
+    imageTileHeight = mosaicTileWidth > mosaicTileHeight ? 256*mosaicTileHeight/mosaicTileWidth : 256;
+  }
+
   // Minimum size allowed: must be at least as large as mosaicTileWidth and imageTileWidth, and 256 if exclude is set
   int minWidth = max(mosaicTileWidth,imageTileWidth);
   int minHeight = max(mosaicTileHeight,imageTileHeight);
