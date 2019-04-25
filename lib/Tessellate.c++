@@ -185,7 +185,7 @@ void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, 
     g_mkdir(string(outputImage).append("_files/").c_str(), 0777);
     g_mkdir(string(outputImage).append("_files/").append(to_string(level)).c_str(), 0777);
 
-    int threads = sysconf(_SC_NPROCESSORS_ONLN);
+    int threads = numberOfCPUS();
 
     ProgressBar *topLevel = new ProgressBar(ceil((double)outputWidth/256.0)*ceil((double)outputHeight/((double)threads*256.0)), "Building top level");
 
@@ -481,7 +481,7 @@ int generateMosaic( vector< vector< vector< float > > > &imageData, vector< vect
   unsigned char * c = ( unsigned char * )image.data();
 
   // Number of threads for multithreading: needs to be a square number
-  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+  int threads = numberOfCPUS();
 
   // Create list of numbers in thread block
   vector< int > indices( mosaicLocations.size() );
@@ -716,7 +716,7 @@ int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vec
   unsigned char * c = ( unsigned char * )image.data();
 
   // Number of threads for multithreading: needs to be a square number
-  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+  int threads = numberOfCPUS();
 
   // Create list of numbers in thread block
   vector< int > indices( mosaicLocations.size() );
@@ -1067,7 +1067,7 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
   {
     vector< int > mosaic( mosaicLocations.size() + edgeLocations.size() );
 
-    int threads = sysconf(_SC_NPROCESSORS_ONLN);
+    int threads = numberOfCPUS();
 
     ProgressBar *buildingMosaic = new ProgressBar(mosaicLocations.size()/threads, "Building mosaic");
 

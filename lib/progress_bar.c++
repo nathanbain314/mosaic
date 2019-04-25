@@ -10,7 +10,7 @@ ProgressBar::ProgressBar(unsigned long n_, const char* description_, std::ostrea
     description = description_;
     out = &out_;
 	
-	unit_bar = "\u25A0";
+	unit_bar = "=";
 	unit_space = " ";
 	desc_width = std::strlen(description);	// character width of description field
 

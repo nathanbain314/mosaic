@@ -1,5 +1,20 @@
 #include "mosaicTools.h"
 
+int numberOfCPUS()
+{
+  int numCPU;
+
+#ifdef WIN32
+  SYSTEM_INFO sysinfo;
+  GetSystemInfo(&sysinfo);
+  numCPU = sysinfo.dwNumberOfProcessors;
+#else
+  numCPU = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+
+  return numCPU;
+}
+
 void processImages( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< string > &names, int start, int end, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int minWidth, int minHeight, bool spin, bool different, int cropStyle, bool flip, bool quiet, ProgressBar *processing_images )
 {
   string str;
@@ -228,6 +243,8 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
   vector< string > names;
 
+  struct stat s;
+
   cout << "Reading directory " << imageDirectory << " for tilesize " << mosaicTileWidth << "x" << mosaicTileHeight << endl;
 
   // Count the number of valid image files in the directory
@@ -240,16 +257,20 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
         names.push_back( imageDirectory + ent->d_name );
         cout << "\rFound " << ++num_images << " images " << flush;
       }
-      else if( recursiveSearch && ent->d_name[0] != '.' && ent->d_type == DT_DIR )
+      else if( recursiveSearch && ent->d_name[0] != '.' )
       {
-        inputDirectory.push_back( imageDirectory + ent->d_name );
+        stat(ent->d_name, &s);
+        if (s.st_mode & S_IFDIR)
+        {
+          inputDirectory.push_back( imageDirectory + ent->d_name );
+        }
       }
     }
   }
 
   cout << endl;
 
-  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+  int threads = numberOfCPUS();
 
   ProgressBar *processing_images = new ProgressBar(ceil((double)num_images/threads), "Processing images");
 
@@ -291,8 +312,8 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
   for( int p = start; p < end; ++p )
   {
     // Get position of tile
-    int i = indices[p] / width;
-    int j = indices[p] % width;
+    int i = indices[p] / numHorizontal;
+    int j = indices[p] % numHorizontal;
     
     // Update progressbar if necessary
     if(show) buildingMosaic->Increment();
@@ -423,7 +444,7 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   // Whether an image was used or not
   vector< bool > used( num_images, false );
 
-  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+  int threads = numberOfCPUS();
 
   // Totat number of tiles in block
   int total = numVertical*numHorizontal;
@@ -609,7 +630,7 @@ int generateMosaic( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, st
   vector< bool > used( num_images, false );
 
   // Number of threads for multithreading: needs to be a square number
-  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+  int threads = numberOfCPUS();
 
   // Totat number of tiles in block
   int total = numVertical*numHorizontal;

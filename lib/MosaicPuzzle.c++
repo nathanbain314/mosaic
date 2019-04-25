@@ -1,4 +1,5 @@
 #include "MosaicPuzzle.h"
+#include "mosaicTools.h"
 #include "progress_bar.hpp"
 
 #define JC_VORONOI_IMPLEMENTATION
@@ -202,6 +203,8 @@ void generateImagePolygons( string imageDirectory, vector< string > &inputDirect
 
   vector< string > names;
 
+  struct stat s;
+
   cout << "Reading directory " << imageDirectory << endl;
 
   // Count the number of valid image files in the directory
@@ -215,16 +218,20 @@ void generateImagePolygons( string imageDirectory, vector< string > &inputDirect
         names.push_back( imageDirectory + ent->d_name );
         cout << "\rFound " << ++num_images << " images " << flush;
       }
-      else if( recursiveSearch && ent->d_name[0] != '.' && ent->d_type == DT_DIR )
+      else if( recursiveSearch && ent->d_name[0] != '.' )
       {
-        inputDirectory.push_back( imageDirectory + ent->d_name );
+        stat(ent->d_name, &s);
+        if (s.st_mode & S_IFDIR)
+        {
+          inputDirectory.push_back( imageDirectory + ent->d_name );
+        }
       }
     }
   }
 
   cout << endl;
 
-  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+  int threads = numberOfCPUS();
 
   ProgressBar *processing_images = new ProgressBar(ceil((double)num_images/threads), "Processing images");
 
@@ -795,7 +802,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
   vector< tuple< int, double, double, Vertex > > bestValues(polygons.size(), make_tuple(-1,0,0,Vertex(0,0)) );
 
-  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+  int threads = numberOfCPUS();
 
   ProgressBar *findingBestImages = new ProgressBar(polygons.size()*imagePolygons.size()/threads, "Finding best images");
 

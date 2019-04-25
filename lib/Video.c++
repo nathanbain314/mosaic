@@ -230,7 +230,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
   ProgressBar *processing_video = new ProgressBar(inputImages.size(), "Processing video");
 
-  int threads = sysconf(_SC_NPROCESSORS_ONLN);
+  int threads = numberOfCPUS();
 
   for( int p = 0; p < inputImages.size(); ++p )
   {

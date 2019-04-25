@@ -2,6 +2,7 @@
 #define _PROGRESS_BAR_
 
 #ifdef _WIN32
+#define NOGDI
 #include <windows.h>
 #else
 #include <sys/ioctl.h>

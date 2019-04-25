@@ -660,7 +660,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
   {
     vector< vector< int > > mosaic( numVertical, vector< int >( numHorizontal, -1 ) );
 
-    int threads = sysconf(_SC_NPROCESSORS_ONLN);
+    int threads = numberOfCPUS();
 
     ProgressBar *buildingMosaic = new ProgressBar(numVertical*numHorizontal/threads, "Building mosaic");
 
