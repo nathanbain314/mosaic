@@ -544,7 +544,7 @@ int generateRGBBlock( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< i
 
   for( int i = 0; i < mat_index.size(); ++i )
   {
-    unique_ptr< dynamic_kdtree > ptr(new dynamic_kdtree(mat_index[i]->m_data[0].size(), *mat_index[i], KDTreeSingleIndexAdaptorParams(10)));
+    unique_ptr< dynamic_kdtree > ptr(new dynamic_kdtree(mat_index[i]->dimensions, *mat_index[i], KDTreeSingleIndexAdaptorParams(10)));
     mat_index2.push_back( move(ptr) );//3*shapeIndices[i].size(),d[i],10);
   }
 
@@ -664,7 +664,7 @@ int generateRGBBlockEdge( vector< unique_ptr< my_kd_tree_t > > &mat_index, vecto
       for( int j = 0; j < edgeShape.size(); j+=3 )
       {
         int x = 3*edgeShape[j];
-        sum += (d[j+0]-mat_index[t]->m_data[l][x+0]) * (d[j+0]-mat_index[t]->m_data[l][x+0]) + (d[j+1]-mat_index[t]->m_data[l][x+1]) * (d[j+1]-mat_index[t]->m_data[l][x+1]) + (d[j+2]-mat_index[t]->m_data[l][x+2]) * (d[j+2]-mat_index[t]->m_data[l][x+2]);
+        sum += (d[j+0]-mat_index[t]->kdtree_get_pt(l,x+0)) * (d[j+0]-mat_index[t]->kdtree_get_pt(l,x+0)) + (d[j+1]-mat_index[t]->kdtree_get_pt(l,x+1)) * (d[j+1]-mat_index[t]->kdtree_get_pt(l,x+1)) + (d[j+2]-mat_index[t]->kdtree_get_pt(l,x+2)) * (d[j+2]-mat_index[t]->kdtree_get_pt(l,x+2));
       }
 
       if( sum < bestSum )
@@ -906,14 +906,13 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
           {
             cropData[j] = cropData[k];
             mosaicTileData[j] = mosaicTileData[k];
-            //imageTileData[j] = imageTileData[k];
             found = true;
             break;
           }
         }
         if(!found)
         {
-          generateThumbnails( cropData[j], mosaicTileData[j], imageTileData[j], j == 0 ? inputDirectory : inputDirectoryBlank, imageDirectory, tileWidth[j], tileHeight[j], tileWidth2[j], tileHeight2[j], true, spin, cropStyle, flip, quiet, recursiveSearch );
+          generateThumbnails( cropData[j], mosaicTileData[j], imageTileData[j], j == 0 ? inputDirectory : inputDirectoryBlank, imageDirectory, tileWidth[j], tileHeight[j], tileWidth2[j], tileHeight2[j], false, spin, cropStyle, flip, quiet, recursiveSearch );
         }
       }
     }
@@ -999,7 +998,7 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
   int imageWidth = numHorizontal * imageTileWidth, imageHeight = numVertical * imageTileHeight;
 
-  vector< vector< vector< int > > > d;
+  int **d;
   vector< vector< vector< float > > > lab;
 
   if( trueColor  )
@@ -1027,21 +1026,21 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
   }
   else
   {
-    d.resize(shapeIndices.size());
+    d = (int **)malloc(shapeIndices.size()*sizeof(int*));
 
     for( int i = 0; i < shapeIndices.size(); ++i )
     {
       tileArea = shapeIndices[i].size();
 
-      d[i] = vector< vector< int > >( mosaicTileData[i].size(), vector< int >(3*tileArea) );
+      d[i] = (int *)malloc(mosaicTileData[i].size()*3*tileArea*sizeof(int));
 
-      for( int j = 0; j < mosaicTileData[i].size(); ++j )
+      for( int j = 0, index = 0; j < mosaicTileData[i].size(); ++j )
       {
-        for( int p = 0; p < tileArea; ++p )
+        for( int p = 0; p < tileArea; ++p, ++index )
         {
-          d[i][j][3*p+0] = mosaicTileData[i][j][3*shapeIndices[i][p]+0];
-          d[i][j][3*p+1] = mosaicTileData[i][j][3*shapeIndices[i][p]+1];
-          d[i][j][3*p+2] = mosaicTileData[i][j][3*shapeIndices[i][p]+2];
+          d[i][3*index+0] = mosaicTileData[i][j][3*shapeIndices[i][p]+0];
+          d[i][3*index+1] = mosaicTileData[i][j][3*shapeIndices[i][p]+1];
+          d[i][3*index+2] = mosaicTileData[i][j][3*shapeIndices[i][p]+2];
         }
       }
     }
@@ -1058,7 +1057,7 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
   {
     for( int i = 0; i < shapeIndices.size(); ++i )
     {
-      unique_ptr< my_kd_tree_t > ptr(new my_kd_tree_t(3*shapeIndices[i].size(),d[i],10));
+      unique_ptr< my_kd_tree_t > ptr(new my_kd_tree_t(3*shapeIndices[i].size(),mosaicTileData[i].size(),d[i],10));
       mat_index.push_back( move(ptr) );//3*shapeIndices[i].size(),d[i],10);
     }
   }
@@ -1088,5 +1087,10 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
     {
       buildImage( cropData, mosaic, mosaicLocations2, edgeLocations2, shapeIndices2, outputImages[i], tileWidth2, tileHeight2, imageWidth, imageHeight );
     }
+  }
+
+  for( int i = 0; i < shapeIndices.size(); ++i )
+  {
+    free(d[i]);
   }
 }

@@ -72,7 +72,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
   vector< cropType > cropData;
   vector< vector< unsigned char > > mosaicTileData;
   vector< vector< unsigned char > > imageTileData;
-  vector< vector< int > > d;
+  int *d;
   vector< int > sequenceStarts;
   vector< int > inputTileStarts;
   vector< int > idx;
@@ -195,24 +195,34 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     }
   }
 
+  int matSize = 0;
+
   for( int i = 0; i < inputTileStarts.size(); i+=2 )
   {
-    for( int j = inputTileStarts[i], l = d.size(); j < inputTileStarts[i+1]-frames; j+=skip, ++l )
+    for( int j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip )
     {
-      d.push_back(vector< int >(tileArea*frames));
+      matSize += tileArea;
+    }
+  }
+
+  d = (int *) malloc(matSize*frames*sizeof(int));
+
+  for( int i = 0, l = 0; i < inputTileStarts.size(); i+=2 )
+  {
+    for( int j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip, ++l )
+    {
       sequenceStarts.push_back(j);
       for( int k = 0; k < frames; ++k )
       {
         for( int p = 0; p < tileArea; ++p )
         {
-          d[l][k*tileArea+p] = mosaicTileData[idx[j+k]][p];
+          d[ l*tileArea*frames + k*tileArea + p ] = mosaicTileData[idx[j+k]][p];
         }
       }
     }
   }
 
   vector< vector< vector< int > > > e( numVertical, vector< vector< int > >( numHorizontal, vector< int >(frames*tileArea) ) );
-  //vector< vector< int > > d( ceil(((double)numImages-(double)frames)/(double)skip), vector< int >(tileArea*frames) );
 
   vector< vector< int > > starts(numVertical, vector< int >( numHorizontal ) );
 
@@ -226,7 +236,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
   
   vector< vector< vector< int > > > mosaic( inputImages.size()/frames+1, vector< vector< int > >( numVertical, vector< int >( numHorizontal, -1 ) ) );
 
-  my_kd_tree_t mat_index(tileArea, d, 10 );
+  my_kd_tree_t mat_index(tileArea, matSize, d, 10 );
 
   ProgressBar *processing_video = new ProgressBar(inputImages.size(), "Processing video");
 
@@ -299,6 +309,8 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     VImage::new_from_memory( data, numHorizontal*numVertical*imageTileArea, numHorizontal*imageTileWidth, numVertical*imageTileHeight, 3, VIPS_FORMAT_UCHAR ).vipssave((char *)outputImages[p].c_str());
     rendering_video->Increment();
   }
+
+  free(d);
 
   rendering_video->Finish();
 }

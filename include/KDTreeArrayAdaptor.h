@@ -30,47 +30,34 @@
 
 #include <nanoflann.hpp>
 
-#include <vector>
-
-// ===== This example shows how to use nanoflann with these types of containers: =======
-//typedef std::vector<std::vector<double> > my_vector_of_vectors_t;
-//typedef std::vector<Eigen::VectorXd> my_vector_of_vectors_t;   // This requires #include <Eigen/Dense>
-// =====================================================================================
-
-
-/** A simple vector-of-vectors adaptor for nanoflann, without duplicating the storage.
-  *  The i'th vector represents a point in the state space.
-  *
-  *  \tparam DIM If set to >0, it specifies a compile-time fixed dimensionality for the points in the data set, allowing more compiler optimizations.
-  *  \tparam num_t The type of the point coordinates (typically, double or float).
-  *  \tparam Distance The distance metric to use: nanoflann::metric_L1, nanoflann::metric_L2, nanoflann::metric_L2_Simple, etc.
-  *  \tparam IndexType The type for indices in the KD-tree index (typically, size_t of int)
-  */
-template <class VectorOfVectorsType, typename num_t = double, int DIM = -1, class Distance = nanoflann::metric_L2, typename IndexType = size_t>
-struct KDTreeVectorOfVectorsAdaptor
+template <class ArrayType, typename num_t = double, int DIM = -1, class Distance = nanoflann::metric_L2, typename IndexType = size_t>
+struct KDTreeArrayAdaptor
 {
-	typedef KDTreeVectorOfVectorsAdaptor<VectorOfVectorsType,num_t,DIM,Distance> self_t;
+	typedef KDTreeArrayAdaptor<ArrayType,num_t,DIM,Distance> self_t;
 	typedef typename Distance::template traits<num_t,self_t>::distance_t metric_t;
 	typedef nanoflann::KDTreeSingleIndexAdaptor< metric_t,self_t,DIM,IndexType>  index_t;
 
 	index_t* index; //! The kd-tree index for the user to call its methods as usual with any other FLANN index.
 
-	/// Constructor: takes a const ref to the vector of vectors object with the data points
-	KDTreeVectorOfVectorsAdaptor(const int dimensionality, const VectorOfVectorsType &mat, const int leaf_max_size = 10) : m_data(mat)
+	/// Constructor: takes a const ref to the array with the data points
+	KDTreeArrayAdaptor(const int dimensionality, const int numPoints, const ArrayType mat, const int leaf_max_size = 10) : dimensions
+  (dimensionality), pointCount(numPoints), m_data(mat)
 	{
-		assert(mat.size()!=0 && mat[0].size()!=0);
-		const size_t dims = mat[0].size();
+		assert(numPoints!=0 && dimensionality!=0);
+		const size_t dims = dimensionality;
 		if (DIM>0 && static_cast<int>(dims)!=DIM)
 			throw std::runtime_error("Data set dimensionality does not match the 'DIM' template argument");
 		index = new index_t( dims, *this /* adaptor */, nanoflann::KDTreeSingleIndexAdaptorParams(leaf_max_size ) );
 		index->buildIndex();
 	}
 
-	~KDTreeVectorOfVectorsAdaptor() {
+	~KDTreeArrayAdaptor() {
 		delete index;
 	}
 
-	const VectorOfVectorsType &m_data;
+  const int dimensions;
+  const int pointCount;
+	const ArrayType m_data;
 
 	/** Query for the \a num_closest closest points to a given point (entered as query_point[0:dim-1]).
 	  *  Note that this is a short-cut method for index->findNeighbors().
@@ -96,7 +83,7 @@ struct KDTreeVectorOfVectorsAdaptor
 
 	// Must return the number of data points
 	inline size_t kdtree_get_point_count() const {
-		return m_data.size();
+		return pointCount;
 	}
 
 	// Returns the distance between the vector "p1[0:size-1]" and the data point with index "idx_p2" stored in the class:
@@ -112,7 +99,7 @@ struct KDTreeVectorOfVectorsAdaptor
 
 	// Returns the dim'th component of the idx'th point in the class:
 	inline num_t kdtree_get_pt(const size_t idx, int dim) const {
-		return m_data[idx][dim];
+		return m_data[idx*dimensions+dim];
 	}
 
 	// Optional bounding-box computation: return false to default to a standard bbox computation loop.
@@ -125,6 +112,6 @@ struct KDTreeVectorOfVectorsAdaptor
 
 	/** @} */
 
-}; // end of KDTreeVectorOfVectorsAdaptor
+}; // end of KDTreeArrayAdaptor
 
 

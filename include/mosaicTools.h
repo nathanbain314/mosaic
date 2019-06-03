@@ -14,7 +14,7 @@
 #include <time.h>
 #include <vips/vips8>
 #include <nanoflann.hpp>
-#include "KDTreeVectorOfVectorsAdaptor.h"
+#include "KDTreeArrayAdaptor.h"
 #include "progress_bar.hpp"
 
 using namespace nanoflann;
@@ -22,7 +22,7 @@ using namespace vips;
 using namespace std;
 
 typedef tuple< string, int, int, int, bool > cropType;
-typedef KDTreeVectorOfVectorsAdaptor< vector< vector< int > >, int >  my_kd_tree_t;
+typedef KDTreeArrayAdaptor< int *, int >  my_kd_tree_t;
 
 vector< string > inputDirectoryPlaceHolder();
 

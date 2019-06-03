@@ -4,9 +4,7 @@
 using namespace TCLAP;
 
 int main( int argc, char **argv )
-{
-  typedef KDTreeVectorOfVectorsAdaptor< vector< vector< int > >, int >  my_kd_tree_t;
-  
+{  
   try
   {
     CmdLine cmd("Creates an image mosaic.", ' ', "2.0");

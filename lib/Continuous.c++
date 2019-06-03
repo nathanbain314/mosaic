@@ -256,23 +256,25 @@ void RunContinuous( vector< string > inputDirectory, string outputDirectory, int
   }
   else
   {
-    vector< vector< int > > d( numImages, vector< int >(tileArea) );
+    int* d = (int *)malloc(numImages*tileArea*sizeof(int));
 
     for( int j = 0; j < numImages; ++j )
     {
       for( int p = 0; p < tileArea; ++p )
       {
-        d[j][p] = startData[j][p];
+        d[j*tileArea+p] = startData[j][p];
       }
     }
 
-    my_kd_tree_t mat_index(tileArea, d, 10 );
+    my_kd_tree_t mat_index(tileArea, numImages, d, 10 );
 
     for( int n = 0; n < numImages; ++n )
     {
       generateMosaic( mat_index, mosaics[n], get<0>(cropData[n]), NULL, repeat, true, tileWidth*64 );
       buildingMosaic->Increment();
     }
+
+    free(d);
   }
 
   buildingMosaic->Finish();

@@ -489,7 +489,7 @@ int generateRGBBlock( my_kd_tree_t &mat_index, vector< vector< int > > &mosaic, 
 
   int num_images = mat_index.kdtree_get_point_count();
 
-  dynamic_kdtree index(mat_index.m_data[0].size(), mat_index, KDTreeSingleIndexAdaptorParams(10) );
+  dynamic_kdtree index(mat_index.dimensions, mat_index, KDTreeSingleIndexAdaptorParams(10) );
 
   // For every index
   for( int p = start; p < end; ++p )

@@ -616,12 +616,11 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
   int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
   int numUnique = 0;
 
-  vector< vector< int > > d;
+  int* d;
   vector< vector< float > > lab;
 
   if( trueColor  )
   {
-    d.push_back( vector< int >(tileArea) );
     lab = vector< vector< float > >( numImages, vector< float >(tileArea) );
 
     float r,g,b;
@@ -638,13 +637,13 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
   }
   else
   {
-    d = vector< vector< int > >( numImages, vector< int >(tileArea) );
+    d = (int *)malloc(numImages*tileArea*sizeof(int));
 
     for( int j = 0; j < numImages; ++j )
     {
       for( int p = 0; p < tileArea; ++p )
       {
-        d[j][p] = mosaicTileData[j][p];
+        d[j*tileArea+p] = mosaicTileData[j][p];
       }
     }
   }
@@ -654,7 +653,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     g_mkdir(outputName.c_str(), 0777);
   }
 
-  my_kd_tree_t mat_index(tileArea, d, 2 );
+  my_kd_tree_t mat_index(tileArea, numImages, d, 2 );
 
   for( int i = 0; i < inputImages.size(); ++i )
   {
@@ -703,4 +702,6 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
       }
     }
   }
+
+  free(d);
 }
