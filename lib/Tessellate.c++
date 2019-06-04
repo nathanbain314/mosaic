@@ -2,10 +2,8 @@
 #include "shapeIndices.h"
 #include "mosaicLocations.h"
 
-void buildTopLevel( string outputImage, int start, int end, int outputWidth, int outputHeight, vector< vector< cropType > > &cropData, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, vector< int > &tileWidth2, vector< int > &tileHeight2, ProgressBar *topLevel, int maxTileWidth, int maxTileHeight )
+void buildTopLevel( string outputImage, int start, int end, int outputWidth, int outputHeight, vector< vector< cropType > > &cropData, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, vector< int > &tileWidth2, vector< int > &tileHeight2, ProgressBar *topLevel, int maxTileWidth, int maxTileHeight, bool singleImage )
 {
-  bool singleImage = (maxTileWidth > 256);
-
   // Rotation angles
   VipsAngle rotAngle[4] = {VIPS_ANGLE_D0,VIPS_ANGLE_D90,VIPS_ANGLE_D180,VIPS_ANGLE_D270};
 
@@ -174,7 +172,7 @@ void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, 
   {
     ProgressBar *topLevel = new ProgressBar(mosaic.size(), "Generating image");
 
-    buildTopLevel( outputImage, 0, outputHeight, outputWidth, outputHeight, cropData, mosaic, mosaicLocations, edgeLocations, shapeIndices, tileWidth, tileHeight, topLevel, outputWidth, outputHeight );
+    buildTopLevel( outputImage, 0, outputHeight, outputWidth, outputHeight, cropData, mosaic, mosaicLocations, edgeLocations, shapeIndices, tileWidth, tileHeight, topLevel, outputWidth, outputHeight, true );
   }
   else
   {
@@ -199,7 +197,7 @@ void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, 
       start = (start / 256 ) * 256;
       if( k+1 < threads ) end = (end / 256 ) * 256;
 
-      ret[k] = async( launch::async, &buildTopLevel, string(outputImage).append("_files/"+to_string(level)+"/"), start, end, outputWidth, outputHeight, ref(cropData), ref(mosaic), ref(mosaicLocations), ref(edgeLocations), ref(shapeIndices), ref(tileWidth), ref(tileHeight), topLevel, 256, 256 );
+      ret[k] = async( launch::async, &buildTopLevel, string(outputImage).append("_files/"+to_string(level)+"/"), start, end, outputWidth, outputHeight, ref(cropData), ref(mosaic), ref(mosaicLocations), ref(edgeLocations), ref(shapeIndices), ref(tileWidth), ref(tileHeight), topLevel, 256, 256, false );
     }
 
     // Wait for threads to finish
