@@ -389,10 +389,10 @@ namespace nanoflann
 
 			/* Process 4 items with each loop for efficiency. */
 			while (a < lastgroup) {
-				const DistanceType diff0 = a[0] - data_source.kdtree_get_pt(b_idx,d++);
-				const DistanceType diff1 = a[1] - data_source.kdtree_get_pt(b_idx,d++);
-				const DistanceType diff2 = a[2] - data_source.kdtree_get_pt(b_idx,d++);
-				const DistanceType diff3 = a[3] - data_source.kdtree_get_pt(b_idx,d++);
+				const DistanceType diff0 = a[0+size] * std::max( abs( a[0] - data_source.kdtree_get_pt(b_idx,d++) ) - 15, 0.0f );
+				const DistanceType diff1 = a[1+size] * std::max( abs( a[1] - data_source.kdtree_get_pt(b_idx,d++) ) - 15, 0.0f );
+				const DistanceType diff2 = a[2+size] * std::max( abs( a[2] - data_source.kdtree_get_pt(b_idx,d++) ) - 15, 0.0f );
+				const DistanceType diff3 = a[3+size] * std::max( abs( a[3] - data_source.kdtree_get_pt(b_idx,d++) ) - 15, 0.0f );
 				result += diff0 * diff0 + diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
 				a += 4;
 				if ((worst_dist > 0) && (result > worst_dist)) {
@@ -401,7 +401,7 @@ namespace nanoflann
 			}
 			/* Process last 0-3 components.  Not needed for standard vector lengths. */
 			while (a < last) {
-				const DistanceType diff0 = *a++ - data_source.kdtree_get_pt(b_idx, d++);
+				const DistanceType diff0 = a[size] * std::max( abs( *a++ - data_source.kdtree_get_pt(b_idx, d++) ) - 15, 0.0f );
 				result += diff0 * diff0;
 			}
 			return result;

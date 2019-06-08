@@ -452,7 +452,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
   htmlFile << "\nvar mosaicTileWidth = " << tileWidth << ";\nvar mosaicTileHeight = " << tileHeight << ";\nvar mosaicWidth = " << numHorizontal << ";\nvar mosaicHeight = " << numVertical << ";\nvar mosaicLevel = " << mosaicStrings.size()-1 << ";\nvar minZoomablesLevel = " << minZoomablesLevel << ";\nvar maxZoomablesLevel = " << maxZoomablesLevel << ";\n";
 }
 
-void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, bool quiet, bool recursiveSearch )
+void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, bool quiet, bool recursiveSearch, bool useEdgeWeights )
 {
   bool inputIsDirectory = (vips_foreign_find_save( inputName.c_str() ) == NULL);
   bool isDeepZoom = (vips_foreign_find_save( outputName.c_str() ) == NULL) && !inputIsDirectory;
@@ -616,7 +616,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
   int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
   int numUnique = 0;
 
-  int* d;
+  float* d;
   vector< vector< float > > lab;
 
   if( trueColor  )
@@ -637,7 +637,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
   }
   else
   {
-    d = (int *)malloc(numImages*tileArea*sizeof(int));
+    d = (float *)malloc(numImages*tileArea*sizeof(float));
 
     for( int j = 0; j < numImages; ++j )
     {
@@ -653,7 +653,12 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     g_mkdir(outputName.c_str(), 0777);
   }
 
-  my_kd_tree_t mat_index(tileArea, numImages, d, 2 );
+  my_kd_tree_t* mat_index;
+
+  if( !trueColor  )
+  {
+    mat_index = new my_kd_tree_t(tileArea, numImages, d, 2 );
+  }
 
   for( int i = 0; i < inputImages.size(); ++i )
   {
@@ -669,7 +674,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     }
     else
     {
-      numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet );
+      numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet, useEdgeWeights );
     }
 
     if( !quiet ) buildingMosaic->Finish();

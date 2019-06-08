@@ -21,6 +21,8 @@ int main( int argc, char **argv )
 
     ValueArg<int> mosaicTileWidthArg( "m", "mosaicTileWidth", "Maximum tile width for generating mosaic", false, 0, "int", cmd);
 
+    SwitchArg edgeWeightsArg( "", "edgeWeights", "Weight edge pixels more than other pixels", cmd, false );
+
     SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
 
     SwitchArg flipArg( "f", "flip", "Flip each image to create twice as many images", cmd, false );
@@ -51,6 +53,7 @@ int main( int argc, char **argv )
     bool spin                         = spinArg.getValue();
     bool quiet                        = quietArg.getValue();
     bool recursiveSearch              = recursiveArg.getValue();
+    bool useEdgeWeights               = edgeWeightsArg.getValue();
     int cropStyle                     = cropStyleArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
@@ -59,7 +62,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunMosaic( inputName, outputName, inputDirectory, numHorizontal, trueColor, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, quiet, recursiveSearch );
+    RunMosaic( inputName, outputName, inputDirectory, numHorizontal, trueColor, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, quiet, recursiveSearch, useEdgeWeights );
   }
   catch (ArgException &e)  // catch any exceptions
   {
