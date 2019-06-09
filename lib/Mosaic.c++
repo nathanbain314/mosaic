@@ -670,7 +670,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
 
     if( trueColor  )
     {
-      numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet );
+      numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet, useEdgeWeights );
     }
     else
     {
