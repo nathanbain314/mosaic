@@ -204,11 +204,11 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
   {
     for( int j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip )
     {
-      matSize += tileArea;
+      ++matSize;
     }
   }
 
-  d = (float *) malloc(matSize*frames*sizeof(float));
+  d = (float *) malloc(matSize*tileArea*frames*sizeof(float));
 
   for( int i = 0, l = 0; i < inputTileStarts.size(); i+=2 )
   {
@@ -239,7 +239,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
   
   vector< vector< vector< int > > > mosaic( inputImages.size()/frames+1, vector< vector< int > >( numVertical, vector< int >( numHorizontal, -1 ) ) );
 
-  my_kd_tree_t *mat_index = new my_kd_tree_t(tileArea, matSize, d, 10 );
+  my_kd_tree_t *mat_index = new my_kd_tree_t(tileArea*frames, matSize, d, 10 );
 
   ProgressBar *processing_video = new ProgressBar(inputImages.size(), "Processing video");
 
