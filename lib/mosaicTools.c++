@@ -321,10 +321,11 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
       }
       else if( recursiveSearch && ent->d_name[0] != '.' )
       {
-        stat(ent->d_name, &s);
-        if (s.st_mode & S_IFDIR)
+        string newName = imageDirectory + ent->d_name;
+        stat((char *)newName.c_str(), &s);
+        if (s.st_mode && S_IFDIR)
         {
-          inputDirectory.push_back( imageDirectory + ent->d_name );
+          inputDirectory.push_back( newName );
         }
       }
     }
