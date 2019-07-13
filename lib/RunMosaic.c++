@@ -13,6 +13,12 @@ int main( int argc, char **argv )
 
     SwitchArg quietArg( "q", "quiet", "Limit output", cmd, false );
 
+    SwitchArg gammutMappingArg( "", "gm", "Map colors to image gamut", cmd, false );
+
+    ValueArg<double> gammaArg( "g", "gamma", "Value to use for gamma exponent", false, 1.0, "double", cmd);
+
+    SwitchArg ditherArg( "", "dither", "Dither colors to diffuse color errors", cmd, false );
+
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
     ValueArg<int> imageTileArg( "i", "imageTileWidth", "Tile width for generating image", false, 0, "int", cmd);
@@ -53,6 +59,9 @@ int main( int argc, char **argv )
     bool spin                         = spinArg.getValue();
     bool quiet                        = quietArg.getValue();
     bool recursiveSearch              = recursiveArg.getValue();
+    bool dither                       = ditherArg.getValue();
+    bool gammutMapping                = gammutMappingArg.getValue();
+    double gamma                      = gammaArg.getValue();
     bool useEdgeWeights               = edgeWeightsArg.getValue();
     int cropStyle                     = cropStyleArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
@@ -62,7 +71,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunMosaic( inputName, outputName, inputDirectory, numHorizontal, trueColor, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, quiet, recursiveSearch, useEdgeWeights );
+    RunMosaic( inputName, outputName, inputDirectory, numHorizontal, trueColor, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, useEdgeWeights, dither, gamma, gammutMapping, quiet, recursiveSearch );
   }
   catch (ArgException &e)  // catch any exceptions
   {

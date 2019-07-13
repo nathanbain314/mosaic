@@ -15,6 +15,77 @@ int numberOfCPUS()
   return numCPU;
 }
 
+void fit(float &c, int type)
+{
+  if( type == 0 )
+  {
+    c = max(c,0.0f);
+    c = min(c,100.0f);
+  }
+  else
+  {
+    c = max(c,-128.0f);
+    c = min(c,127.0f);
+  }
+}
+
+void fit2(float &c)
+{
+  c = max(c,0.0f);
+  c = min(c,255.0f);
+}
+
+void rgbToLab( int r, int g, int b, float &l1, float &a1, float &b1 )
+{
+  vips_col_sRGB2scRGB_8( r, g, b, &l1,&a1,&b1 );
+  vips_col_scRGB2XYZ( l1, a1, b1, &l1, &a1, &b1 );
+  vips_col_XYZ2Lab( l1, a1, b1, &l1, &a1, &b1 );
+}
+
+void changeColorspace( Tree &tree, Point &center, unsigned char * c, float * c2, int start, int end, int width, double gamma, bool gammutMapping, ProgressBar * changingColorspace, bool labSpace, bool quiet )
+{
+  bool show = !quiet && !(start);
+
+  for( int height = start, index = start*width; height < end; ++height )
+  {
+    for( int w = 0; w < width; ++w, ++index )
+    {
+      for( int k = 0; k < 3; ++k )
+      {
+        int n10 = c[3*index+k];
+        
+        float v = (float)n10;
+
+        v /= 256.0;
+
+        v = pow( v, gamma );
+        c2[3*index+k] = 256 * v;
+      }
+      
+      if( labSpace ) rgbToLab( c2[3*index+0], c2[3*index+1], c2[3*index+2], c2[3*index+0], c2[3*index+1], c2[3*index+2] );      
+
+      if(gammutMapping)
+      {
+        Point point_query(c2[3*index+0], c2[3*index+1], c2[3*index+2]);
+
+        Segment segment_query(center,point_query);
+
+        if(tree.do_intersect(segment_query))
+        {
+          Point closest_point = tree.closest_point(point_query);
+
+          for( int k = 0; k < 3; ++k )
+          {
+            c2[3*index+k] = closest_point[k];
+          }
+        }
+      }
+    }
+
+    if( show ) changingColorspace->Increment();
+  }
+}
+
 void generateEdgeWeights( VImage &image, float * edgeData, int tileHeight, bool useEdgeWeights )
 {
   VImage edgeImage = image.colourspace(VIPS_INTERPRETATION_B_W).canny();
@@ -361,7 +432,7 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
   if( !quiet ) processing_images->Finish();
 }
 
-int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, float * edgeData, int start, int end, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic, bool quiet )
+int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, float * c, float * edgeData, int start, int end, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, bool dither, ProgressBar* buildingMosaic, bool quiet )
 {
   // Whether to update progressbar
   bool show = !quiet && !(start);
@@ -395,13 +466,10 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
         // Index of pixel
         int l = ( ( i * tileHeight + y ) * width + j * tileWidth + x ) * 3;
         
-        float r,g,b;
-        // Convert rgb to rgb16
-        vips_col_sRGB2scRGB_8(c[l],c[l+1],c[l+2], &r,&g,&b );
-        // Convert rgb16 to xyz
-        vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
-        // Convert xyz to lab
-        vips_col_XYZ2Lab( r, g, b, &d[n], &d[n+1], &d[n+2] );
+        for( int i1 = 0; i1 < 3; ++i1 )
+        {
+          d[n+i1] = c[l+i1];
+        }
 
         d[tileArea+n/3] = edgeData[l/3];
       }
@@ -456,13 +524,115 @@ int generateLABBlock( vector< vector< float > > &imageData, vector< vector< int 
 
     // Set the best image as being used
     used[ best ] = true;
+
+    if( dither )
+    {
+      float averageColor1[3] = {0,0,0};
+      float averageColor2[3] = {0,0,0};
+
+      for( int y = 0, n = 0; y < tileHeight; ++y )
+      {
+        for( int x = 0; x < tileWidth; ++x, n+=3 )
+        {
+          for( int i1 = 0; i1 < 3; ++i1 )
+          {
+            averageColor1[i1] += d[n+i1];
+            averageColor2[i1] += imageData[best][n+i1];
+          }
+        }
+      }
+
+      float error[3] = {0,0,0};
+
+      for( int i1 = 0; i1 < 3; ++i1 )
+      {
+        averageColor1[i1] /= (tileWidth*tileHeight);
+        averageColor2[i1] /= (tileWidth*tileHeight);
+
+        error[i1] = averageColor1[i1] - averageColor2[i1];
+      }
+
+      if( j < mosaic[0].size() - 1 )
+      {
+        for( int y = 0, n = 0; y < tileHeight; ++y )
+        {
+          for( int x = 0; x < tileWidth; ++x, n+=3 )
+          {
+            // Index of pixel
+            int l = ( ( i * tileHeight + y ) * width + (j + 1) * tileWidth + x ) * 3;
+
+            for( int i1 = 0; i1 < 3; ++i1 )
+            {
+              c[l+i1] += error[i1] * 7.0 / 16.0;
+              fit(c[l+i1],i1);
+            }
+          }
+        }
+      }
+
+      if( i < mosaic.size() - 1 )
+      {
+        if( j > 0 )
+        {
+          for( int y = 0, n = 0; y < tileHeight; ++y )
+          {
+            for( int x = 0; x < tileWidth; ++x, n+=3 )
+            {
+              // Index of pixel
+              int l = ( ( (i + 1) * tileHeight + y ) * width + (j - 1) * tileWidth + x ) * 3;
+
+              for( int i1 = 0; i1 < 3; ++i1 )
+              {
+                c[l+i1] += error[i1] * 3.0 / 16.0;
+                fit(c[l+i1],i1);
+              }
+            }
+          }
+        }
+
+        {
+          for( int y = 0, n = 0; y < tileHeight; ++y )
+          {
+            for( int x = 0; x < tileWidth; ++x, n+=3 )
+            {
+              // Index of pixel
+              int l = ( ( (i + 1) * tileHeight + y ) * width + j * tileWidth + x ) * 3;
+
+              for( int i1 = 0; i1 < 3; ++i1 )
+              {
+                c[l+i1] += error[i1] * 5.0 / 16.0;
+                fit(c[l+i1],i1);
+              }
+            }
+          }
+        }
+
+        if( j < mosaic[0].size() - 1 )
+        {
+          for( int y = 0, n = 0; y < tileHeight; ++y )
+          {
+            for( int x = 0; x < tileWidth; ++x, n+=3 )
+            {
+              // Index of pixel
+              int l = ( ( (i + 1) * tileHeight + y ) * width + (j + 1) * tileWidth + x ) * 3;
+
+              for( int i1 = 0; i1 < 3; ++i1 )
+              {
+                c[l+i1] += error[i1] * 1.0 / 16.0;
+                fit(c[l+i1],i1);
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   return 0;
 }
 
 // Takes a vector of image thumbnails, input image and number of images per row and creates output image
-int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool quiet, bool useEdgeWeights )
+int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool useEdgeWeights, bool dither, double gamma, bool gammutMapping, bool quiet )
 {
   // Whether to show progressbar
   quiet = quiet || ( buildingMosaic == NULL );
@@ -495,6 +665,7 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
 
   // Get image data
   unsigned char * c = ( unsigned char * )image.data();
+  float * c2 = new float[3*width*height];
 
   // Get number of horizontal and vertical tiles
   int numHorizontal = mosaic[0].size();
@@ -503,12 +674,11 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   // Data about tile size
   int tileWidth = width / numHorizontal;
   int tileHeight = height / numVertical;
+  int tileArea = tileWidth*tileHeight*3;
 
   float * edgeData = new float[width*height];
 
   generateEdgeWeights( image, edgeData, tileHeight, useEdgeWeights );
-
-  int tileArea = tileWidth*tileHeight*3;
 
   // Number of images to check against
   int num_images = imageData.size();
@@ -521,19 +691,73 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   // Totat number of tiles in block
   int total = numVertical*numHorizontal;
 
+  ProgressBar *changingColorspace = new ProgressBar(height/threads, "Changing colorspace");
+
+  std::vector<Point> points;
+
+  double center1[3] = {0.0,0.0,0.0};
+
+  int n100 = 0;
+
+  for( int n = 0; n < num_images; ++n )
+  {
+    float averageColor[3] = {0,0,0};
+
+    for( int k = 0; k < tileWidth * tileHeight; ++k )
+    {
+      for( int i1 = 0; i1 < 3; ++i1 )
+      {
+        averageColor[i1] += imageData[n][3*k+i1];
+      }
+    }
+
+    for( int i1 = 0; i1 < 3; ++i1 )
+    {
+      averageColor[i1] /= (tileWidth*tileHeight);
+      center1[i1] += averageColor[i1];
+    }
+
+    points.push_back(Point(averageColor[0],averageColor[1],averageColor[2]));
+  }
+
+  Point center(center1[0]/(float)points.size(),center1[1]/(float)points.size(),center1[2]/(float)points.size());
+
+  Polyhedron poly;
+
+  CGAL::convex_hull_3(points.begin(), points.end(), poly);
+
+  Tree tree(faces(poly).first, faces(poly).second, poly);
+
+  future< void > ret2[threads];
+
+  for( int k = 0; k < threads; ++k )
+  {
+    ret2[k] = async( launch::async, &changeColorspace, ref(tree), ref(center), c, c2, k*height/threads, (k+1)*height/threads, width, gamma, gammutMapping, changingColorspace, true, quiet );
+  }
+
+  // Wait for threads to finish
+  for( int k = 0; k < threads; ++k )
+  {
+    ret2[k].get();
+  }
+
+  changingColorspace->Finish();
+
+  if( dither ) threads = 1;
+
   // Create list of numbers in thread block
   vector< int > indices( total );
   iota( indices.begin(), indices.end(), 0 );
 
   // Shuffle the points so that patterens do not form
-  shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
+  if( !dither ) shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
 
   // Break mosaic into blocks and find best matching tiles inside each block on a different thread
   future< int > ret[threads];
 
   for( int k = 0; k < threads; ++k )
   {
-    ret[k] = async( launch::async, &generateLABBlock, ref(imageData), ref(mosaic), ref(indices), ref(used), repeat, c, edgeData, k*indices.size()/threads, (k+1)*indices.size()/threads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic, quiet );
+    ret[k] = async( launch::async, &generateLABBlock, ref(imageData), ref(mosaic), ref(indices), ref(used), repeat, c2, edgeData, k*indices.size()/threads, (k+1)*indices.size()/threads, tileWidth, tileHeight, width, numHorizontal, numVertical, dither, buildingMosaic, quiet );
   }
 
   // Wait for threads to finish
@@ -546,7 +770,7 @@ int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > 
   return accumulate(used.begin(), used.end(), 0);
 }
 
-int generateRGBBlock( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, unsigned char * c, float * edgeData, int start, int end, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, ProgressBar* buildingMosaic, bool quiet )
+int generateRGBBlock( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, float * c, float * edgeData, int start, int end, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, bool dither, ProgressBar* buildingMosaic, bool quiet )
 {
   // Whether to update progressbar
   bool show = !quiet && !(start);
@@ -560,6 +784,8 @@ int generateRGBBlock( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, 
   typedef KDTreeSingleIndexDynamicAdaptor< L2_Simple_Adaptor<float, my_kd_tree_t>, my_kd_tree_t> dynamic_kdtree;
 
   int num_images = mat_index->kdtree_get_point_count();
+
+  int tileArea = tileWidth*tileHeight*3;
 
   unique_ptr< dynamic_kdtree > index;
 
@@ -655,12 +881,116 @@ int generateRGBBlock( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, 
 
     // Set the best image as being used
     used[ ret_index ] = true;
+
+    if( dither )
+    {
+      float averageColor1[3] = {0,0,0};
+      float averageColor2[3] = {0,0,0};
+
+      for( int y = 0, n = 0; y < tileHeight; ++y )
+      {
+        for( int x = 0; x < tileWidth; ++x, n+=3 )
+        {
+          int l = ( ( i * tileHeight + y ) * width + j * tileWidth + x ) * 3;
+
+          for( int i1 = 0; i1 < 3; ++i1 )
+          {
+            averageColor1[i1] += c[l+i1];
+            averageColor2[i1] += mat_index->m_data[ret_index*tileArea+n+i1];
+          }
+        }
+      }
+
+      float error[3] = {0,0,0};
+
+      for( int i1 = 0; i1 < 3; ++i1 )
+      {
+        averageColor1[i1] /= (tileWidth*tileHeight);
+        averageColor2[i1] /= (tileWidth*tileHeight);
+
+        error[i1] = averageColor1[i1] - averageColor2[i1];
+      }
+
+      if( j < mosaic[0].size() - 1 )
+      {
+        for( int y = 0, n = 0; y < tileHeight; ++y )
+        {
+          for( int x = 0; x < tileWidth; ++x, n+=3 )
+          {
+            // Index of pixel
+            int l = ( ( i * tileHeight + y ) * width + (j + 1) * tileWidth + x ) * 3;
+
+            for( int i1 = 0; i1 < 3; ++i1 )
+            {
+              c[l+i1] += error[i1] * 7.0 / 16.0;
+              fit2(c[l+i1]);
+            }
+          }
+        }
+      }
+
+      if( i < mosaic.size() - 1 )
+      {
+        if( j > 0 )
+        {
+          for( int y = 0, n = 0; y < tileHeight; ++y )
+          {
+            for( int x = 0; x < tileWidth; ++x, n+=3 )
+            {
+              // Index of pixel
+              int l = ( ( (i + 1) * tileHeight + y ) * width + (j - 1) * tileWidth + x ) * 3;
+
+              for( int i1 = 0; i1 < 3; ++i1 )
+              {
+                c[l+i1] += error[i1] * 3.0 / 16.0;
+                fit2(c[l+i1]);
+              }
+            }
+          }
+        }
+
+        {
+          for( int y = 0, n = 0; y < tileHeight; ++y )
+          {
+            for( int x = 0; x < tileWidth; ++x, n+=3 )
+            {
+              // Index of pixel
+              int l = ( ( (i + 1) * tileHeight + y ) * width + j * tileWidth + x ) * 3;
+
+              for( int i1 = 0; i1 < 3; ++i1 )
+              {
+                c[l+i1] += error[i1] * 5.0 / 16.0;
+                fit2(c[l+i1]);
+              }
+            }
+          }
+        }
+
+        if( j < mosaic[0].size() - 1 )
+        {
+          for( int y = 0, n = 0; y < tileHeight; ++y )
+          {
+            for( int x = 0; x < tileWidth; ++x, n+=3 )
+            {
+              // Index of pixel
+              int l = ( ( (i + 1) * tileHeight + y ) * width + (j + 1) * tileWidth + x ) * 3;
+
+              for( int i1 = 0; i1 < 3; ++i1 )
+              {
+                c[l+i1] += error[i1] * 1.0 / 16.0;
+                fit2(c[l+i1]);
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   return 0;
 }
 
-int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool quiet, bool useEdgeWeights )
+int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool useEdgeWeights, bool dither, double gamma, bool gammutMapping, bool quiet )
 {
   // Whether to show progressbar
   quiet = quiet || ( buildingMosaic == NULL );
@@ -696,6 +1026,7 @@ int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, st
 
   // Get image data
   unsigned char * c = ( unsigned char * )image.data();
+  float * c2 = new float[3*width*height];
 
   // Get number of horizontal and vertical tiles
   int numHorizontal = mosaic[0].size();
@@ -704,12 +1035,11 @@ int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, st
   // Data about tile size
   int tileWidth = width / numHorizontal;
   int tileHeight = height / numVertical;
+  int tileArea = tileWidth*tileHeight*3;
 
   float * edgeData = new float[width*height];
 
   generateEdgeWeights( image, edgeData, tileHeight, useEdgeWeights );
-
-  int tileArea = tileWidth*tileHeight*3;
 
   // Whether an image was used or not
   vector< bool > used( num_images, false );
@@ -720,19 +1050,73 @@ int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, st
   // Totat number of tiles in block
   int total = numVertical*numHorizontal;
 
+  ProgressBar *changingColorspace = new ProgressBar(height/threads, "Changing colorspace");
+
+  std::vector<Point> points;
+
+  double center1[3] = {0.0,0.0,0.0};
+
+  int n100 = 0;
+
+  for( int n = 0; n < num_images; ++n )
+  {
+    float averageColor[3] = {0,0,0};
+
+    for( int k = 0; k < tileWidth * tileHeight; ++k )
+    {
+      for( int i1 = 0; i1 < 3; ++i1 )
+      {
+        averageColor[i1] += mat_index->m_data[tileArea*n+3*k+i1];
+      }
+    }
+
+    for( int i1 = 0; i1 < 3; ++i1 )
+    {
+      averageColor[i1] /= (tileWidth*tileHeight);
+      center1[i1] += averageColor[i1];
+    }
+
+    points.push_back(Point(averageColor[0],averageColor[1],averageColor[2]));
+  }
+
+  Point center(center1[0]/(float)points.size(),center1[1]/(float)points.size(),center1[2]/(float)points.size());
+
+  Polyhedron poly;
+
+  CGAL::convex_hull_3(points.begin(), points.end(), poly);
+
+  Tree tree(faces(poly).first, faces(poly).second, poly);
+
+  future< void > ret2[threads];
+
+  for( int k = 0; k < threads; ++k )
+  {
+    ret2[k] = async( launch::async, &changeColorspace, ref(tree), ref(center), c, c2, k*height/threads, (k+1)*height/threads, width, gamma, gammutMapping, changingColorspace, false, quiet );
+  }
+
+  // Wait for threads to finish
+  for( int k = 0; k < threads; ++k )
+  {
+    ret2[k].get();
+  }
+
+  changingColorspace->Finish();
+
+  if( dither ) threads = 1;
+
   // Create list of numbers in thread block
   vector< int > indices( total );
   iota( indices.begin(), indices.end(), 0 );
 
   // Shuffle the points so that patterens do not form
-  shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
+  if( !dither ) shuffle( indices.begin(), indices.end(), default_random_engine(time(NULL)) );
 
   // Break mosaic into blocks and find best matching tiles inside each block on a different thread
   future< int > ret[threads];
 
   for( int k = 0; k < threads; ++k )
   {
-    ret[k] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(indices), ref(used), repeat, c, edgeData, k*indices.size()/threads, (k+1)*indices.size()/threads, tileWidth, tileHeight, width, numHorizontal, numVertical, buildingMosaic, quiet );
+    ret[k] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(indices), ref(used), repeat, c2, edgeData, k*indices.size()/threads, (k+1)*indices.size()/threads, tileWidth, tileHeight, width, numHorizontal, numVertical, dither, buildingMosaic, quiet );
   }
 
   // Wait for threads to finish

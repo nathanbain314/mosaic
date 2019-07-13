@@ -452,7 +452,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
   htmlFile << "\nvar mosaicTileWidth = " << tileWidth << ";\nvar mosaicTileHeight = " << tileHeight << ";\nvar mosaicWidth = " << numHorizontal << ";\nvar mosaicHeight = " << numVertical << ";\nvar mosaicLevel = " << mosaicStrings.size()-1 << ";\nvar minZoomablesLevel = " << minZoomablesLevel << ";\nvar maxZoomablesLevel = " << maxZoomablesLevel << ";\n";
 }
 
-void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, bool quiet, bool recursiveSearch, bool useEdgeWeights )
+void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, bool useEdgeWeights, bool dither, double gamma, bool gammutMapping, bool quiet, bool recursiveSearch )
 {
   bool inputIsDirectory = (vips_foreign_find_save( inputName.c_str() ) == NULL);
   bool isDeepZoom = (vips_foreign_find_save( outputName.c_str() ) == NULL) && !inputIsDirectory;
@@ -629,9 +629,10 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     {
       for( int p = 0; p < tileArea; p+=3 )
       {
-        vips_col_sRGB2scRGB_8(mosaicTileData[j][p],mosaicTileData[j][p+1],mosaicTileData[j][p+2], &r,&g,&b );
-        vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
-        vips_col_XYZ2Lab( r, g, b, &lab[j][p], &lab[j][p+1], &lab[j][p+2] );
+//        vips_col_sRGB2scRGB_8(mosaicTileData[j][p],mosaicTileData[j][p+1],mosaicTileData[j][p+2], &r,&g,&b );
+//        vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
+//        vips_col_XYZ2Lab( r, g, b, &lab[j][p], &lab[j][p+1], &lab[j][p+2] );
+        rgbToLab(mosaicTileData[j][p],mosaicTileData[j][p+1],mosaicTileData[j][p+2], lab[j][p], lab[j][p+1], lab[j][p+2] );
       }
     }
   }
@@ -664,17 +665,17 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
   {
     vector< vector< int > > mosaic( numVertical, vector< int >( numHorizontal, -1 ) );
 
-    int threads = numberOfCPUS();
+    int threads = dither ? 1 : numberOfCPUS();
 
     ProgressBar *buildingMosaic = new ProgressBar(numVertical*numHorizontal/threads, "Building mosaic");
 
     if( trueColor  )
     {
-      numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet, useEdgeWeights );
+      numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, useEdgeWeights, dither, gamma, gammutMapping, quiet );
     }
     else
     {
-      numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet, useEdgeWeights );
+      numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, useEdgeWeights, dither, gamma, gammutMapping, quiet );
     }
 
     if( !quiet ) buildingMosaic->Finish();

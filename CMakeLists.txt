@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 set(PACKAGE "MOSAIC")
+set(CMAKE_BUILD_TYPE Release)
 project(${PACKAGE})
 
 IF (WIN32)
@@ -10,6 +11,8 @@ ELSE()
   find_package(PkgConfig)
   pkg_check_modules(VIPS vips-cpp REQUIRED)
 ENDIF()
+
+find_package(CGAL)
 
 include_directories(include)
 
@@ -29,6 +32,7 @@ foreach( EXECUTABLE ${EXECUTABLES} )
     ELSE()
       target_link_libraries(Run${EXECUTABLE} ${VIPS_LIBRARIES})
       target_link_libraries(Run${EXECUTABLE} ${VIPS_LDFLAGS})
+      target_link_libraries(Run${EXECUTABLE} CGAL::CGAL)
       add_definitions(${VIPS_CFLAGS} ${VIPS_CFLAGS_OTHER})
     ENDIF()
 endforeach( EXECUTABLE ${EXECUTABLES} )
