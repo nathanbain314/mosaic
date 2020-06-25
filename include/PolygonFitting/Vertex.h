@@ -23,27 +23,27 @@ using namespace std;
 class Vertex
 {
 public:
-  double x, y;
+  float x, y;
 
   Vertex(){}
 
-  Vertex( double _x, double _y );
+  Vertex( float _x, float _y );
 
   Vertex( const Vertex& rhs );
 
   Vertex& operator=( const Vertex& rhs );
 
-  bool equals( const Vertex& rhs, double epsilon );
+  bool equals( const Vertex& rhs, float epsilon );
 
   bool operator==( const Vertex& rhs );
 
   bool operator!=( const Vertex& rhs );
 
-  Vertex offset( double _x, double _y );
+  Vertex offset( float _x, float _y );
 
   Vertex offset( Vertex v );
 
-  Vertex scale( double s, Vertex o );
+  Vertex scale( float s, Vertex o );
 };
 
 ostream& operator<<( ostream &os, const Vertex& v );

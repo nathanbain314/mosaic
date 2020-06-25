@@ -15,9 +15,11 @@ int main( int argc, char **argv )
 
     SwitchArg gammutMappingArg( "", "gm", "Map colors to image gamut", cmd, false );
 
-    ValueArg<double> gammaArg( "g", "gamma", "Value to use for gamma exponent", false, 1.0, "double", cmd);
-
     SwitchArg ditherArg( "", "dither", "Dither colors to diffuse color errors", cmd, false );
+
+    ValueArg<float> gammaArg( "g", "gamma", "Value to use for gamma exponent", false, 1.0, "float", cmd);
+
+    ValueArg<float> edgeWeightArg( "e", "edgeWeight", "Weight edge pixels more than other pixels", false, 1.0, "float", cmd);
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
@@ -26,10 +28,6 @@ int main( int argc, char **argv )
     ValueArg<int> mosaicTileHeightArg( "l", "mosaicTileHeight", "Maximum tile height for generating mosaic", false, 0, "int", cmd);
 
     ValueArg<int> mosaicTileWidthArg( "m", "mosaicTileWidth", "Maximum tile width for generating mosaic", false, 0, "int", cmd);
-
-    SwitchArg edgeWeightsArg( "", "edgeWeights", "Weight edge pixels more than other pixels", cmd, false );
-
-    SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
 
     SwitchArg flipArg( "f", "flip", "Flip each image to create twice as many images", cmd, false );
 
@@ -54,15 +52,14 @@ int main( int argc, char **argv )
     string outputName                 = outputArg.getValue();
     int repeat                        = repeatArg.getValue();
     int numHorizontal                 = numberArg.getValue();
-    bool trueColor                    = colorArg.getValue();
     bool flip                         = flipArg.getValue();
     bool spin                         = spinArg.getValue();
     bool quiet                        = quietArg.getValue();
     bool recursiveSearch              = recursiveArg.getValue();
     bool dither                       = ditherArg.getValue();
     bool gammutMapping                = gammutMappingArg.getValue();
-    double gamma                      = gammaArg.getValue();
-    bool useEdgeWeights               = edgeWeightsArg.getValue();
+    float gamma                       = gammaArg.getValue();
+    float edgeWeight                  = edgeWeightArg.getValue();
     int cropStyle                     = cropStyleArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
@@ -71,7 +68,9 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunMosaic( inputName, outputName, inputDirectory, numHorizontal, trueColor, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, useEdgeWeights, dither, gamma, gammutMapping, quiet, recursiveSearch );
+    if( dither ) gammutMapping = !gammutMapping;
+
+    RunMosaic( inputName, outputName, inputDirectory, numHorizontal, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, edgeWeight, dither, gamma, gammutMapping, quiet, recursiveSearch );
   }
   catch (ArgException &e)  // catch any exceptions
   {

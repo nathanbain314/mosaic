@@ -12,6 +12,8 @@
 #include <set>
 #include <tuple>
 #include <time.h>
+#include <mutex>
+#include <condition_variable>
 
 #include <vips/vips8>
 #include <nanoflann.hpp>
@@ -50,14 +52,12 @@ void fit(float &c, int type);
 
 void rgbToLab( int r, int g, int b, float &l1, float &a1, float &b1 );
 
-void changeColorspace( Tree &tree, Point &center, unsigned char * c, float * c2, int start, int end, int width, double gamma, bool gammutMapping, ProgressBar * changingColorspace, bool labSpace, bool quiet );
+void changeColorspace( Tree &tree, Point &center, unsigned char * c, float * c2, int start, int end, int width, float gamma, bool gammutMapping, ProgressBar * changingColorspace, bool quiet );
 
 int numberOfCPUS();
 
-void generateEdgeWeights( VImage &image, float * edgeData, int tileHeight, bool useEdgeWeights );
+void generateEdgeWeights( VImage &image, float * edgeData, int tileHeight, float edgeWeight );
 
 void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< string > &inputDirectory, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, bool exclude = false, bool spin = false, int cropStyle = 0, bool flip = false, bool quiet = false, bool recursiveSearch = false );
 
-int generateMosaic( vector< vector< float > > &imageData, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat = 0, bool square = false, int resize = 0, bool useEdgeWeights = false, bool dither = false, double gamma = 1.0, bool gammutMapping = false, bool quiet = false );
-
-int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat = 0, bool square = false, int resize = 0, bool useEdgeWeights = false, bool dither = false, double gamma = 1.0, bool gammutMapping = false, bool quiet = false );
+int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, string inputImage, int repeat = 0, bool square = false, int resize = 0, float edgeWeight = 0.0f, bool dither = false, float gamma = 1.0f, bool gammutMapping = false, bool quiet = false );

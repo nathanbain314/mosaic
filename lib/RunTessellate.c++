@@ -23,9 +23,7 @@ int main( int argc, char **argv )
 
     ValueArg<int> mosaicTileWidthArg( "m", "mosaicTileWidth", "Maximum tile width for generating mosaic", false, 0, "int", cmd);
 
-    SwitchArg edgeWeightsArg( "", "edgeWeights", "Weight edge pixels more than other pixels", cmd, false );
-
-    SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
+    ValueArg<float> edgeWeightArg( "e", "edgeWeight", "Weight edge pixels more than other pixels", false, 1.0, "float", cmd);
 
     SwitchArg flipArg( "f", "flip", "Flip each image to create twice as many images", cmd, false );
 
@@ -50,8 +48,7 @@ int main( int argc, char **argv )
     string outputName                 = outputArg.getValue();
     int repeat                        = repeatArg.getValue();
     int numHorizontal                 = numberArg.getValue();
-    bool useEdgeWeights               = edgeWeightsArg.getValue();
-    bool trueColor                    = colorArg.getValue();
+    float edgeWeight                  = edgeWeightArg.getValue();
     bool flip                         = flipArg.getValue();
     bool spin                         = spinArg.getValue();
     bool quiet                        = quietArg.getValue();
@@ -65,7 +62,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunTessellate( inputName, outputName, inputDirectory, numHorizontal, trueColor, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, quiet, recursiveSearch, tessellateType, useEdgeWeights );
+    RunTessellate( inputName, outputName, inputDirectory, numHorizontal, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, quiet, recursiveSearch, tessellateType, edgeWeight );
   }
   catch (ArgException &e)  // catch any exceptions
   {

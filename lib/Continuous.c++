@@ -191,7 +191,7 @@ void buildContinuousMosaic( vector< vector< vector< int > > > mosaic, vector< VI
   htmlFile << "];";
 }
 
-void RunContinuous( vector< string > inputDirectory, string outputDirectory, int mosaicTileSize, bool trueColor, int repeat )
+void RunContinuous( vector< string > inputDirectory, string outputDirectory, int mosaicTileSize, int repeat )
 {
   int tileWidth = ( mosaicTileSize > 0 && mosaicTileSize < 64 ) ? mosaicTileSize : 64;
   int tileWidthSqr = tileWidth*tileWidth;
@@ -232,50 +232,25 @@ void RunContinuous( vector< string > inputDirectory, string outputDirectory, int
 
   ProgressBar *buildingMosaic = new ProgressBar(numImages, "Building mosaic");
 
-  if( trueColor )
+  float* d = (float *)malloc(numImages*tileArea*sizeof(float));
+
+  for( int j = 0; j < numImages; ++j )
   {
-    vector< vector< float > > lab( numImages, vector< float >(tileArea) );
-
-    float r,g,b;
-
-    for( int j = 0; j < numImages; ++j )
+    for( int p = 0; p < tileArea; p+=3 )
     {
-      for( int p = 0; p < tileArea; p+=3 )
-      {
-        vips_col_sRGB2scRGB_8(startData[j][p],startData[j][p+1],startData[j][p+2], &r,&g,&b );
-        vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
-        vips_col_XYZ2Lab( r, g, b, &lab[j][p], &lab[j][p+1], &lab[j][p+2] );
-      }
-    }
-
-    for( int n = 0; n < numImages; ++n )
-    {
-      generateMosaic( lab, mosaics[n], get<0>(cropData[n]), NULL, repeat, true, tileWidth*64 );
-      buildingMosaic->Increment();
+      rgbToLab( startData[j][p+0], startData[j][p+1], startData[j][p+2], d[j*tileArea+p+0], d[j*tileArea+p+1], d[j*tileArea+p+2] );
     }
   }
-  else
+
+  my_kd_tree_t* mat_index = new my_kd_tree_t(tileArea, numImages, d, 10 );
+
+  for( int n = 0; n < numImages; ++n )
   {
-    float* d = (float *)malloc(numImages*tileArea*sizeof(float));
-
-    for( int j = 0; j < numImages; ++j )
-    {
-      for( int p = 0; p < tileArea; ++p )
-      {
-        d[j*tileArea+p] = startData[j][p];
-      }
-    }
-
-    my_kd_tree_t* mat_index = new my_kd_tree_t(tileArea, numImages, d, 10 );
-
-    for( int n = 0; n < numImages; ++n )
-    {
-      generateMosaic( mat_index, mosaics[n], get<0>(cropData[n]), NULL, repeat, true, tileWidth*64 );
-      buildingMosaic->Increment();
-    }
-
-    free(d);
+    generateMosaic( mat_index, mosaics[n], get<0>(cropData[n]), repeat, true, tileWidth*64, 0.0f, false, 1.0f, false, true );
+    buildingMosaic->Increment();
   }
+
+  free(d);
 
   buildingMosaic->Finish();
 

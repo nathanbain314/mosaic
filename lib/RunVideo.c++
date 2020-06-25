@@ -25,8 +25,6 @@ int main( int argc, char **argv )
 
     SwitchArg edgeWeightsArg( "", "edgeWeights", "Weight edge pixels more than other pixels", cmd, false );
 
-    SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
-
     ValueArg<int> repeatArg( "r", "repeat", "Closest distance to repeat image", false, 0, "int", cmd);
 
     ValueArg<int> numberArg( "n", "numHorizontal", "Number of tiles horizontally", true, 20, "int", cmd);
@@ -44,7 +42,6 @@ int main( int argc, char **argv )
     string outputName                 = outputArg.getValue();
     int repeat                        = repeatArg.getValue();
     int numHorizontal                 = numberArg.getValue();
-    bool trueColor                    = colorArg.getValue();
     bool useEdgeWeights               = edgeWeightsArg.getValue();
     bool recursiveSearch              = recursiveArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
@@ -56,7 +53,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunVideo( inputName, outputName, inputDirectory, numHorizontal, trueColor, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, frames, skip, recursiveSearch, useEdgeWeights );
+    RunVideo( inputName, outputName, inputDirectory, numHorizontal, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, frames, skip, recursiveSearch, useEdgeWeights );
   }
   catch (ArgException &e)  // catch any exceptions
   {

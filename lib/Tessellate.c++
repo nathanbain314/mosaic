@@ -55,7 +55,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
         int width = image.width();
         int height = image.height();
         
-        double newSize = max((double)tileWidth2[t]/(double)(width-get<1>(cropData[t][current])),(double)tileHeight2[t]/(double)(height-get<2>(cropData[t][current])));
+        float newSize = max((float)tileWidth2[t]/(float)(width-get<1>(cropData[t][current])),(float)tileHeight2[t]/(float)(height-get<2>(cropData[t][current])));
 
         // Extract square, flip, and rotate based on cropdata, and then save as a deep zoom image
         image = image.resize(newSize).extract_area(get<1>(cropData[t][current])*newSize, get<2>(cropData[t][current])*newSize, tileWidth2[t], tileHeight2[t]);
@@ -118,7 +118,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
         int width = image.width();
         int height = image.height();
         
-        double newSize = max((double)tileWidth2[t]/(double)(width-get<1>(cropData[t][current])),(double)tileHeight2[t]/(double)(height-get<2>(cropData[t][current])));
+        float newSize = max((float)tileWidth2[t]/(float)(width-get<1>(cropData[t][current])),(float)tileHeight2[t]/(float)(height-get<2>(cropData[t][current])));
 
         // Extract square, flip, and rotate based on cropdata, and then save as a deep zoom image
         image = image.resize(newSize).extract_area(get<1>(cropData[t][current])*newSize, get<2>(cropData[t][current])*newSize, tileWidth2[t], tileHeight2[t]);
@@ -185,7 +185,7 @@ void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, 
 
     int threads = numberOfCPUS();
 
-    ProgressBar *topLevel = new ProgressBar(ceil((double)outputWidth/256.0)*ceil((double)outputHeight/((double)threads*256.0)), "Building top level");
+    ProgressBar *topLevel = new ProgressBar(ceil((float)outputWidth/256.0)*ceil((float)outputHeight/((float)threads*256.0)), "Building top level");
 
     future< void > ret[threads];
 
@@ -217,17 +217,17 @@ void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, 
     dzi_file.close();
 
     int numLevels = 0;
-    for( int o = ceil((double)outputWidth/256.0); o > 1; o = ceil((double)o/2.0) ) numLevels += o;
+    for( int o = ceil((float)outputWidth/256.0); o > 1; o = ceil((float)o/2.0) ) numLevels += o;
 
     ProgressBar *lowerLevels = new ProgressBar(numLevels, "Building lower levels");
 
-    outputWidth = (int)ceil((double)outputWidth/ 128.0 );
-    outputHeight = (int)ceil((double)outputHeight/ 128.0 );
+    outputWidth = (int)ceil((float)outputWidth/ 128.0 );
+    outputHeight = (int)ceil((float)outputHeight/ 128.0 );
 
     for( ; level > 0; --level )
     {
-      outputWidth = (int)ceil((double)outputWidth/ 2.0 );
-      outputHeight = (int)ceil((double)outputHeight/ 2.0 );
+      outputWidth = (int)ceil((float)outputWidth/ 2.0 );
+      outputHeight = (int)ceil((float)outputHeight/ 2.0 );
 
       string current = string(outputImage).append("_files/"+to_string(level-1)+"/");
       string upper = string(outputImage).append("_files/"+to_string(level)+"/");
@@ -281,6 +281,7 @@ void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, 
   }
 }
 
+/*
 int generateLABBlock( vector< vector< vector< float > > > &imageData, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > shapeIndices, vector< int > &indices, int repeat, unsigned char * c, float * edgeData, int start, int end, vector< int > &tileWidth, vector< int > &tileHeight, int width, ProgressBar* buildingMosaic, bool quiet )
 {
   // Whether to update progressbar
@@ -321,7 +322,7 @@ int generateLABBlock( vector< vector< vector< float > > > &imageData, vector< in
     }
 
     int best = 0;
-    double difference = DBL_MAX;
+    float difference = DBL_MAX;
 
     set< int > eraseData;
 
@@ -350,7 +351,7 @@ int generateLABBlock( vector< vector< vector< float > > > &imageData, vector< in
     {
       if( eraseData.find(l) != eraseData.end() ) continue;
 
-      double sum = 0;
+      float sum = 0;
       for( int j1 = 0; j1 < shapeIndices[t].size()*3; j1+=3 )
       {
         sum += d[shapeIndices[t].size()*3+j1/3] * vips_col_dE00( imageData[t][l][j1], imageData[t][l][j1+1], imageData[t][l][j1+2], d[j1], d[j1+1], d[j1+2] );
@@ -419,12 +420,12 @@ int generateLABBlockEdge( vector< vector< vector< float > > > &imageData, vector
       }
     }
 
-    double difference = DBL_MAX;
+    float difference = DBL_MAX;
     int best = 0;
 
     for( int l = 0; l < num_images; ++l )
     {
-      double sum = 0;
+      float sum = 0;
 
       for( int j1 = 0; j1 < edgeShape.size(); ++j1 )
       {
@@ -474,7 +475,7 @@ int generateMosaic( vector< vector< vector< float > > > &imageData, vector< vect
   }
 
   // Resize the image for correct mosaic tile size
-  if( resize != 0 ) image = image.resize( (double)resize / (double)(image.width()) );
+  if( resize != 0 ) image = image.resize( (float)resize / (float)(image.width()) );
 
   int width = image.width();
   int height = image.height();
@@ -535,8 +536,8 @@ int generateMosaic( vector< vector< vector< float > > > &imageData, vector< vect
 
   return 0;
 }
-
-int generateRGBBlock( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > shapeIndices, vector< int > &indices, int repeat, unsigned char * c, float * edgeData, int start, int end, vector< int > &tileWidth, vector< int > &tileHeight, int width, ProgressBar* buildingMosaic, bool quiet )
+*/
+int generateBlockThread( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > shapeIndices, vector< int > &indices, int repeat, float * c, float * edgeData, int start, int end, vector< int > &tileWidth, vector< int > &tileHeight, int width, ProgressBar* buildingMosaic, bool quiet )
 {
   // Whether to update progressbar
   bool show = !quiet && !(start);
@@ -579,8 +580,8 @@ int generateRGBBlock( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< i
       d[3*x+1] = c[l+1];
       d[3*x+2] = c[l+2];
       d[3*(x+shapeIndices[t].size())+0] = edgeData[l/3];
-      d[3*(x+shapeIndices[t].size())+1] = edgeData[l/3];
-      d[3*(x+shapeIndices[t].size())+2] = edgeData[l/3];
+      d[3*(x+shapeIndices[t].size())+1] = 1.0f;//edgeData[l/3];
+      d[3*(x+shapeIndices[t].size())+2] = 1.0f;//edgeData[l/3];
     }
 
     size_t ret_index;
@@ -626,7 +627,7 @@ int generateRGBBlock( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< i
   return 0;
 }
 
-int generateRGBBlockEdge( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< int > &mosaic, int mosaicOffset, vector< vector< int > > &edgeLocations, vector< vector< int > > shapeIndices, vector< int > &indices, int repeat, unsigned char * c, float * edgeData, int start, int end, vector< int > tileWidth, int width, int height, ProgressBar* buildingMosaic, bool quiet )
+int generateBlockEdgeThread( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< int > &mosaic, int mosaicOffset, vector< vector< int > > &edgeLocations, vector< vector< int > > shapeIndices, vector< int > &indices, int repeat, float * c, float * edgeData, int start, int end, vector< int > tileWidth, int width, int height, ProgressBar* buildingMosaic, bool quiet )
 {
   // Whether to update progressbar
   bool show = !quiet && !(start);
@@ -680,7 +681,8 @@ int generateRGBBlockEdge( vector< unique_ptr< my_kd_tree_t > > &mat_index, vecto
         int x = 3*edgeShape[j1];
         for( int k = 0; k < 3; ++k )
         {
-          float diff0 = d[4*j1] * std::max( abs( d[4*j1+1+k]-mat_index[t]->kdtree_get_pt(l,x+k) ) - 15, 0.0f );
+          float diff0 = d[4*j1+1+k]-mat_index[t]->kdtree_get_pt(l,x+k); //d[4*j1] * //std::max( abs( d[4*j1+1+k]-mat_index[t]->kdtree_get_pt(l,x+k) ) - 15, 0.0f );
+          if( k == 0 ) diff0 *= d[4*j1];
           sum += diff0 * diff0;
         }
       }
@@ -699,11 +701,8 @@ int generateRGBBlockEdge( vector< unique_ptr< my_kd_tree_t > > &mat_index, vecto
   return 0;
 }
 
-int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, vector< int > &mosaic, string inputImage, ProgressBar *buildingMosaic, int repeat, bool square, int resize, bool quiet, vector< int > &tileWidth, vector< int > &tileHeight, bool useEdgeWeights )
+int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, vector< int > &mosaic, string inputImage, int repeat, bool square, int resize, bool quiet, vector< int > &tileWidth, vector< int > &tileHeight, float edgeWeight )
 {
-  // Whether to show progressbar
-  quiet = quiet || ( buildingMosaic == NULL );
-
   // Load input image
   VImage image = VImage::vipsload( (char *)inputImage.c_str() ).autorot();
 
@@ -725,17 +724,64 @@ int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vec
   }
 
   // Resize the image for correct mosaic tile size
-  if( resize != 0 ) image = image.resize( (double)resize / (double)(image.width()) );
+  if( resize != 0 ) image = image.resize( (float)resize / (float)(image.width()) );
 
   int width = image.width();
   int height = image.height();
 
   // Get image data
   unsigned char * c = ( unsigned char * )image.data();
+  float * c2 = new float[3*width*height];
+
+  for( int p = 0; p < width*height; ++p )
+  {
+    rgbToLab( c[3*p+0], c[3*p+1], c[3*p+2], c2[3*p+0], c2[3*p+1], c2[3*p+2] );
+  }
 
   float * edgeData = new float[width*height];
 
-  generateEdgeWeights( image, edgeData, tileHeight[0], useEdgeWeights );
+
+
+
+
+
+
+
+
+// Load input image
+  VImage edgeImage = VImage::vipsload( "edge.jpg" ).autorot();
+
+  // Convert to a three band image
+  if( edgeImage.bands() == 1 )
+  {
+    edgeImage = edgeImage.bandjoin(edgeImage).bandjoin(edgeImage);
+  }
+  if( edgeImage.bands() == 4 )
+  {
+    edgeImage = edgeImage.flatten();
+  }
+
+  // Crop out the middle square if specified
+  if(square)
+  {
+    edgeImage = (edgeImage.width() < edgeImage.height()) ? edgeImage.extract_area(0, (edgeImage.height()-edgeImage.width())/2, edgeImage.width(), edgeImage.width()) :
+                                               edgeImage.extract_area((edgeImage.width()-edgeImage.height())/2, 0, edgeImage.height(), edgeImage.height());
+  }
+
+  // Resize the image for correct mosaic tile size
+  if( resize != 0 ) edgeImage = edgeImage.resize( (float)resize / (float)(edgeImage.width()) );
+
+
+
+
+
+
+
+
+
+
+  generateEdgeWeights( edgeImage, edgeData, tileHeight[0], edgeWeight );
+//  generateEdgeWeights( image, edgeData, tileHeight[0], edgeWeight );
 
   // Number of threads for multithreading: needs to be a square number
   int threads = numberOfCPUS();
@@ -750,9 +796,11 @@ int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vec
   // Break mosaic into blocks and find best matching tiles inside each block on a different thread
   future< int > ret[threads];
 
+  ProgressBar *buildingMosaic = new ProgressBar(mosaicLocations.size()/threads, "Building mosaic");
+
   for( int i = 0; i < threads; ++i )
   {
-    ret[i] = async( launch::async, &generateRGBBlock, ref(mat_index), ref(mosaic), ref(mosaicLocations), ref(shapeIndices), ref(indices), repeat, c, edgeData, i*indices.size()/threads, (i+1)*indices.size()/threads, ref(tileWidth), ref(tileHeight), width, buildingMosaic, quiet );
+    ret[i] = async( launch::async, &generateBlockThread, ref(mat_index), ref(mosaic), ref(mosaicLocations), ref(shapeIndices), ref(indices), repeat, c2, edgeData, i*indices.size()/threads, (i+1)*indices.size()/threads, ref(tileWidth), ref(tileHeight), width, buildingMosaic, quiet );
   }
 
   // Wait for threads to finish
@@ -760,6 +808,8 @@ int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vec
   {
     ret[k].get();
   }
+
+  if( !quiet ) buildingMosaic->Finish();
 
   vector< int > edgeIndices( edgeLocations.size() );
   iota( edgeIndices.begin(), edgeIndices.end(), 0 );
@@ -773,7 +823,7 @@ int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vec
 
   for( int i = 0; i < threads; ++i )
   {
-    ret[i] = async( launch::async, &generateRGBBlockEdge, ref(mat_index), ref(mosaic), mosaicLocations.size(), ref(edgeLocations), ref(shapeIndices), ref(edgeIndices), repeat, c, edgeData, i*edgeIndices.size()/threads, (i+1)*edgeIndices.size()/threads, ref(tileWidth), width, height, buildingMosaicEdge, quiet );
+    ret[i] = async( launch::async, &generateBlockEdgeThread, ref(mat_index), ref(mosaic), mosaicLocations.size(), ref(edgeLocations), ref(shapeIndices), ref(edgeIndices), repeat, c2, edgeData, i*edgeIndices.size()/threads, (i+1)*edgeIndices.size()/threads, ref(tileWidth), width, height, buildingMosaicEdge, quiet );
   }
 
   // Wait for threads to finish
@@ -787,7 +837,7 @@ int generateMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vec
   return 0;
 }
 
-void RunTessellate( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, bool quiet, bool recursiveSearch, string tessellateType, bool useEdgeWeights )
+void RunTessellate( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, bool quiet, bool recursiveSearch, string tessellateType, float edgeWeight )
 {
   bool inputIsDirectory = (vips_foreign_find_save( inputName.c_str() ) == NULL);
   bool isDeepZoom = (vips_foreign_find_save( outputName.c_str() ) == NULL) && !inputIsDirectory;
@@ -835,11 +885,11 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
   bool loadData = (fileName != " ");
 
-  vector< vector< double > > dimensions;
+  vector< vector< float > > dimensions;
 
-  vector< vector< vector< double > > > shapes;
+  vector< vector< vector< float > > > shapes;
 
-  vector< vector< double > > offsets;
+  vector< vector< float > > offsets;
 
   ifstream tessellationFile( tessellateType );
 
@@ -851,11 +901,11 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
   {
     istringstream iss(str);
 
-    double w, h;
+    float w, h;
 
     iss >> w >> h;
 
-    dimensions.push_back(vector< double >({w,h}));
+    dimensions.push_back(vector< float >({w,h}));
   }
 
   shapes.resize( dimensions.size() );
@@ -872,11 +922,11 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
       {
         istringstream iss(str);
 
-        double x1, x2, by1, by2, ty1, ty2;
+        float x1, x2, by1, by2, ty1, ty2;
 
         iss >> x1 >> x2 >> by1 >> by2 >> ty1 >> ty2;
 
-        shapes[i].push_back(vector< double >({x1, x2, by1, by2, ty1, ty2}));
+        shapes[i].push_back(vector< float >({x1, x2, by1, by2, ty1, ty2}));
       }
     }
 
@@ -887,22 +937,22 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
   {
     istringstream iss(str);
 
-    double x, y, xHorizontalOffset, yHorizontalOffset, xVerticalOffset, yVerticalOffset, shape;
+    float x, y, xHorizontalOffset, yHorizontalOffset, xVerticalOffset, yVerticalOffset, shape;
 
     iss >> x >> y >> xHorizontalOffset >> yHorizontalOffset >> xVerticalOffset >> yVerticalOffset >> shape;
 
-    offsets.push_back(vector< double >({x, y, xHorizontalOffset, yHorizontalOffset, xVerticalOffset, yVerticalOffset, shape}));
+    offsets.push_back(vector< float >({x, y, xHorizontalOffset, yHorizontalOffset, xVerticalOffset, yVerticalOffset, shape}));
   }
 
   vector< int > tileWidth, tileHeight, tileWidth2, tileHeight2;
 
   for( int i = 0; i < dimensions.size(); ++i )
   {
-    tileWidth.push_back(ceil((double)mosaicTileWidth*dimensions[i][0]));
-    tileHeight.push_back(ceil((double)mosaicTileHeight*dimensions[i][1]));
+    tileWidth.push_back(ceil((float)mosaicTileWidth*dimensions[i][0]));
+    tileHeight.push_back(ceil((float)mosaicTileHeight*dimensions[i][1]));
 
-    tileWidth2.push_back(ceil((double)imageTileWidth*dimensions[i][0]));
-    tileHeight2.push_back(ceil((double)imageTileHeight*dimensions[i][1]));
+    tileWidth2.push_back(ceil((float)imageTileWidth*dimensions[i][0]));
+    tileHeight2.push_back(ceil((float)imageTileHeight*dimensions[i][1]));
   }
 
   if( !loadData )
@@ -956,7 +1006,7 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
   vector< vector< int > > shapeIndices(shapes.size()), shapeIndices2(shapes.size()), mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2;
 
   int tileArea = mosaicTileWidth*mosaicTileHeight*3;
-  int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
+  int numVertical = int( (float)height / (float)width * (float)numHorizontal * (float)mosaicTileWidth/(float)mosaicTileHeight );
   int numUnique = 0;
 
   string tessellateTypeName = tessellateType.substr(tessellateType.find_last_of("/") + 1);
@@ -1020,50 +1070,19 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
   int imageWidth = numHorizontal * imageTileWidth, imageHeight = numVertical * imageTileHeight;
 
-  float **d;
-  vector< vector< vector< float > > > lab;
+  float **d = (float **)malloc(shapeIndices.size()*sizeof(float*));
 
-  if( trueColor  )
+  for( int i = 0; i < shapeIndices.size(); ++i )
   {
-    lab.resize(shapeIndices.size());
+    tileArea = shapeIndices[i].size();
 
-    float r,g,b;
+    d[i] = (float *)malloc(mosaicTileData[i].size()*3*tileArea*sizeof(float));
 
-    for( int i = 0; i < shapeIndices.size(); ++i )
+    for( int j = 0, index = 0; j < mosaicTileData[i].size(); ++j )
     {
-      tileArea = shapeIndices[i].size();
-
-      lab[i] = vector< vector< float > >( mosaicTileData[i].size(), vector< float >(3*tileArea) );
-
-      for( int j = 0; j < mosaicTileData[i].size(); ++j )
+      for( int p = 0; p < tileArea; ++p, ++index )
       {
-        for( int p = 0; p < tileArea; ++p )
-        {
-          vips_col_sRGB2scRGB_8(mosaicTileData[i][j][3*shapeIndices[i][p]+0],mosaicTileData[i][j][3*shapeIndices[i][p]+1],mosaicTileData[i][j][3*shapeIndices[i][p]+2], &r,&g,&b );
-          vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
-          vips_col_XYZ2Lab( r, g, b, &lab[i][j][3*p+0], &lab[i][j][3*p+1], &lab[i][j][3*p+2] );
-        }
-      }
-    }
-  }
-  else
-  {
-    d = (float **)malloc(shapeIndices.size()*sizeof(float*));
-
-    for( int i = 0; i < shapeIndices.size(); ++i )
-    {
-      tileArea = shapeIndices[i].size();
-
-      d[i] = (float *)malloc(mosaicTileData[i].size()*3*tileArea*sizeof(float));
-
-      for( int j = 0, index = 0; j < mosaicTileData[i].size(); ++j )
-      {
-        for( int p = 0; p < tileArea; ++p, ++index )
-        {
-          d[i][3*index+0] = mosaicTileData[i][j][3*shapeIndices[i][p]+0];
-          d[i][3*index+1] = mosaicTileData[i][j][3*shapeIndices[i][p]+1];
-          d[i][3*index+2] = mosaicTileData[i][j][3*shapeIndices[i][p]+2];
-        }
+        rgbToLab( mosaicTileData[i][j][3*shapeIndices[i][p]+0], mosaicTileData[i][j][3*shapeIndices[i][p]+1], mosaicTileData[i][j][3*shapeIndices[i][p]+2], d[i][3*index+0], d[i][3*index+1], d[i][3*index+2] );
       }
     }
   }
@@ -1075,31 +1094,19 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
   vector< unique_ptr< my_kd_tree_t > > mat_index;//(tileArea, d, 10 );
 
-  if( !trueColor )
+  for( int i = 0; i < shapeIndices.size(); ++i )
   {
-    for( int i = 0; i < shapeIndices.size(); ++i )
-    {
-      unique_ptr< my_kd_tree_t > ptr(new my_kd_tree_t(3*shapeIndices[i].size(),mosaicTileData[i].size(),d[i],10));
-      mat_index.push_back( move(ptr) );//3*shapeIndices[i].size(),d[i],10);
-    }
+    unique_ptr< my_kd_tree_t > ptr(new my_kd_tree_t(3*shapeIndices[i].size(),mosaicTileData[i].size(),d[i],10));
+    mat_index.push_back( move(ptr) );//3*shapeIndices[i].size(),d[i],10);
   }
 
   for( int i = 0; i < inputImages.size(); ++i )
   {
     vector< int > mosaic( mosaicLocations.size() + edgeLocations.size() );
 
-    int threads = numberOfCPUS();
+//    ProgressBar *buildingMosaic = new ProgressBar(mosaicLocations.size()/threads, "Building mosaic");
 
-    ProgressBar *buildingMosaic = new ProgressBar(mosaicLocations.size()/threads, "Building mosaic");
-
-    if( trueColor  )
-    {
-      numUnique = generateMosaic( lab, mosaicLocations, edgeLocations, shapeIndices, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet, tileWidth, tileHeight, useEdgeWeights );
-    }
-    else
-    {
-      numUnique = generateMosaic( mat_index, mosaicLocations, edgeLocations, shapeIndices, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, quiet, tileWidth, tileHeight, useEdgeWeights );
-    }
+    numUnique = generateMosaic( mat_index, mosaicLocations, edgeLocations, shapeIndices, mosaic, inputImages[i], repeat, false, numHorizontal * mosaicTileWidth, quiet, tileWidth, tileHeight, edgeWeight );
 
     if( mosaicTileWidth == imageTileWidth )
     {
@@ -1111,11 +1118,8 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
     }
   }
 
-  if( !trueColor )
+  for( int i = 0; i < shapeIndices.size(); ++i )
   {
-    for( int i = 0; i < shapeIndices.size(); ++i )
-    {
-      free(d[i]);
-    }
+    free(d[i]);
   }
 }

@@ -2,17 +2,17 @@
 
 class Quad
 {
-  double _x[4], _y[4], _s[2];
+  float _x[4], _y[4], _s[2];
 
 public:
-  Quad( vector< double > restrictionPoints );
+  Quad( vector< float > restrictionPoints );
 
   Quad( const Quad& rhs );
 
   Quad& operator=( const Quad& rhs );
 
 
-  bool isInside( double x, double y, double mosaicTileWidth, double mosaicTileHeight ); 
+  bool isInside( float x, float y, float mosaicTileWidth, float mosaicTileHeight ); 
 };
 
 class Tessellation
@@ -20,7 +20,7 @@ class Tessellation
   vector< Quad > _quads;
 
 public:
-  Tessellation( vector< vector< double > > restrictionPoints );
+  Tessellation( vector< vector< float > > restrictionPoints );
 
   Tessellation( const Tessellation& rhs );
 

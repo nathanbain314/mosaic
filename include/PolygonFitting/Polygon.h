@@ -14,7 +14,7 @@ public:
 
   Polygon& operator=( const Polygon& rhs );
 
-  void addVertex( double x, double y );
+  void addVertex( float x, float y );
 
   void addVertex( Vertex v );
 
@@ -26,21 +26,21 @@ public:
 
   void makeClockwise();
 
-  void scaleBy( double scale );
+  void scaleBy( float scale );
 
   void offsetBy( Vertex offset );
 
-  void rotateBy( double r, bool offset = false );
+  void rotateBy( float r, bool offset = false );
 
   Vertex center();
 
-  Vertex computeOffset( double r );
+  Vertex computeOffset( float r );
 
-  double minRatio();
+  float minRatio();
 
-  double minLength();
+  float minLength();
 
-  bool notOnEdge( double width, double height );
+  bool notOnEdge( float width, float height );
 
-  double area();
+  float area();
 };

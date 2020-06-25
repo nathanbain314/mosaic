@@ -11,8 +11,6 @@ int main( int argc, char **argv )
 
     ValueArg<int> mosaicTileArg( "m", "mosaicTileSize", "Maximum tile size for generating mosaic", false, 0, "int", cmd);
 
-    SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
-
     ValueArg<int> repeatArg( "r", "repeat", "Closest distance to repeat image", false, 0, "int", cmd);
 
     ValueArg<string> outputArg( "o", "output", "Output name", true, "out", "string", cmd);
@@ -24,12 +22,11 @@ int main( int argc, char **argv )
     vector< string > inputDirectory   = directoryArg.getValue();
     string outputDirectory            = outputArg.getValue();
     int repeat                        = repeatArg.getValue();
-    bool trueColor                    = colorArg.getValue();
     int mosaicTileSize                = mosaicTileArg.getValue();
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunContinuous( inputDirectory, outputDirectory, mosaicTileSize, trueColor, repeat );
+    RunContinuous( inputDirectory, outputDirectory, mosaicTileSize, repeat );
   }
   catch (ArgException &e)  // catch any exceptions
   {

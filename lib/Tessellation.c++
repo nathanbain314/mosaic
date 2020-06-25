@@ -1,6 +1,6 @@
 #include "Tessellation.h"
 
-Quad::Quad(vector< double > restrictionPoint )
+Quad::Quad(vector< float > restrictionPoint )
 {
   _x[0] = restrictionPoint[0];
   _x[1] = restrictionPoint[1];
@@ -42,7 +42,7 @@ Quad& Quad::operator=( const Quad& rhs )
   return *this;
 }
 
-bool Quad::isInside( double x, double y, double mosaicTileWidth, double mosaicTileHeight )
+bool Quad::isInside( float x, float y, float mosaicTileWidth, float mosaicTileHeight )
 {
   if( 0 >= floor(_x[0]*mosaicTileWidth-x) && 0 <= ceil(_x[1]*mosaicTileWidth-x) && 0 >= floor(mosaicTileHeight / mosaicTileWidth * _s[0] * ( x - _x[0]*mosaicTileWidth ) + _y[0]*mosaicTileHeight - y) && 0 <= ceil(mosaicTileHeight / mosaicTileWidth * _s[1] * ( x - _x[2]*mosaicTileWidth ) +  _y[2]*mosaicTileHeight - y ) )
   {
@@ -52,7 +52,7 @@ bool Quad::isInside( double x, double y, double mosaicTileWidth, double mosaicTi
 }
 
 
-Tessellation::Tessellation( vector< vector< double > > restrictionPoints )
+Tessellation::Tessellation( vector< vector< float > > restrictionPoints )
 {
   for( int i = 0; i < restrictionPoints.size(); ++i )
   {

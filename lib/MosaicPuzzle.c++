@@ -8,15 +8,15 @@
 Vertex compute2DPolygonCentroid( vector< Vertex > &vertices )
 {
   Vertex centroid( 0, 0 );
-  double signedArea = 0.0;
+  float signedArea = 0.0;
 
   for( int i = 0; i < vertices.size(); ++i )
   {
-    double x0 = vertices[i].x;
-    double y0 = vertices[i].y;
-    double x1 = vertices[(i+1) % vertices.size()].x;
-    double y1 = vertices[(i+1) % vertices.size()].y;
-    double a = x0*y1 - x1*y0;
+    float x0 = vertices[i].x;
+    float y0 = vertices[i].y;
+    float x1 = vertices[(i+1) % vertices.size()].x;
+    float y1 = vertices[(i+1) % vertices.size()].y;
+    float a = x0*y1 - x1*y0;
     signedArea += a;
     centroid.x += (x0 + x1)*a;
     centroid.y += (y0 + y1)*a;
@@ -233,7 +233,7 @@ void generateImagePolygons( string imageDirectory, vector< string > &inputDirect
 
   int threads = numberOfCPUS();
 
-  ProgressBar *processing_images = new ProgressBar(ceil((double)num_images/threads), "Processing images");
+  ProgressBar *processing_images = new ProgressBar(ceil((float)num_images/threads), "Processing images");
 
   vector< vector< unsigned char > > imagesThread[threads];
   vector< vector< unsigned char > > masksThread[threads];
@@ -261,12 +261,12 @@ void generateImagePolygons( string imageDirectory, vector< string > &inputDirect
   processing_images->Finish();
 }
 
-int rotateX( double x, double y, double cosAngle, double sinAngle, double halfWidth, double halfHeight )
+int rotateX( float x, float y, float cosAngle, float sinAngle, float halfWidth, float halfHeight )
 {
   return cosAngle*(x-halfWidth) - sinAngle*(y-halfHeight) + halfWidth;
 }
 
-int rotateY( double x, double y, double cosAngle, double sinAngle, double halfWidth, double halfHeight )
+int rotateY( float x, float y, float cosAngle, float sinAngle, float halfWidth, float halfHeight )
 {
   return sinAngle*(x-halfWidth) + cosAngle*(y-halfHeight) + halfHeight;
 }
@@ -287,7 +287,7 @@ void computeLargerPolygon( vector< Vertex > &vertices, vector< Edge > &edges, Ve
       Vertex v2 = verticesCopy[edges[j].v1];
       Vertex v3 = verticesCopy[edges[j].v2];
 
-      pair< double, double > t = intersection( center, v1, v2, v3 );
+      pair< float, float > t = intersection( center, v1, v2, v3 );
 
       if( t.first > 0.0000001 && t.first < 1 - 0.0000001 && t.second > 0 && t.second < 1 )
       {
@@ -311,7 +311,7 @@ void computeLargerPolygon( vector< Vertex > &vertices, vector< Edge > &edges, Ve
   P.addEdge(P.vertices.size()-2,P.vertices.size()-1);
 }
 
-tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int cellDistance, vector< Polygon > &imagePolygons, vector< Polygon > &polygons, vector< tuple< int, double, double, Vertex > > &bestValues, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char *inputData, int inputWidth, int inputHeight, double buildScale, double angleOffset, bool skipNearby, bool trueColor, double sizePower, bool doDraw, ProgressBar *drawingImages )
+tuple< int, float, float, Vertex > generateSecondPassBestValues( int i2, int cellDistance, vector< Polygon > &imagePolygons, vector< Polygon > &polygons, vector< tuple< int, float, float, Vertex > > &bestValues, vector< vector< float > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float *inputData, float * edgeData, int inputWidth, int inputHeight, float angleOffset, bool skipNearby, float sizePower, bool doDraw, ProgressBar *drawingImages )
 {
   set< int > skipValues;
 
@@ -361,8 +361,8 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
     int i1 = outsidePolygons[i11];
 
     int bestImage   = get<0>( bestValues[i1] );
-    double scale    = get<1>( bestValues[i1] );
-    double rotation = get<2>( bestValues[i1] );
+    float scale    = get<1>( bestValues[i1] );
+    float rotation = get<2>( bestValues[i1] );
     Vertex offset   = get<3>( bestValues[i1] );
 
     int offsetX = floor(offset.x + 0.0001);
@@ -400,10 +400,10 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
   int i1 = -1;
 
   int bestImage = 0;
-  double bestScale = 0;
-  double bestRotation = 0;
+  float bestScale = 0;
+  float bestRotation = 0;
   Vertex bestOffset = Vertex( 0, 0 );
-  double bestDifference = 1000000000;
+  float bestDifference = 1000000000;
 
   for( int k1 = 0, k = 0; k1 < imagePolygons.size(); ++k1, ++k )
   {    
@@ -411,27 +411,27 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
 
     Polygon P = imagePolygons[k1];
 
-    double scale, rotation;
+    float scale, rotation;
 
     Vertex offset;
 
     findBestFit( P, R, scale, rotation, offset, angleOffset, 0 );
 
-    double angle = rotation * 3.14159265/180.0;
+    float angle = rotation * 3.14159265/180.0;
 
-    int offsetX = floor(offset.x*buildScale+0.0001);
-    int offsetY = floor(offset.y*buildScale+0.0001);
+    int offsetX = floor(offset.x+0.0001);
+    int offsetY = floor(offset.y+0.0001);
 
     int width = dimensions[k].first;
     int height = dimensions[k].second;
 
-    double skipDifference = bestDifference * (width+1) * (height+1);
+    float skipDifference = bestDifference * (width+1) * (height+1);
 
     // Compute data for point rotation
-    double cosAngle = cos(angle);
-    double sinAngle = sin(angle);
-    double halfWidth = (double)width/2.0;
-    double halfHeight = (double)height/2.0;
+    float cosAngle = cos(angle);
+    float sinAngle = sin(angle);
+    float halfWidth = (float)width/2.0;
+    float halfHeight = (float)height/2.0;
 
     // Conpute side offset of rotated image from regular image
     int xOffset = max( rotateX(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateX(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - width;
@@ -441,44 +441,44 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
     int newWidth = width + 2*xOffset;
     int newHeight = height + 2*yOffset;
 
-    double difference = 0;
-    double usedPixels = 0;
+    float difference = 0;
+    float usedPixels = 0;
 
     // New data for point rotation in reverse direction
     cosAngle = cos(-angle);
     sinAngle = sin(-angle);
-    halfWidth = (double)newWidth/2.0;
-    halfHeight = (double)newHeight/2.0;
+    halfWidth = (float)newWidth/2.0;
+    halfHeight = (float)newHeight/2.0;
 
-    double xOffset2 = (cosAngle-1.0)*halfWidth - sinAngle*halfHeight;
-    double yOffset2 = sinAngle*halfWidth + (cosAngle-1.0)*halfHeight;
+    float xOffset2 = (cosAngle-1.0)*halfWidth - sinAngle*halfHeight;
+    float yOffset2 = sinAngle*halfWidth + (cosAngle-1.0)*halfHeight;
 
-    double scaleOffset = 1.0 / (scale * buildScale);
+    float scaleOffset = 1.0 / scale;
 
     // Traverse data for rotated image to find difference from input image
-    for( double iy = offsetY, i = 0, endy = newHeight; i < endy; i += scaleOffset, ++iy )
+    for( float iy = offsetY, i = 0, endy = newHeight; i < endy; i += scaleOffset, ++iy )
     {
       int ix = offsetX;
-      double j = 0;
+      float j = 0;
       int endx = newWidth;
 
       // Index of point in input image
       unsigned long long index = (unsigned long long)iy*(unsigned long long)inputWidth+(unsigned long long)ix;
 
-      double icos = i * cosAngle;
-      double isin = i * sinAngle;
+      float icos = i * cosAngle;
+      float isin = i * sinAngle;
 
       for( ; j < endx; j += scaleOffset, ++index, ++ix )
       {
         if( (ix < 0) || (ix > inputWidth - 1) || (iy < 0) || (iy > inputHeight - 1) ) continue;
 
-        int r = 0, g = 0, b = 0, m = 0;
+        float l = 0, a = 0, b = 0, m = 0;
 
         int numUsed = 0;
 
-        for( double ni = i; ni < i + scaleOffset && ni < endy; ++ni )
+        for( float ni = i; ni < i + scaleOffset && ni < endy; ++ni )
         {
-          for( double nj = j; nj < j + scaleOffset && nj < endx ; ++nj )
+          for( float nj = j; nj < j + scaleOffset && nj < endx ; ++nj )
           {
             int nx = rotateX(nj,ni,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;// + halfWidth;
             int ny = rotateY(nj,ni,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;// + halfHeight;
@@ -491,8 +491,8 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
 
             ++numUsed;
 
-            r += images[k][3*p+0];
-            g += images[k][3*p+1];
+            l += images[k][3*p+0];
+            a += images[k][3*p+1];
             b += images[k][3*p+2];
             m += masks[k][p];
           }
@@ -500,8 +500,8 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
 
         if( numUsed > 0 )
         {
-          r /= numUsed;
-          g /= numUsed;
+          l /= numUsed;
+          a /= numUsed;
           b /= numUsed;
           m /= numUsed;
 
@@ -509,29 +509,12 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
 
           ++usedPixels;
 
-          if( trueColor )
-          {
-            float l1,a1,b1,l2,a2,b2;
-            // Convert rgb to rgb16
-            vips_col_sRGB2scRGB_8(inputData[3ULL*index+0ULL],inputData[3ULL*index+1ULL],inputData[3ULL*index+2ULL], &l1,&a1,&b1 );
-            vips_col_sRGB2scRGB_8(r,g,b, &l2,&a2,&b2 );
-            // Convert rgb16 to xyz
-            vips_col_scRGB2XYZ( l1, a1, b1, &l1, &a1, &b1 );
-            vips_col_scRGB2XYZ( l2, a2, b2, &l2, &a2, &b2 );
-            // Convert xyz to lab
-            vips_col_XYZ2Lab( l1, a1, b1, &l1, &a1, &b1 );
-            vips_col_XYZ2Lab( l2, a2, b2, &l2, &a2, &b2 );
+          // Compute the sum-of-squares for color difference
+          float il = edgeData[index] * (inputData[3ULL*index+0ULL]-l);
+          float ia = inputData[3ULL*index+1ULL]-a;
+          float ib = inputData[3ULL*index+2ULL]-b;
 
-            difference += vips_col_dE00( l1, a1, b1, l2, a2, b2 );
-          }
-          else
-          {
-            int ir = inputData[3ULL*index+0ULL] - r;
-            int ig = inputData[3ULL*index+1ULL] - g;
-            int ib = inputData[3ULL*index+2ULL] - b;
-
-            difference += sqrt( ir*ir + ig*ig + ib*ib );
-          }
+          difference += sqrt( il*il + ia*ia + ib*ib );
         }
       }
     }
@@ -553,7 +536,7 @@ tuple< int, double, double, Vertex > generateSecondPassBestValues( int i2, int c
   return make_tuple( bestImage, bestScale, bestRotation, bestOffset );
 }
 
-void generateBestValues( int start, int end, vector< int > &indices, vector< Polygon > &polygons, vector< Polygon > &imagePolygons, vector< tuple< int, double, double, Vertex > > &bestValues, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char *inputData, int inputWidth, int inputHeight, double buildScale, double angleOffset, bool trueColor, double sizePower, double cellDistance, bool skipNearby, ProgressBar *findingBestImages )
+void generateBestValues( int start, int end, vector< int > &indices, vector< Polygon > &polygons, vector< Polygon > &imagePolygons, vector< tuple< int, float, float, Vertex > > &bestValues, vector< vector< float > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float *inputData, float * edgeData, int inputWidth, int inputHeight, float angleOffset, float sizePower, float cellDistance, bool skipNearby, ProgressBar *findingBestImages )
 {
   for( int st = start; st < end; ++st )
   {
@@ -600,10 +583,10 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
 
 
     int bestImage = 0;
-    double bestScale = 0;
-    double bestRotation = 0;
+    float bestScale = 0;
+    float bestRotation = 0;
     Vertex bestOffset = Vertex( 0, 0 );
-    double bestDifference = 1000000000;
+    float bestDifference = 1000000000;
 
     for( int k1 = 0, k = 0; k1 < imagePolygons.size(); ++k1, ++k )
     {
@@ -611,27 +594,27 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
 
       Polygon P = imagePolygons[k];
 
-      double scale, rotation;
+      float scale, rotation;
 
       Vertex offset;
 
       findBestFit( P, R, scale, rotation, offset, angleOffset, 0 );
 
-      double angle = rotation * 3.14159265/180.0;
+      float angle = rotation * 3.14159265/180.0;
 
-      int offsetX = floor(offset.x*buildScale+0.0001);
-      int offsetY = floor(offset.y*buildScale+0.0001);
+      int offsetX = floor(offset.x+0.0001);
+      int offsetY = floor(offset.y+0.0001);
 
       int width = dimensions[k].first;
       int height = dimensions[k].second;
 
-      double skipDifference = bestDifference * (width+1) * (height+1);
+      float skipDifference = bestDifference * (width+1) * (height+1);
 
       // Compute data for point rotation
-      double cosAngle = cos(angle);
-      double sinAngle = sin(angle);
-      double halfWidth = (double)width/2.0;
-      double halfHeight = (double)height/2.0;
+      float cosAngle = cos(angle);
+      float sinAngle = sin(angle);
+      float halfWidth = (float)width/2.0;
+      float halfHeight = (float)height/2.0;
 
       // Conpute side offset of rotated image from regular image
       int xOffset = max( rotateX(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateX(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - width;
@@ -641,44 +624,44 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
       int newWidth = width + 2*xOffset;
       int newHeight = height + 2*yOffset;
 
-      double difference = 0;
-      double usedPixels = 0;
+      float difference = 0;
+      float usedPixels = 0;
 
       // New data for point rotation in reverse direction
       cosAngle = cos(-angle);
       sinAngle = sin(-angle);
-      halfWidth = (double)newWidth/2.0;
-      halfHeight = (double)newHeight/2.0;
+      halfWidth = (float)newWidth/2.0;
+      halfHeight = (float)newHeight/2.0;
 
-      double xOffset2 = (cosAngle-1.0)*halfWidth - sinAngle*halfHeight;
-      double yOffset2 = sinAngle*halfWidth + (cosAngle-1.0)*halfHeight;
+      float xOffset2 = (cosAngle-1.0)*halfWidth - sinAngle*halfHeight;
+      float yOffset2 = sinAngle*halfWidth + (cosAngle-1.0)*halfHeight;
 
-      double scaleOffset = 1.0 / (scale * buildScale);
+      float scaleOffset = 1.0 / scale;
 
       // Traverse data for rotated image to find difference from input image
-      for( double iy = offsetY, i = 0, endy = newHeight; i < endy; i += scaleOffset, ++iy )
+      for( float iy = offsetY, i = 0, endy = newHeight; i < endy; i += scaleOffset, ++iy )
       {
         int ix = offsetX;
-        double j = 0;
+        float j = 0;
         int endx = newWidth;
 
         // Index of point in input image
         unsigned long long index = (unsigned long long)iy*(unsigned long long)inputWidth+(unsigned long long)ix;
 
-        double icos = i * cosAngle;
-        double isin = i * sinAngle;
+        float icos = i * cosAngle;
+        float isin = i * sinAngle;
 
         for( ; j < endx; j += scaleOffset, ++index, ++ix )
         {
           if( (ix < 0) || (ix > inputWidth - 1) || (iy < 0) || (iy > inputHeight - 1) ) continue;
 
-          int r = 0, g = 0, b = 0, m = 0;
+          float l = 0, a = 0, b = 0, m = 0;
 
           int numUsed = 0;
 
-          for( double ni = i; ni < i + scaleOffset && ni < endy; ++ni )
+          for( float ni = i; ni < i + scaleOffset && ni < endy; ++ni )
           {
-            for( double nj = j; nj < j + scaleOffset && nj < endx ; ++nj )
+            for( float nj = j; nj < j + scaleOffset && nj < endx ; ++nj )
             {
               int nx = rotateX(nj,ni,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;// + halfWidth;
               int ny = rotateY(nj,ni,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;// + halfHeight;
@@ -691,8 +674,8 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
 
               ++numUsed;
 
-              r += images[k][3*p+0];
-              g += images[k][3*p+1];
+              l += images[k][3*p+0];
+              a += images[k][3*p+1];
               b += images[k][3*p+2];
               m += masks[k][p];
 //                break;
@@ -702,8 +685,8 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
 
           if( numUsed > 0 )
           {
-            r /= numUsed;
-            g /= numUsed;
+            l /= numUsed;
+            a /= numUsed;
             b /= numUsed;
             m /= numUsed;
 
@@ -711,33 +694,12 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
 
             ++usedPixels;
 
-            int ir = inputData[3ULL*index+0ULL] - r;//images[k][3*p+0];
-            int ig = inputData[3ULL*index+1ULL] - g;//images[k][3*p+1];
-            int ib = inputData[3ULL*index+2ULL] - b;//images[k][3*p+2];
+            // Compute the sum-of-squares for color difference
+            float il = edgeData[index] * (inputData[3ULL*index+0ULL]-l);
+            float ia = inputData[3ULL*index+1ULL]-a;
+            float ib = inputData[3ULL*index+2ULL]-b;
 
-            if( trueColor )
-            {
-              float l1,a1,b1,l2,a2,b2;
-              // Convert rgb to rgb16
-              vips_col_sRGB2scRGB_8(inputData[3ULL*index+0ULL],inputData[3ULL*index+1ULL],inputData[3ULL*index+2ULL], &l1,&a1,&b1 );
-              vips_col_sRGB2scRGB_8(r,g,b, &l2,&a2,&b2 );
-              // Convert rgb16 to xyz
-              vips_col_scRGB2XYZ( l1, a1, b1, &l1, &a1, &b1 );
-              vips_col_scRGB2XYZ( l2, a2, b2, &l2, &a2, &b2 );
-              // Convert xyz to lab
-              vips_col_XYZ2Lab( l1, a1, b1, &l1, &a1, &b1 );
-              vips_col_XYZ2Lab( l2, a2, b2, &l2, &a2, &b2 );
-
-              difference += vips_col_dE00( l1, a1, b1, l2, a2, b2 );
-            }
-            else
-            {
-              int ir = inputData[3ULL*index+0ULL] - r;
-              int ig = inputData[3ULL*index+1ULL] - g;
-              int ib = inputData[3ULL*index+2ULL] - b;
-
-              difference += sqrt( ir*ir + ig*ig + ib*ib );
-            }
+            difference += sqrt( il*il + ia*ia + ib*ib );
           }
         }
       }
@@ -760,7 +722,7 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
   }
 }
 
-void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, double renderScale, double buildScale, double angleOffset, bool trueColor, bool skipNearby, double sizePower, bool recursiveSearch )
+void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, float renderScale, float buildScale, float angleOffset, bool skipNearby, float sizePower, bool recursiveSearch )
 {
   vector< Polygon > polygons, imagePolygons;
   vector< vector< unsigned char > > images, masks;
@@ -779,13 +741,53 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
   int inputWidth = inputImage.width(), inputHeight = inputImage.height();
 
+  float * c2 = new float[3*inputWidth*inputHeight];
+
+  for( int p = 0; p < inputWidth*inputHeight; ++p )
+  {
+    rgbToLab( inputData[3*p+0], inputData[3*p+1], inputData[3*p+2], c2[3*p+0], c2[3*p+1], c2[3*p+2] );
+  }
+
+  vector< vector< float > > images2;
+
+  for( int i = 0; i < images.size(); ++i )
+  {
+    images2.push_back( vector< float >( images[i].size() ) );
+    for( int p = 0; p < images[i].size(); p+=3 )
+    {
+      rgbToLab( images[i][p+0], images[i][p+1], images[i][p+2], images2[i][p+0], images2[i][p+1], images2[i][p+2] );
+    }
+  }
+
+
+  // Load input image
+  VImage edgeImage = VImage::vipsload( "edge.jpg" ).autorot().resize(buildScale);
+
+  // Convert to a three band image
+  if( edgeImage.bands() == 1 )
+  {
+    edgeImage = edgeImage.bandjoin(edgeImage).bandjoin(edgeImage);
+  }
+  if( edgeImage.bands() == 4 )
+  {
+    edgeImage = edgeImage.flatten();
+  }
+
+  float * edgeData = new float[inputWidth*inputHeight];
+
+  generateEdgeWeights( edgeImage, edgeData, 24, 2.5 );
+
+
+
+
+
   int outputWidth = inputWidth;
   int outputHeight = inputHeight;
 
   generateVoronoiPolygons( polygons, count, 100, outputWidth, outputHeight );
 
 
-  double cellrange[4] = {1000000000,1000000000,-1000000000,-1000000000};
+  float cellrange[4] = {1000000000,1000000000,-1000000000,-1000000000};
 
   int mi = polygons.size()/2;
 
@@ -797,10 +799,10 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
     cellrange[3] = max(cellrange[3],polygons[mi].vertices[i].y);
   }
 
-  double cellDistance = 4*(cellrange[3]-cellrange[1])*(cellrange[3]-cellrange[1]) + (cellrange[2]-cellrange[0])*(cellrange[2]-cellrange[0]);
+  float cellDistance = 4*(cellrange[3]-cellrange[1])*(cellrange[3]-cellrange[1]) + (cellrange[2]-cellrange[0])*(cellrange[2]-cellrange[0]);
 
 
-  vector< tuple< int, double, double, Vertex > > bestValues(polygons.size(), make_tuple(-1,0,0,Vertex(0,0)) );
+  vector< tuple< int, float, float, Vertex > > bestValues(polygons.size(), make_tuple(-1,0,0,Vertex(0,0)) );
 
   int threads = numberOfCPUS();
 
@@ -816,7 +818,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
   for( int k = 0; k < threads; ++k )
   {
-    ret[k] = async( launch::async, &generateBestValues, k*indices.size()/threads, (k+1)*indices.size()/threads, ref(indices), ref(polygons), ref(imagePolygons), ref(bestValues), ref(images), ref(masks), ref(dimensions), inputData, inputWidth, inputHeight, buildScale, angleOffset, trueColor, sizePower, cellDistance, skipNearby, findingBestImages );
+    ret[k] = async( launch::async, &generateBestValues, k*indices.size()/threads, (k+1)*indices.size()/threads, ref(indices), ref(polygons), ref(imagePolygons), ref(bestValues), ref(images2), ref(masks), ref(dimensions), c2, edgeData, inputWidth, inputHeight, angleOffset, sizePower, cellDistance, skipNearby, findingBestImages );
   }
 
   // Wait for threads to finish
@@ -831,7 +833,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
   unsigned char *outputData = ( unsigned char * )calloc(3*(outputWidth*renderScale)*(outputHeight*renderScale),sizeof(unsigned char));
 
-  vector< int > indices2( ceil((double)polygons.size()/threads) );
+  vector< int > indices2( ceil((float)polygons.size()/threads) );
 
   iota( indices2.begin(), indices2.end(), 0 );
 
@@ -844,14 +846,14 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
     for( int i3 = 0; i3 < indices2.size(); ++i3 )
     {
-      future< tuple< int, double, double, Vertex > > ret[threads];
+      future< tuple< int, float, float, Vertex > > ret[threads];
 
       for( int k = 0; k < threads; ++k )
       {
         int i2 = indices2[i3]+k*indices2.size();
         if( i2 >= polygons.size() ) continue;
 
-        ret[k] = async( launch::async, &generateSecondPassBestValues, i2, cellDistance, ref(imagePolygons), ref(polygons), ref(bestValues), ref(images), ref(masks), ref(dimensions), inputData, inputWidth, inputHeight, buildScale, angleOffset, skipNearby, trueColor, sizePower, k==0, fillingGaps );
+        ret[k] = async( launch::async, &generateSecondPassBestValues, i2, cellDistance, ref(imagePolygons), ref(polygons), ref(bestValues), ref(images2), ref(masks), ref(dimensions), c2, edgeData, inputWidth, inputHeight, angleOffset, skipNearby, sizePower, k==0, fillingGaps );
       }
 
       // Wait for threads to finish
@@ -873,13 +875,13 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
   ProgressBar *drawingImages = new ProgressBar(polygons.size(), "Rendering output");
 
-  double maxScale = -1;
+  float maxScale = -1;
 
   for( int i1 = 0; i1 < polygons.size(); ++i1 )
   {
     int bestImage   = get<0>( bestValues[i1] );
-    double scale    = get<1>( bestValues[i1] );
-    double rotation = get<2>( bestValues[i1] );
+    float scale    = get<1>( bestValues[i1] );
+    float rotation = get<2>( bestValues[i1] );
     Vertex offset   = get<3>( bestValues[i1] );
 
     scale *= renderScale;
@@ -891,16 +893,16 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
     Polygon R = polygons[i1];
 
-    vector< double > ink = {0,0,0};
+    vector< float > ink = {0,0,0};
 
     // Set the values for the output image
     int width = dimensions[bestImage].first;
     int height = dimensions[bestImage].second;
 
-    double cosAngle = cos(rotation);
-    double sinAngle = sin(rotation);
-    double halfWidth = (double)width/2.0;
-    double halfHeight = (double)height/2.0;
+    float cosAngle = cos(rotation);
+    float sinAngle = sin(rotation);
+    float halfWidth = (float)width/2.0;
+    float halfHeight = (float)height/2.0;
 
     int xOffset = max( rotateX(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateX(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - width;
     int yOffset = max( rotateY(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateY(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - height;
@@ -910,21 +912,21 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
     cosAngle = cos(-rotation);
     sinAngle = sin(-rotation);
-    halfWidth = (double)newWidth/2.0;
-    halfHeight = (double)newHeight/2.0;
+    halfWidth = (float)newWidth/2.0;
+    halfHeight = (float)newHeight/2.0;
 
-    double scaleOffset = 1.0 / scale;
+    float scaleOffset = 1.0 / scale;
 
     int ix, iy;
 
     iy = offsetY - scale*newHeight/2;
 
     // Render the image onto the output image
-    for( double i = 0; i < newHeight; i += scaleOffset, ++iy )
+    for( float i = 0; i < newHeight; i += scaleOffset, ++iy )
     {
       ix = offsetX - scale*newWidth/2;
 
-      for( double j = 0; j < newWidth; j += scaleOffset, ++ix )
+      for( float j = 0; j < newWidth; j += scaleOffset, ++ix )
       {
         int newX = rotateX(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
         int newY = rotateY(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
@@ -939,9 +941,9 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
         int numUsed = 0;
 
-        for( double ni = i; ni < i + scaleOffset && ni < newHeight; ++ni )
+        for( float ni = i; ni < i + scaleOffset && ni < newHeight; ++ni )
         {
-          for( double nj = j; nj < j + scaleOffset && nj < newWidth ; ++nj )
+          for( float nj = j; nj < j + scaleOffset && nj < newWidth ; ++nj )
           {
             int nx = rotateX(nj,ni,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
             int ny = rotateY(nj,ni,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;

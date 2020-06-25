@@ -1,6 +1,6 @@
 #include "Video.h"
 
-void videoThread( int start, int end, int numHorizontal, int p, int frames, int mosaicTileWidth, int mosaicTileHeight, int tileArea, int width, my_kd_tree_t* mat_index, vector< vector< vector< float > > > &e, vector< vector< int > > &starts, vector< vector< vector< int > > > &mosaic, vector< int > &sequenceStarts, unsigned char *c, float *edgeData )
+void videoThread( int start, int end, int numHorizontal, int p, int frames, int mosaicTileWidth, int mosaicTileHeight, int tileArea, int width, my_kd_tree_t* mat_index, vector< vector< vector< float > > > &e, vector< vector< int > > &starts, vector< vector< vector< int > > > &mosaic, vector< int > &sequenceStarts, float *c, float *edgeData )
 {
   size_t ret_index;
   float out_dist_sqr;
@@ -36,7 +36,7 @@ void videoThread( int start, int end, int numHorizontal, int p, int frames, int 
   }
 }
 
-void RunVideo( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, int frames, int skip, bool recursiveSearch, bool useEdgeWeights )
+void RunVideo( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, int frames, int skip, bool recursiveSearch, bool useEdgeWeights )
 {
   vector< string > inputImages;
   vector< string > outputImages;
@@ -219,7 +219,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
       {
         for( int p = 0; p < tileArea; ++p )
         {
-          d[ l*tileArea*frames + k*tileArea + p ] = mosaicTileData[idx[j+k]][p];
+          rgbToLab(mosaicTileData[idx[j+k]][p+0],mosaicTileData[idx[j+k]][p+1],mosaicTileData[idx[j+k]][p+2], d[ l*tileArea*frames + k*tileArea + p + 0 ], d[ l*tileArea*frames + k*tileArea + p + 1 ], d[ l*tileArea*frames + k*tileArea + p + 2 ] );
         }
       }
     }
@@ -252,6 +252,12 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     VImage image = VImage::vipsload( (char *)inputImages[p].c_str() ).autorot();
     image = image.resize( (double)(numHorizontal*mosaicTileWidth) / (double)(image.width()) );
     unsigned char * c = ( unsigned char * )image.data();
+    float * c2 = new float[3*width*height];
+
+    for( int p = 0; p < width*height; ++p )
+    {
+      rgbToLab( c[3*p+0], c[3*p+1], c[3*p+2], c2[3*p+0], c2[3*p+1], c2[3*p+2] );
+    }
 
     generateEdgeWeights( image, edgeData, mosaicTileHeight, useEdgeWeights );
 
@@ -259,7 +265,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
     for( int k = 0; k < threads; ++k )
     {
-      ret[k] = async( launch::async, &videoThread, k*numVertical/threads, (k+1)*numVertical/threads, numHorizontal, p, frames, mosaicTileWidth, mosaicTileHeight, tileArea, image.width(), ref(mat_index), ref(e), ref(starts), ref(mosaic), ref(sequenceStarts), c, edgeData );
+      ret[k] = async( launch::async, &videoThread, k*numVertical/threads, (k+1)*numVertical/threads, numHorizontal, p, frames, mosaicTileWidth, mosaicTileHeight, tileArea, image.width(), ref(mat_index), ref(e), ref(starts), ref(mosaic), ref(sequenceStarts), c2, edgeData );
     }
 
     // Wait for threads to finish

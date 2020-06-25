@@ -43,7 +43,7 @@ void PolygonFitting::createOffsetEdges()
   }
 }
 
-double ccw( Vertex &v1, Vertex &v2, Vertex &v3 )
+float ccw( Vertex &v1, Vertex &v2, Vertex &v3 )
 {
   return (v2.x - v1.x)*(v3.y - v1.y) - (v2.y - v1.y)*(v3.x - v1.x);
 }
@@ -53,14 +53,14 @@ bool minY(Vertex i, Vertex j)
   return (i.y < j.y) || (i.y == j.y && i.x < j.x);
 }
 
-double distance( Vertex v1, Vertex v2 )
+float distance( Vertex v1, Vertex v2 )
 {
   return (v1.x-v2.x)*(v1.x-v2.x) + (v1.y-v2.y)*(v1.y-v2.y);
 }
 
 bool grahamScanSort ( Vertex v1, Vertex v2, Vertex p )
 {
-  double angle = ccw( v1, p, v2 );
+  float angle = ccw( v1, p, v2 );
 
   if( angle == 0 )
   {
@@ -143,46 +143,46 @@ Edge reverseEdge( Edge e )
   return Edge( e.v2, e.v1 );
 }
 
-pair< double, double > intersection( Vertex &v1, Vertex &v2, Vertex &v3, Vertex &v4 )
+pair< float, float > intersection( Vertex &v1, Vertex &v2, Vertex &v3, Vertex &v4 )
 {
-  double x[4] = {v1.x,v2.x,v3.x,v4.x};
-  double y[4] = {v1.y,v2.y,v3.y,v4.y};
+  float x[4] = {v1.x,v2.x,v3.x,v4.x};
+  float y[4] = {v1.y,v2.y,v3.y,v4.y};
 
-  double denominator = ( x[3] - x[2] ) * ( y[0] - y[1] ) - ( x[0] - x[1] ) * ( y[3] - y[2] );
+  float denominator = ( x[3] - x[2] ) * ( y[0] - y[1] ) - ( x[0] - x[1] ) * ( y[3] - y[2] );
 
-  double numerator1  = ( x[0] - x[2] ) * ( y[2] - y[3] ) + ( x[3] - x[2] ) * ( y[0] - y[2] );
-  double numerator2  = ( x[0] - x[2] ) * ( y[0] - y[1] ) + ( x[1] - x[0] ) * ( y[0] - y[2] );
+  float numerator1  = ( x[0] - x[2] ) * ( y[2] - y[3] ) + ( x[3] - x[2] ) * ( y[0] - y[2] );
+  float numerator2  = ( x[0] - x[2] ) * ( y[0] - y[1] ) + ( x[1] - x[0] ) * ( y[0] - y[2] );
 
   // Check if parallel
   if( abs(denominator) < 0.0000001 || ( numerator1 == -numerator2 && numerator1 != 0 ) )
   {
-    return pair< double, double >( -1, -1 );
+    return pair< float, float >( -1, -1 );
   }
 
-  return pair< double, double >( numerator1/denominator, numerator2/denominator );
+  return pair< float, float >( numerator1/denominator, numerator2/denominator );
 }
 
-Vertex intersectionPoint( double t, Vertex &v1, Vertex &v2 )
+Vertex intersectionPoint( float t, Vertex &v1, Vertex &v2 )
 {
-  double x = v1.x + t * ( v2.x - v1.x );
-  double y = v1.y + t * ( v2.y - v1.y );
+  float x = v1.x + t * ( v2.x - v1.x );
+  float y = v1.y + t * ( v2.y - v1.y );
 
   return Vertex( x, y );
 }
 
-double distanceToLine( Vertex p, Vertex v1, Vertex v2 )
+float distanceToLine( Vertex p, Vertex v1, Vertex v2 )
 {
-  double x[3] = {p.x,v1.x,v2.x};
-  double y[3] = {p.y,v1.y,v2.y};
+  float x[3] = {p.x,v1.x,v2.x};
+  float y[3] = {p.y,v1.y,v2.y};
 
-  double xDiff = x[2] - x[1];
-  double yDiff = y[2] - y[1];
+  float xDiff = x[2] - x[1];
+  float yDiff = y[2] - y[1];
 
-  double denominator = sqrt( xDiff * xDiff + yDiff * yDiff );
+  float denominator = sqrt( xDiff * xDiff + yDiff * yDiff );
 
   if( denominator == 0 ) return -1;
 
-  double numerator = abs( yDiff * x[0] - xDiff * y[0] + x[2] * y[1] - y[2] * x[1] );
+  float numerator = abs( yDiff * x[0] - xDiff * y[0] + x[2] * y[1] - y[2] * x[1] );
 
   return numerator / denominator;
 }
@@ -201,14 +201,14 @@ void PolygonFitting::computeContributingEdges()
     Vertex v1 = R.vertices[ R.edges[i].v1 ];
     Vertex v2 = R.vertices[ R.edges[i].v2 ];
 
-    double smallestAngle = 1000000000;
+    float smallestAngle = 1000000000;
     int bestVertex = 0;
 
     for( int j = 0; j < P.vertices.size(); ++j )
     {
       Vertex p = P.vertices[j].offset( v1 );
 
-      double angle = ccw( v1, v2, p );
+      float angle = ccw( v1, v2, p );
  
       if( angle < smallestAngle )
       {
@@ -231,7 +231,7 @@ void PolygonFitting::computeContributingEdges()
       Vertex v3 = vertices[contributingEdges[s2-1].v1];
       Vertex v4 = vertices[contributingEdges[s2-1].v2];
 
-      pair< double, double > t = intersection( v3, v4, v1, v2 );
+      pair< float, float > t = intersection( v3, v4, v1, v2 );
     
       if( t.first >= 1+0.0000000 || t.first <= -0.0000000 || t.second >= 1+0.0000000 || t.second <= -0.0000000 )
       {
@@ -348,7 +348,7 @@ bool PolygonFitting::isValidFit( Vertex &c )
     Vertex &v1 = vertices[contributingEdges[i].v1];
     Vertex &v2 = vertices[contributingEdges[i].v2];
 
-    double minIX, maxIX, minIY, maxIY;
+    float minIX, maxIX, minIY, maxIY;
 
     if( v1.x < v2.x )
     {
@@ -379,7 +379,7 @@ bool PolygonFitting::isValidFit( Vertex &c )
 
       if( min(v3.x,v4.x) > maxIX || max(v3.x,v4.x) < minIX || min(v3.y,v4.y) > maxIY || max(v3.y,v4.y) < minIY ) continue;
 
-      pair< double, double > t = intersection( v1, v2, v3, v4 );
+      pair< float, float > t = intersection( v1, v2, v3, v4 );
 
       if( t.first < -0.0001 || t.first > 1.0001 || t.second < -0.0001 || t.second > 1.0001 )
       {
@@ -397,7 +397,7 @@ bool PolygonFitting::isValidFit( Vertex &c )
         if( !valid[k] ) continue;
 
         bool closestPointChosen = false;
-        double closestDistance = 1000000000;
+        float closestDistance = 1000000000;
 
         
         for( int i2 = 0; i2 < contributingEdges.size(); ++i2 )
@@ -407,7 +407,7 @@ bool PolygonFitting::isValidFit( Vertex &c )
           Vertex &v5 = vertices[contributingEdges[i2].v1];
           Vertex &v6 = vertices[contributingEdges[i2].v2];
 
-          pair< double, double > t2 = intersection( p, points[k], v5, v6 );
+          pair< float, float > t2 = intersection( p, points[k], v5, v6 );
 
           if( t2.second < 0 || t2.second > 1 ) continue;
 
@@ -439,29 +439,29 @@ bool PolygonFitting::isValidFit( Vertex &c )
 
 struct Cmp
 {
-    bool operator ()(const pair< int, double> &a, const pair< int, double> &b)
+    bool operator ()(const pair< int, float> &a, const pair< int, float> &b)
     {
       if( a.first == b.first ) return false;
         return a.second < b.second;
     }
 };
 
-double angleBetweenVectors( Vertex v1, Vertex v2 )
+float angleBetweenVectors( Vertex v1, Vertex v2 )
 {
-  double dot = v1.x * v2.x + v1.y * v2.y;
-  double det = v1.x * v2.x - v1.y * v2.y;
+  float dot = v1.x * v2.x + v1.y * v2.y;
+  float det = v1.x * v2.x - v1.y * v2.y;
 
   return atan2( det, dot ) * 180.0 / 3.14159265358979;
 }
 
-bool PolygonFitting::findBestScale( double &maxScale, Vertex &bestFitOrigin )
+bool PolygonFitting::findBestScale( float &maxScale, Vertex &bestFitOrigin )
 {
   Vertex origin;
 
   bool scalingUp = true;
   int scaleMultiplier = 1;
-  double scale = maxScale;
-  double scaleOffset = 1;
+  float scale = maxScale;
+  float scaleOffset = 1;
 
   int numScaleDirectionChanges = 0;
 
@@ -540,7 +540,7 @@ bool PolygonFitting::findBestScale( double &maxScale, Vertex &bestFitOrigin )
   return isNewBestScale;
 }
 
-void findBestFit( Polygon P, Polygon R, double &scale, double &rotation, Vertex &offset, double rotationOffset, double startRotation )
+void findBestFit( Polygon P, Polygon R, float &scale, float &rotation, Vertex &offset, float rotationOffset, float startRotation )
 {
   scale = 0;
 
@@ -560,7 +560,7 @@ void findBestFit( Polygon P, Polygon R, double &scale, double &rotation, Vertex 
 
   P.rotateBy(startRotation);
 
-  for( double r = startRotation; r < 360; r += rotationOffset )
+  for( float r = startRotation; r < 360; r += rotationOffset )
   {
     PolygonFitting pf( P, R );
 
@@ -584,10 +584,10 @@ void findBestFit( Polygon P, Polygon R, double &scale, double &rotation, Vertex 
   offset = offset.offset( -origin.x, -origin.y );
 }
 
-void drawImage( Polygon P, Polygon R, double scale, double rotation, Vertex offset, string outputName, double scaleUp )
+void drawImage( Polygon P, Polygon R, float scale, float rotation, Vertex offset, string outputName, float scaleUp )
 {
-  double width = 0;
-  double height = 0;
+  float width = 0;
+  float height = 0;
 
   Vertex origin = Vertex( -1000000, -1000000 );
 
@@ -651,10 +651,10 @@ void drawImage( Polygon P, Polygon R, double scale, double rotation, Vertex offs
   image.vipssave("out.png");
 }
 
-void drawImage( string imageName, Polygon R, double scale, double rotation, Vertex offset, string outputName, double scaleUp )
+void drawImage( string imageName, Polygon R, float scale, float rotation, Vertex offset, string outputName, float scaleUp )
 {
-  double width = 0;
-  double height = 0;
+  float width = 0;
+  float height = 0;
 
   Vertex origin = Vertex( -1000000, -1000000 );
 
@@ -711,7 +711,7 @@ void drawImage( string imageName, Polygon R, double scale, double rotation, Vert
   image.vipssave("out.png");
 }
 
-void polygonFromAlphaImage( Polygon &P, string imageName, double resize )
+void polygonFromAlphaImage( Polygon &P, string imageName, float resize )
 {
   VImage image = VImage::vipsload((char *)imageName.c_str()).autorot().colourspace(VIPS_INTERPRETATION_sRGB).resize(1.0/resize);
 
@@ -788,7 +788,7 @@ void polygonFromAlphaImage( Polygon &P, string imageName, double resize )
   }
 }
 
-void removeExtrasP( Polygon &P, double epsilon )
+void removeExtrasP( Polygon &P, float epsilon )
 {
   vector< int > indices(P.vertices.size());
 
@@ -960,7 +960,7 @@ void floodFill( bool *valid, unsigned char *data, int width, int height )
   }
 }
 
-void concavePolygonFromAlphaImage( Polygon &P, string imageName, double resize )
+void concavePolygonFromAlphaImage( Polygon &P, string imageName, float resize )
 {
   VImage image = VImage::vipsload((char *)imageName.c_str()).autorot().colourspace(VIPS_INTERPRETATION_sRGB).resize(1.0/resize);
 
@@ -1046,7 +1046,7 @@ void convexPolygonFromVertices( vector< Vertex > &vertices, Polygon &P )
   P.offsetBy(origin);
 }
 
-void decimateHelper( Polygon &P, double epsilon )
+void decimateHelper( Polygon &P, float epsilon )
 {
   vector< int > indices(P.vertices.size());
 
@@ -1163,9 +1163,9 @@ void decimateHelper( Polygon &P, double epsilon )
   }
 }
 
-void decimate( Polygon &P, double epsilon )
+void decimate( Polygon &P, float epsilon )
 {
-  double minLength = P.minLength();
+  float minLength = P.minLength();
 
   P.scaleBy(1.0/minLength);
 

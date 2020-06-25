@@ -13,8 +13,6 @@ int main( int argc, char **argv )
 
     SwitchArg recursiveArg( "", "recursive", "Recursive search directories", cmd, false );
 
-    SwitchArg colorArg( "t", "trueColor", "Use de00 for color difference", cmd, false );
-
     ValueArg<int> maxSizeArg( "", "max", "Max size of image before processing", false, -1, "int", cmd);
 
     ValueArg<int> minSizeArg( "", "min", "Min size of image before processing", false, -1, "int", cmd);
@@ -25,9 +23,9 @@ int main( int argc, char **argv )
 
     ValueArg<int> angleOffsetArg( "a", "angleOffset", "Angle offset", false, 90, "int", cmd);
 
-    ValueArg<double> renderScaleArg( "r", "renderScale", "Render scale", false, 1.0, "double", cmd);
+    ValueArg<float> renderScaleArg( "r", "renderScale", "Render scale", false, 1.0, "float", cmd);
 
-    ValueArg<double> imageScaleArg( "i", "imageScale", "Image scale", false, 1.0, "double", cmd);
+    ValueArg<float> imageScaleArg( "i", "imageScale", "Image scale", false, 1.0, "float", cmd);
 
     ValueArg<string> outputArg( "o", "output", "Output name", true, "out", "string", cmd);
 
@@ -40,20 +38,19 @@ int main( int argc, char **argv )
     string inputName                  = pictureArg.getValue();
     vector< string > inputDirectory   = directoryArg.getValue();
     string outputName                 = outputArg.getValue();
-    double imageScale                 = imageScaleArg.getValue();
-    double renderScale                = renderScaleArg.getValue();
+    float imageScale                 = imageScaleArg.getValue();
+    float renderScale                = renderScaleArg.getValue();
     int angleOffset                   = angleOffsetArg.getValue();
     int fillPercentage                = fillPercentageArg.getValue();
     int skip                          = skipArg.getValue();
     int maxSize                       = maxSizeArg.getValue();
     int minSize                       = minSizeArg.getValue();
-    bool trueColor                    = colorArg.getValue();
     bool recursiveSearch              = recursiveArg.getValue();
     string fileName                   = fileArg.getValue();
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunCollage( inputName, outputName, inputDirectory, angleOffset, imageScale, renderScale, fillPercentage, trueColor, fileName, minSize, maxSize, skip, recursiveSearch );
+    RunCollage( inputName, outputName, inputDirectory, angleOffset, imageScale, renderScale, fillPercentage, fileName, minSize, maxSize, skip, recursiveSearch );
   }
   catch (ArgException &e)  // catch any exceptions
   {

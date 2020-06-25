@@ -8,7 +8,7 @@ void createCircleIndices( vector< int > &shapeIndices, int mosaicTileWidth, int 
     {
       bool goodPoint = false;
 
-      if( (double)(4*x * x) / ( tileWidth * tileWidth ) + (double)(4*y * y) / ( tileHeight * tileHeight ) <= 1.0 )
+      if( (float)(4*x * x) / ( tileWidth * tileWidth ) + (float)(4*y * y) / ( tileHeight * tileHeight ) <= 1.0 )
       {
         goodPoint = true;
       }
@@ -18,20 +18,20 @@ void createCircleIndices( vector< int > &shapeIndices, int mosaicTileWidth, int 
   }
 }
 
-void createJigsawIndices( vector< vector < int > > &shapeIndices, double mosaicTileWidth, double mosaicTileHeight, vector< int > &tileWidth, vector< int > &tileHeight )
+void createJigsawIndices( vector< vector < int > > &shapeIndices, float mosaicTileWidth, float mosaicTileHeight, vector< int > &tileWidth, vector< int > &tileHeight )
 {
-  double pi = 3.14159265358979;
+  float pi = 3.14159265358979;
 
   for( int i = -1, n = 0; i <= 1; i += 2 )
   {
     for( int j = -1; j <= 1; j += 2 )
     {
-      double yOffset = mosaicTileHeight * (.3*(i>0));
+      float yOffset = mosaicTileHeight * (.3*(i>0));
       for( int k = -1; k <= 1; k += 2 )
       {
         for( int l = -1; l <= 1; l += 2, ++n )
         {
-          double xOffset = mosaicTileWidth * (.3*(k>0));
+          float xOffset = mosaicTileWidth * (.3*(k>0));
 
           for( int y = 0, p = 0; y < tileHeight[n]; ++y )
           {
@@ -131,9 +131,9 @@ void createJigsawIndices( vector< vector < int > > &shapeIndices, double mosaicT
   }
 }
 
-void createJigsawIndices0( vector< int > &shapeIndices, double mosaicTileWidth, double mosaicTileHeight, int tileWidth, int tileHeight )
+void createJigsawIndices0( vector< int > &shapeIndices, float mosaicTileWidth, float mosaicTileHeight, int tileWidth, int tileHeight )
 {
-  double pi = 3.14159265358979;
+  float pi = 3.14159265358979;
   for( int y = 0, p = 0; y < tileHeight; ++y )
   {
     for( int x = 0; x < tileWidth; ++x, ++p )
@@ -178,9 +178,9 @@ void createJigsawIndices0( vector< int > &shapeIndices, double mosaicTileWidth, 
   }
 }
 
-void createJigsawIndices1( vector< int > &shapeIndices, double mosaicTileWidth, double mosaicTileHeight, int tileWidth, int tileHeight )
+void createJigsawIndices1( vector< int > &shapeIndices, float mosaicTileWidth, float mosaicTileHeight, int tileWidth, int tileHeight )
 {
-  double pi = 3.14159265358979;
+  float pi = 3.14159265358979;
   for( int y = 0, p = 0; y < tileHeight; ++y )
   {
     for( int x = 0; x < tileWidth; ++x, ++p )

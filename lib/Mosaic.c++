@@ -1,8 +1,8 @@
 #include "Mosaic.h"
 
-void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< int > > &mosaic, string outputImage, int tileWidth, int tileHeight )
+void buildImage( vector< vector< unsigned char > > &imageData, vector< vector< int > > &mosaic, string outputImage, int tileWidth, int tileHeight, bool quiet )
 {
-  cout << "Generating image " << outputImage << endl;
+  if( !quiet ) cout << "Generating image " << outputImage << endl;
 
   // Dimensions of mosaic
   int width = mosaic[0].size();
@@ -137,9 +137,9 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
           int width = image.width();
           int height = image.height();
           
-          double minDim, minTileDim;
+          float minDim, minTileDim;
 
-          if( (double)width/(double)tileWidth < (double)height/(double)tileHeight )
+          if( (float)width/(float)tileWidth < (float)height/(float)tileHeight )
           {
             minDim = width;
             minTileDim = tileWidth;
@@ -150,7 +150,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
             minTileDim = tileHeight;
           }
 
-          double size = minDim/minTileDim;
+          float size = minDim/minTileDim;
 
           // Logarithm of square size
           int log = round( log2( size ) );
@@ -168,7 +168,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
           string zoomableName = outputDirectory + to_string(mosaic[i][j]);
 
           // Extract square, flip, and rotate based on cropdata, and then save as a deep zoom image
-          image = image.extract_area(get<1>(cropData[current]), get<2>(cropData[current]), ceil(minDim*tileWidth/minTileDim), ceil(minDim*tileHeight/minTileDim)).resize((double)newSize*minTileDim/minDim);
+          image = image.extract_area(get<1>(cropData[current]), get<2>(cropData[current]), ceil(minDim*tileWidth/minTileDim), ceil(minDim*tileHeight/minTileDim)).resize((float)newSize*minTileDim/minDim);
 
           if( get<4>(cropData[current]) )
           {
@@ -413,8 +413,8 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
       }
     }
 
-    width = (int)ceil((double)width/2.0);
-    height = (int)ceil((double)height/2.0);
+    width = (int)ceil((float)width/2.0);
+    height = (int)ceil((float)height/2.0);
 
     currentMosaic << "[";
 
@@ -452,7 +452,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
   htmlFile << "\nvar mosaicTileWidth = " << tileWidth << ";\nvar mosaicTileHeight = " << tileHeight << ";\nvar mosaicWidth = " << numHorizontal << ";\nvar mosaicHeight = " << numVertical << ";\nvar mosaicLevel = " << mosaicStrings.size()-1 << ";\nvar minZoomablesLevel = " << minZoomablesLevel << ";\nvar maxZoomablesLevel = " << maxZoomablesLevel << ";\n";
 }
 
-void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, bool trueColor, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, bool useEdgeWeights, bool dither, double gamma, bool gammutMapping, bool quiet, bool recursiveSearch )
+void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, float edgeWeight, bool dither, float gamma, bool gammutMapping, bool quiet, bool recursiveSearch )
 {
   bool inputIsDirectory = (vips_foreign_find_save( inputName.c_str() ) == NULL);
   bool isDeepZoom = (vips_foreign_find_save( outputName.c_str() ) == NULL) && !inputIsDirectory;
@@ -613,39 +613,16 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
   }
 
   int tileArea = mosaicTileWidth*mosaicTileHeight*3;
-  int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
+  int numVertical = int( (float)height / (float)width * (float)numHorizontal * (float)mosaicTileWidth/(float)mosaicTileHeight );
   int numUnique = 0;
 
-  float* d;
-  vector< vector< float > > lab;
+  float* d = (float *)malloc(numImages*tileArea*sizeof(float));
 
-  if( trueColor  )
+  for( int j = 0; j < numImages; ++j )
   {
-    lab = vector< vector< float > >( numImages, vector< float >(tileArea) );
-
-    float r,g,b;
-
-    for( int j = 0; j < numImages; ++j )
+    for( int p = 0; p < tileArea; p+=3 )
     {
-      for( int p = 0; p < tileArea; p+=3 )
-      {
-//        vips_col_sRGB2scRGB_8(mosaicTileData[j][p],mosaicTileData[j][p+1],mosaicTileData[j][p+2], &r,&g,&b );
-//        vips_col_scRGB2XYZ( r, g, b, &r, &g, &b );
-//        vips_col_XYZ2Lab( r, g, b, &lab[j][p], &lab[j][p+1], &lab[j][p+2] );
-        rgbToLab(mosaicTileData[j][p],mosaicTileData[j][p+1],mosaicTileData[j][p+2], lab[j][p], lab[j][p+1], lab[j][p+2] );
-      }
-    }
-  }
-  else
-  {
-    d = (float *)malloc(numImages*tileArea*sizeof(float));
-
-    for( int j = 0; j < numImages; ++j )
-    {
-      for( int p = 0; p < tileArea; ++p )
-      {
-        d[j*tileArea+p] = mosaicTileData[j][p];
-      }
+      rgbToLab(mosaicTileData[j][p],mosaicTileData[j][p+1],mosaicTileData[j][p+2], d[j*tileArea+p+0], d[j*tileArea+p+1], d[j*tileArea+p+2] );
     }
   }
 
@@ -654,31 +631,13 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     g_mkdir(outputName.c_str(), 0777);
   }
 
-  my_kd_tree_t* mat_index;
-
-  if( !trueColor  )
-  {
-    mat_index = new my_kd_tree_t(tileArea, numImages, d, 2 );
-  }
+  my_kd_tree_t* mat_index = new my_kd_tree_t(tileArea, numImages, d, 2 );
 
   for( int i = 0; i < inputImages.size(); ++i )
   {
     vector< vector< int > > mosaic( numVertical, vector< int >( numHorizontal, -1 ) );
 
-    int threads = dither ? 1 : numberOfCPUS();
-
-    ProgressBar *buildingMosaic = new ProgressBar(numVertical*numHorizontal/threads, "Building mosaic");
-
-    if( trueColor  )
-    {
-      numUnique = generateMosaic( lab, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, useEdgeWeights, dither, gamma, gammutMapping, quiet );
-    }
-    else
-    {
-      numUnique = generateMosaic( mat_index, mosaic, inputImages[i], buildingMosaic, repeat, false, numHorizontal * mosaicTileWidth, useEdgeWeights, dither, gamma, gammutMapping, quiet );
-    }
-
-    if( !quiet ) buildingMosaic->Finish();
+    numUnique = generateMosaic( mat_index, mosaic, inputImages[i], repeat, false, numHorizontal * mosaicTileWidth, edgeWeight, dither, gamma, gammutMapping, quiet );
 
     if( isDeepZoom )
     {
@@ -700,11 +659,11 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
     {
       if( mosaicTileWidth == imageTileWidth )
       {
-        buildImage( mosaicTileData, mosaic, outputImages[i], mosaicTileWidth, mosaicTileHeight );
+        buildImage( mosaicTileData, mosaic, outputImages[i], mosaicTileWidth, mosaicTileHeight, quiet );
       }
       else
       {
-        buildImage( imageTileData, mosaic, outputImages[i], imageTileWidth, imageTileHeight );
+        buildImage( imageTileData, mosaic, outputImages[i], imageTileWidth, imageTileHeight, quiet );
       }
     }
   }

@@ -1,6 +1,6 @@
 #include "Collage.h"
 
-void generateCollageThumbnails( string imageDirectory, vector< string > &inputDirectory, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double scale, double renderScale, int minSize, int maxSize, bool recursiveSearch )
+void generateCollageThumbnails( string imageDirectory, vector< string > &inputDirectory, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float scale, float renderScale, int minSize, int maxSize, bool recursiveSearch )
 {
   DIR *dir;
   struct dirent *ent;
@@ -27,10 +27,11 @@ void generateCollageThumbnails( string imageDirectory, vector< string > &inputDi
       }
       else if( recursiveSearch && ent->d_name[0] != '.' )
       {
-        stat(ent->d_name, &s);
-        if (s.st_mode & S_IFDIR)
+        string newName = imageDirectory + ent->d_name;
+        stat((char *)newName.c_str(), &s);
+        if (s.st_mode && S_IFDIR)
         {
-          inputDirectory.push_back( imageDirectory + ent->d_name );
+          inputDirectory.push_back( newName );
         }
       }
     }
@@ -57,7 +58,7 @@ void generateCollageThumbnails( string imageDirectory, vector< string > &inputDi
       int maxDimension = max( width, height );
 
       if( minSize > -1 && ( image.width() < minSize || image.height() < minSize ) ) continue;
-      if( maxSize > -1 && maxDimension > maxSize ) image = image.resize( (double)maxSize/(double)maxDimension );
+      if( maxSize > -1 && maxDimension > maxSize ) image = image.resize( (float)maxSize/(float)maxDimension );
 
       width = image.width();
       height = image.height();
@@ -132,20 +133,20 @@ void generateCollageThumbnails( string imageDirectory, vector< string > &inputDi
   processing_images->Finish();
 }
 
-int rotateX( double x, double y, double cosAngle, double sinAngle, double halfWidth, double halfHeight )
+int rotateX( float x, float y, float cosAngle, float sinAngle, float halfWidth, float halfHeight )
 {
   return cosAngle*(x-halfWidth) - sinAngle*(y-halfHeight) + halfWidth;
 }
 
-int rotateY( double x, double y, double cosAngle, double sinAngle, double halfWidth, double halfHeight )
+int rotateY( float x, float y, float cosAngle, float sinAngle, float halfWidth, float halfHeight )
 {
   return sinAngle*(x-halfWidth) + cosAngle*(y-halfHeight) + halfHeight;
 }
 
-rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int imageHeight, int skip, int iteration, vector< int > &lastUsed, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, unsigned char * imageData, unsigned char * computeMaskData, int angleOffset, bool trueColor )
+rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int imageHeight, int skip, int iteration, vector< int > &lastUsed, vector< vector< float > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float * imageData, float * edgeData, unsigned char * computeMaskData, int angleOffset )
 {
   int bestImage = -1;
-  double bestDifference = 3<<16, bestAngle = 0;
+  float bestDifference = 3<<16, bestAngle = 0;
 
   // Run through every image in thread area
   // Round down to nearest even number
@@ -154,20 +155,20 @@ rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int
     if( skip >=0 && iteration - lastUsed[k>>1] <= skip ) continue;
 
     // Rotate image for every angleOffset angles
-    for( double a = 0; a < 360; a += angleOffset )
+    for( float a = 0; a < 360; a += angleOffset )
     {
       // Convert to radians
-      double angle = a * 3.14159265/180.0;
+      float angle = a * 3.14159265/180.0;
       int width = dimensions[k].first;
       int height = dimensions[k].second;
 
-      double skipDifference = bestDifference * (width+1) * (height+1);
+      float skipDifference = bestDifference * (width+1) * (height+1);
 
       // Compute data for point rotation
-      double cosAngle = cos(angle);
-      double sinAngle = sin(angle);
-      double halfWidth = (double)width/2.0;
-      double halfHeight = (double)height/2.0;
+      float cosAngle = cos(angle);
+      float sinAngle = sin(angle);
+      float halfWidth = (float)width/2.0;
+      float halfHeight = (float)height/2.0;
 
       // Conpute side offset of rotated image from regular image
       int xOffset = max( rotateX(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateX(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - width;
@@ -177,17 +178,17 @@ rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int
       int newWidth = width + 2*xOffset;
       int newHeight = height + 2*yOffset;
 
-      double difference = 0;
-      double usedPixels = 0;
+      float difference = 0;
+      float usedPixels = 0;
 
       // New data for point rotation in reverse direction
       cosAngle = cos(-angle);
       sinAngle = sin(-angle);
-      halfWidth = (double)newWidth/2.0;
-      halfHeight = (double)newHeight/2.0;
+      halfWidth = (float)newWidth/2.0;
+      halfHeight = (float)newHeight/2.0;
 
-      double xOffset2 = (cosAngle-1.0)*halfWidth - sinAngle*halfHeight;
-      double yOffset2 = sinAngle*halfWidth + (cosAngle-1.0)*halfHeight;
+      float xOffset2 = (cosAngle-1.0)*halfWidth - sinAngle*halfHeight;
+      float yOffset2 = sinAngle*halfWidth + (cosAngle-1.0)*halfHeight;
 
       // Traverse data for rotated image to find difference from input image
       for( int iy = max( y - newHeight/2, 0 ), i = iy - y + newHeight/2, endy = min( imageHeight - y + newHeight/2, newHeight); i < endy && difference < skipDifference; ++i, ++iy )
@@ -199,14 +200,14 @@ rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int
         // Index of point in input image
         unsigned long long index = (unsigned long long)iy*(unsigned long long)imageWidth+(unsigned long long)ix;
 
-        double icos = (double)i * cosAngle;
-        double isin = (double)i * sinAngle;
+        float icos = (float)i * cosAngle;
+        float isin = (float)i * sinAngle;
 
         for( ; j < endx && difference < skipDifference; ++j, ++index )
         {
           // New x and y of rotated image point
-          int newX = (double)j*cosAngle - isin - xOffset2 - xOffset;
-          int newY = (double)j*sinAngle + icos - yOffset2 - yOffset;
+          int newX = (float)j*cosAngle - isin - xOffset2 - xOffset;
+          int newY = (float)j*sinAngle + icos - yOffset2 - yOffset;
 
           // Make sure that the point is within the image
           if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
@@ -229,30 +230,13 @@ rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int
           // Update skipDifference
           skipDifference += bestDifference;
 
-          if( trueColor )
-          {
-            float l1,a1,b1,l2,a2,b2;
-            // Convert rgb to rgb16
-            vips_col_sRGB2scRGB_8(imageData[3ULL*index+0ULL],imageData[3ULL*index+1ULL],imageData[3ULL*index+2ULL], &l1,&a1,&b1 );
-            vips_col_sRGB2scRGB_8(images[k][3*p+0],images[k][3*p+1],images[k][3*p+2], &l2,&a2,&b2 );
-            // Convert rgb16 to xyz
-            vips_col_scRGB2XYZ( l1, a1, b1, &l1, &a1, &b1 );
-            vips_col_scRGB2XYZ( l2, a2, b2, &l2, &a2, &b2 );
-            // Convert xyz to lab
-            vips_col_XYZ2Lab( l1, a1, b1, &l1, &a1, &b1 );
-            vips_col_XYZ2Lab( l2, a2, b2, &l2, &a2, &b2 );
+          
+          // Compute the sum-of-squares for color difference
+          float il = edgeData[index] * (imageData[3ULL*index+0ULL]-images[k][3*p+0]);
+          float ia = imageData[3ULL*index+1ULL]-images[k][3*p+1];
+          float ib = imageData[3ULL*index+2ULL]-images[k][3*p+2];
 
-            difference += vips_col_dE00( l1, a1, b1, l2, a2, b2 );
-          }
-          else
-          {
-            // Compute the sum-of-squares for color difference
-            int ir = imageData[3ULL*index+0ULL]-images[k][3*p+0];
-            int ig = imageData[3ULL*index+1ULL]-images[k][3*p+1];
-            int ib = imageData[3ULL*index+2ULL]-images[k][3*p+2];
-
-            difference += ir*ir + ig*ig + ib*ib;
-          }
+          difference += sqrt( il*il + ia*ia + ib*ib );
         }
       }
 
@@ -269,7 +253,7 @@ rotateResult findSmallest( int x, int y ,int start, int end, int imageWidth, int
   return make_tuple(bestImage, bestAngle, bestDifference );
 }
 
-void buildTopLevel( string outputImage, int start, int end, int outputWidth, int outputHeight, vector< pair< int, int > > &points, vector< pair< int, double > > &bestImages, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, bool trueColor, ProgressBar *topLevel )
+void buildTopLevel( string outputImage, int start, int end, int outputWidth, int outputHeight, vector< pair< int, int > > &points, vector< pair< int, float > > &bestImages, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float resize, ProgressBar *topLevel )
 {
   for( int tileOffsetY = start; tileOffsetY < end; tileOffsetY += 256 )
   {
@@ -290,16 +274,16 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
         int y = points[point].second;
 
         int bestImage = bestImages[point].first;
-        double bestAngle = bestImages[point].second;
+        float bestAngle = bestImages[point].second;
 
         // Set the values for the output image
         int width = dimensions[bestImage+1].first;
         int height = dimensions[bestImage+1].second;
 
-        double cosAngle = cos(bestAngle);
-        double sinAngle = sin(bestAngle);
-        double halfWidth = (double)width/2.0;
-        double halfHeight = (double)height/2.0;
+        float cosAngle = cos(bestAngle);
+        float sinAngle = sin(bestAngle);
+        float halfWidth = (float)width/2.0;
+        float halfHeight = (float)height/2.0;
 
         int xOffset = max( rotateX(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateX(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - width;
         int yOffset = max( rotateY(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateY(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - height;
@@ -309,8 +293,8 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
 
         cosAngle = cos(-bestAngle);
         sinAngle = sin(-bestAngle);
-        halfWidth = (double)newWidth/2.0;
-        halfHeight = (double)newHeight/2.0;
+        halfWidth = (float)newWidth/2.0;
+        halfHeight = (float)newHeight/2.0;
 
         x*=resize;
         y*=resize;
@@ -351,10 +335,10 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
             int used = 0;
 
             //  Get the average of the rotated pixels 1/2 above, below, and to the sides for the average to get be a better color
-            for( double k = -1; k <= 1; k += 2 )
+            for( float k = -1; k <= 1; k += 2 )
             {
-              int newX = rotateX((double)j+k/2.0,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
-              int newY = rotateY((double)j+k/2.0,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
+              int newX = rotateX((float)j+k/2.0,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
+              int newY = rotateY((float)j+k/2.0,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
 
               if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
 
@@ -366,8 +350,8 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
               m+=masks[bestImage+1][p];
               ++used;
 
-              newX = rotateX(j,(double)i+k/2.0,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
-              newY = rotateY(j,(double)i+k/2.0,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
+              newX = rotateX(j,(float)i+k/2.0,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
+              newY = rotateY(j,(float)i+k/2.0,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
 
               if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
 
@@ -393,9 +377,9 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
             m/=used;
 
             // Set output colors
-            tileData[3*index+0] = min(tileData[3*index+0]+int((double)(255-tileMaskData[index])*(double)r/255.0),255);
-            tileData[3*index+1] = min(tileData[3*index+1]+int((double)(255-tileMaskData[index])*(double)g/255.0),255);
-            tileData[3*index+2] = min(tileData[3*index+2]+int((double)(255-tileMaskData[index])*(double)b/255.0),255);
+            tileData[3*index+0] = min(tileData[3*index+0]+int((float)(255-tileMaskData[index])*(float)r/255.0),255);
+            tileData[3*index+1] = min(tileData[3*index+1]+int((float)(255-tileMaskData[index])*(float)g/255.0),255);
+            tileData[3*index+2] = min(tileData[3*index+2]+int((float)(255-tileMaskData[index])*(float)b/255.0),255);
             
             // Set output transparency mask
             tileMaskData[index] = min(255,m+(int)tileMaskData[index]);
@@ -411,7 +395,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
   }
 }
 
-void buildCollage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, double resize, int angleOffset, int fillPercentage, bool trueColor, int skip )
+void buildCollage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float resize, int angleOffset, int fillPercentage, int skip )
 {
   VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() ).autorot();
 
@@ -428,7 +412,56 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
   int imageWidth = image.width();
   int imageHeight = image.height();
 
+
+
+
+
+
+
+
+
+  // Load input image
+  VImage edgeImage = VImage::vipsload( "edge.jpg" ).autorot();
+
+  // Convert to a three band image
+  if( edgeImage.bands() == 1 )
+  {
+    edgeImage = edgeImage.bandjoin(edgeImage).bandjoin(edgeImage);
+  }
+  if( edgeImage.bands() == 4 )
+  {
+    edgeImage = edgeImage.flatten();
+  }
+
+  float * edgeData = new float[imageWidth*imageHeight];
+
+  generateEdgeWeights( edgeImage, edgeData, 24, 2.5 );
+
+
+
+
+
+
+
+
   unsigned char * imageData = ( unsigned char * )image.data();
+  float * c2 = new float[3*imageWidth*imageHeight];
+
+  for( int p = 0; p < imageWidth*imageHeight; ++p )
+  {
+    rgbToLab( imageData[3*p+0], imageData[3*p+1], imageData[3*p+2], c2[3*p+0], c2[3*p+1], c2[3*p+2] );
+  }
+
+  vector< vector< float > > images2;
+
+  for( int i = 0; i < images.size(); ++i )
+  {
+    images2.push_back( vector< float >( images[i].size() ) );
+    for( int p = 0; p < images[i].size(); p+=3 )
+    {
+      rgbToLab( images[i][p+0], images[i][p+1], images[i][p+2], images2[i][p+0], images2[i][p+1], images2[i][p+2] );
+    }
+  }
 
   // Scaled output sizes
   int outputWidth = ceil(imageWidth*resize);
@@ -441,7 +474,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
   unsigned char * computeMaskData = ( unsigned char * )calloc (imageWidth*imageHeight,sizeof(unsigned char));
 
   vector< pair< int, int > > points;
-  vector< pair< int, double > > bestImages;
+  vector< pair< int, float > > bestImages;
 
   vector< int > lastUsed( images.size()/2, -skip-1 );
 
@@ -467,7 +500,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
     processing_images->Progressed(alphaSum);
 
     int bestImage = -1;
-    double bestDifference = DBL_MAX, bestAngle = 0;
+    float bestDifference = DBL_MAX, bestAngle = 0;
 
     int threads = numberOfCPUS();
 
@@ -475,7 +508,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
 
     for( int k = 0; k < threads; ++k )
     {
-      ret[k] = async( launch::async, &findSmallest, x, y, k*images.size()/threads, (k+1)*images.size()/threads, imageWidth, imageHeight, skip, iteration, ref(lastUsed), ref(images), ref(masks), ref(dimensions), imageData, computeMaskData, angleOffset, trueColor );
+      ret[k] = async( launch::async, &findSmallest, x, y, k*images2.size()/threads, (k+1)*images2.size()/threads, imageWidth, imageHeight, skip, iteration, ref(lastUsed), ref(images2), ref(masks), ref(dimensions), c2, edgeData, computeMaskData, angleOffset );
     }
 
     // Wait for threads to finish
@@ -498,10 +531,10 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
     int width = dimensions[bestImage].first;
     int height = dimensions[bestImage].second;
 
-    double cosAngle = cos(bestAngle);
-    double sinAngle = sin(bestAngle);
-    double halfWidth = (double)width/2.0;
-    double halfHeight = (double)height/2.0;
+    float cosAngle = cos(bestAngle);
+    float sinAngle = sin(bestAngle);
+    float halfWidth = (float)width/2.0;
+    float halfHeight = (float)height/2.0;
 
     int xOffset = max( rotateX(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateX(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - width;
     int yOffset = max( rotateY(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateY(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - height;
@@ -511,8 +544,8 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
 
     cosAngle = cos(-bestAngle);
     sinAngle = sin(-bestAngle);
-    halfWidth = (double)newWidth/2.0;
-    halfHeight = (double)newHeight/2.0;
+    halfWidth = (float)newWidth/2.0;
+    halfHeight = (float)newHeight/2.0;
 
     // Set the mask value for the input image mask
     for( int i = 0; i < newHeight; ++i )
@@ -544,7 +577,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
     }
 
     points.push_back( pair< int, int >(x,y) );
-    bestImages.push_back( pair< int, double >(bestImage,bestAngle) );
+    bestImages.push_back( pair< int, float >(bestImage,bestAngle) );
 
     lastUsed[bestImage>>1] = iteration;
 
@@ -570,16 +603,16 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
       int y = points[point].second;
 
       int bestImage = bestImages[point].first;
-      double bestAngle = bestImages[point].second;
+      float bestAngle = bestImages[point].second;
       
       // Set the values for the output image
       int width = dimensions[bestImage+1].first;
       int height = dimensions[bestImage+1].second;
 
-      double cosAngle = cos(bestAngle);
-      double sinAngle = sin(bestAngle);
-      double halfWidth = (double)width/2.0;
-      double halfHeight = (double)height/2.0;
+      float cosAngle = cos(bestAngle);
+      float sinAngle = sin(bestAngle);
+      float halfWidth = (float)width/2.0;
+      float halfHeight = (float)height/2.0;
 
       int xOffset = max( rotateX(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateX(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - width;
       int yOffset = max( rotateY(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateY(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - height;
@@ -589,8 +622,8 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
 
       cosAngle = cos(-bestAngle);
       sinAngle = sin(-bestAngle);
-      halfWidth = (double)newWidth/2.0;
-      halfHeight = (double)newHeight/2.0;
+      halfWidth = (float)newWidth/2.0;
+      halfHeight = (float)newHeight/2.0;
 
       x*=resize;
       y*=resize;
@@ -604,10 +637,10 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
           int used = 0;
 
           //  Get the average of the rotated pixels 1/2 above, below, and to the sides for the average to get be a better color
-          for( double k = -1; k <= 1; k += 2 )
+          for( float k = -1; k <= 1; k += 2 )
           {
-            int newX = rotateX((double)j+k/2.0,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
-            int newY = rotateY((double)j+k/2.0,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
+            int newX = rotateX((float)j+k/2.0,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
+            int newY = rotateY((float)j+k/2.0,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
 
             if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
 
@@ -619,8 +652,8 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
             m+=masks[bestImage+1][p];
             ++used;
 
-            newX = rotateX(j,(double)i+k/2.0,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
-            newY = rotateY(j,(double)i+k/2.0,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
+            newX = rotateX(j,(float)i+k/2.0,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
+            newY = rotateY(j,(float)i+k/2.0,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
 
             if( (newX < 0) || (newX > width-1) || (newY < 0) || (newY > height-1) ) continue;
 
@@ -668,9 +701,9 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
           if( outputMaskData[index] == 255 ) continue;
 
           // Set output colors
-          outputData[3ULL*index+0ULL] = min(outputData[3ULL*index+0ULL]+int((double)(255-outputMaskData[index])*(double)r/255.0),255);
-          outputData[3ULL*index+1ULL] = min(outputData[3ULL*index+1ULL]+int((double)(255-outputMaskData[index])*(double)g/255.0),255);
-          outputData[3ULL*index+2ULL] = min(outputData[3ULL*index+2ULL]+int((double)(255-outputMaskData[index])*(double)b/255.0),255);
+          outputData[3ULL*index+0ULL] = min(outputData[3ULL*index+0ULL]+int((float)(255-outputMaskData[index])*(float)r/255.0),255);
+          outputData[3ULL*index+1ULL] = min(outputData[3ULL*index+1ULL]+int((float)(255-outputMaskData[index])*(float)g/255.0),255);
+          outputData[3ULL*index+2ULL] = min(outputData[3ULL*index+2ULL]+int((float)(255-outputMaskData[index])*(float)b/255.0),255);
           
           // Set output transparency mask
           outputMaskData[index] = min(255,m+(int)outputMaskData[index]);
@@ -693,7 +726,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
 
     int threads = numberOfCPUS();
 
-    ProgressBar *topLevel = new ProgressBar(ceil((double)outputWidth/256.0)*ceil((double)outputHeight/((double)threads*256.0)), "Building top level");
+    ProgressBar *topLevel = new ProgressBar(ceil((float)outputWidth/256.0)*ceil((float)outputHeight/((float)threads*256.0)), "Building top level");
 
     future< void > ret[threads];
 
@@ -705,7 +738,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
       start = (start / 256 ) * 256;
       if( k+1 < threads ) end = (end / 256 ) * 256;
 
-      ret[k] = async( launch::async, &buildTopLevel, string(outputImage).append("_files/"+to_string(level)+"/"), start, end, outputWidth, outputHeight, ref(points), ref(bestImages), ref(images), ref(masks), ref(dimensions), resize, trueColor, topLevel );
+      ret[k] = async( launch::async, &buildTopLevel, string(outputImage).append("_files/"+to_string(level)+"/"), start, end, outputWidth, outputHeight, ref(points), ref(bestImages), ref(images), ref(masks), ref(dimensions), resize, topLevel );
     }
 
     // Wait for threads to finish
@@ -725,17 +758,17 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
     dzi_file.close();
 
     int numLevels = 0;
-    for( int o = ceil((double)outputWidth/256.0); o > 1; o = ceil((double)o/2.0) ) numLevels += o;
+    for( int o = ceil((float)outputWidth/256.0); o > 1; o = ceil((float)o/2.0) ) numLevels += o;
 
     ProgressBar *lowerLevels = new ProgressBar(numLevels, "Building lower levels");
 
-    outputWidth = (int)ceil((double)outputWidth/ 128.0 );
-    outputHeight = (int)ceil((double)outputHeight/ 128.0 );
+    outputWidth = (int)ceil((float)outputWidth/ 128.0 );
+    outputHeight = (int)ceil((float)outputHeight/ 128.0 );
 
     for( ; level > 0; --level )
     {
-      outputWidth = (int)ceil((double)outputWidth/ 2.0 );
-      outputHeight = (int)ceil((double)outputHeight/ 2.0 );
+      outputWidth = (int)ceil((float)outputWidth/ 2.0 );
+      outputHeight = (int)ceil((float)outputHeight/ 2.0 );
 
       string current = string(outputImage).append("_files/"+to_string(level-1)+"/");
       string upper = string(outputImage).append("_files/"+to_string(level)+"/");
@@ -789,7 +822,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
   }
 }
 
-void RunCollage( string inputName, string outputName, vector< string > inputDirectory, int angleOffset, double imageScale, double renderScale, int fillPercentage, bool trueColor, string fileName, int minSize, int maxSize, int skip, bool recursiveSearch )
+void RunCollage( string inputName, string outputName, vector< string > inputDirectory, int angleOffset, float imageScale, float renderScale, int fillPercentage, string fileName, int minSize, int maxSize, int skip, bool recursiveSearch )
 {
   vector< vector< unsigned char > > images, masks;
   vector< pair< int, int > > dimensions;
@@ -804,8 +837,8 @@ void RunCollage( string inputName, string outputName, vector< string > inputDire
     {
       int numImages;
       data.read( (char *)&numImages, sizeof(int) );
-      data.read( (char *)&imageScale, sizeof(double) );
-      data.read( (char *)&renderScale, sizeof(double) );
+      data.read( (char *)&imageScale, sizeof(float) );
+      data.read( (char *)&renderScale, sizeof(float) );
     
       images.resize( numImages );
       masks.resize( numImages );
@@ -846,8 +879,8 @@ void RunCollage( string inputName, string outputName, vector< string > inputDire
       int numImages = images.size();
 
       data.write( (char *)&numImages, sizeof(int) );
-      data.write( (char *)&imageScale, sizeof(double) );
-      data.write( (char *)&renderScale, sizeof(double) );
+      data.write( (char *)&imageScale, sizeof(float) );
+      data.write( (char *)&renderScale, sizeof(float) );
 
       for( int i = 0; i < numImages; ++i )
       {
@@ -865,5 +898,5 @@ void RunCollage( string inputName, string outputName, vector< string > inputDire
 
   skip = min( skip, (((int)images.size())>>1)-1 );
 
-  buildCollage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, angleOffset, fillPercentage, trueColor, skip );
+  buildCollage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, angleOffset, fillPercentage, skip );
 }
