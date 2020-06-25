@@ -56,18 +56,28 @@ static void relax_points(const jcv_diagram* diagram, jcv_point* points)
   }
 }
 
-void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrelaxations, int width, int height )
+void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrelaxations, int width, int height, string fileName )
 {
   jcv_point* points = 0;
 
   points = (jcv_point*)malloc( sizeof(jcv_point) * (size_t)count);
 
-  srand(0);
-
-  for( int i = 0; i < count; ++i )
+  if( fileName != " " )
   {
-    points[i].x = (float)(rand()%width);
-    points[i].y = (float)(rand()%height);
+    ifstream data( fileName, ios::binary );
+    data.read( (char *)&count, sizeof(int) );
+    cout << count << endl;
+    data.read( (char *)points, count*sizeof(jcv_point));
+  }
+  else
+  {
+    srand(0);
+
+    for( int i = 0; i < count; ++i )
+    {
+      points[i].x = (float)(rand()%width);
+      points[i].y = (float)(rand()%height);
+    }
   }
 
   jcv_rect bounding_box = { { 0.0f, 0.0f }, { (float)width, (float)height } };
@@ -75,15 +85,18 @@ void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrel
   const jcv_site* sites;
   jcv_graphedge* graph_edge;
 
-  for( int i = 0; i < numrelaxations; ++i )
+  if( fileName == " " )
   {
-    jcv_diagram diagram;
-    memset(&diagram, 0, sizeof(jcv_diagram));
-    jcv_diagram_generate(count, (const jcv_point*)points, &bounding_box, &diagram);
+    for( int i = 0; i < numrelaxations; ++i )
+    {
+      jcv_diagram diagram;
+      memset(&diagram, 0, sizeof(jcv_diagram));
+      jcv_diagram_generate(count, (const jcv_point*)points, &bounding_box, &diagram);
 
-    relax_points(&diagram, points);
+      relax_points(&diagram, points);
 
-    jcv_diagram_free( &diagram );
+      jcv_diagram_free( &diagram );
+    }
   }
 
   memset(&diagram, 0, sizeof(jcv_diagram));
@@ -722,7 +735,7 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
   }
 }
 
-void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, float renderScale, float buildScale, float angleOffset, bool skipNearby, float sizePower, bool recursiveSearch )
+void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, float renderScale, float buildScale, float angleOffset, float edgeWeight, bool skipNearby, float sizePower, bool recursiveSearch, string fileName )
 {
   vector< Polygon > polygons, imagePolygons;
   vector< vector< unsigned char > > images, masks;
@@ -775,7 +788,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
   float * edgeData = new float[inputWidth*inputHeight];
 
-  generateEdgeWeights( edgeImage, edgeData, 24, 2.5 );
+  generateEdgeWeights( edgeImage, edgeData, 24, edgeWeight );
 
 
 
@@ -784,7 +797,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
   int outputWidth = inputWidth;
   int outputHeight = inputHeight;
 
-  generateVoronoiPolygons( polygons, count, 100, outputWidth, outputHeight );
+  generateVoronoiPolygons( polygons, count, 100, outputWidth, outputHeight, fileName );
 
 
   float cellrange[4] = {1000000000,1000000000,-1000000000,-1000000000};
