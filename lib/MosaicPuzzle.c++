@@ -56,7 +56,7 @@ static void relax_points(const jcv_diagram* diagram, jcv_point* points)
   }
 }
 
-void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrelaxations, int width, int height, string fileName )
+void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrelaxations, int width, int height, string fileName, float buildScale )
 {
   jcv_point* points = 0;
 
@@ -66,8 +66,13 @@ void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrel
   {
     ifstream data( fileName, ios::binary );
     data.read( (char *)&count, sizeof(int) );
-    cout << count << endl;
     data.read( (char *)points, count*sizeof(jcv_point));
+
+    for( int i = 0; i < count; ++i )
+    {
+      points[i].x *= buildScale;
+      points[i].y *= buildScale;
+    }
   }
   else
   {
@@ -797,7 +802,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
   int outputWidth = inputWidth;
   int outputHeight = inputHeight;
 
-  generateVoronoiPolygons( polygons, count, 100, outputWidth, outputHeight, fileName );
+  generateVoronoiPolygons( polygons, count, 100, outputWidth, outputHeight, fileName, buildScale );
 
 
   float cellrange[4] = {1000000000,1000000000,-1000000000,-1000000000};
