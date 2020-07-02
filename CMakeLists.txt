@@ -13,10 +13,11 @@ ELSE()
 ENDIF()
 
 find_package(CGAL)
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
 include_directories(include)
 
-file(GLOB SOURCE_FILES "lib/PolygonFitting/*" lib/mosaicTools.c++ lib/Tessellation.c++ lib/shapeIndices.c++ lib/mosaicLocations.c++ lib/progress_bar.c++)
+file(GLOB SOURCE_FILES "lib/PolygonFitting/*" lib/mosaicTools.c++ lib/Tessellation.c++ lib/shapeIndices.c++ lib/mosaicLocations.c++ lib/progress_bar.c++ lib/EdgeSmooth.c++ )
 
 set( EXECUTABLES Mosaic Tessellate Collage Continuous Video MosaicPuzzle )
 
@@ -33,6 +34,7 @@ foreach( EXECUTABLE ${EXECUTABLES} )
       target_link_libraries(Run${EXECUTABLE} ${VIPS_LIBRARIES})
       target_link_libraries(Run${EXECUTABLE} ${VIPS_LDFLAGS})
       target_link_libraries(Run${EXECUTABLE} CGAL::CGAL)
+      target_link_libraries(Run${EXECUTABLE} Eigen3::Eigen)
       add_definitions(${VIPS_CFLAGS} ${VIPS_CFLAGS_OTHER})
     ENDIF()
 endforeach( EXECUTABLE ${EXECUTABLES} )
