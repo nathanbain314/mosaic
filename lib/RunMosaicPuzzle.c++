@@ -17,6 +17,8 @@ int main( int argc, char **argv )
 
     SwitchArg secondPassArg( "g", "gapfill", "Do another pass to fill the gaps", cmd, false );
 
+    SwitchArg smoothArg( "", "smooth", "Compute edge preserving smoothing before finding edges", cmd, false );
+
     ValueArg<float> edgeWeightArg( "e", "edgeWeight", "Weight edge pixels more than other pixels", false, 1.0, "float", cmd);
 
     ValueArg<float> fillWeightArg( "f", "fillWeight", "Weight of cell fill value", false, 1.0, "float", cmd);
@@ -47,6 +49,7 @@ int main( int argc, char **argv )
     float sizePower                   = fillWeightArg.getValue();
     float renderScale                 = renderScaleArg.getValue();
     float buildScale                  = buildScaleArg.getValue();
+    bool smoothImage                  = smoothArg.getValue();
     float edgeWeight                  = edgeWeightArg.getValue();
     float angleOffset                 = angleOffsetArg.getValue();
     string fileName                   = fileArg.getValue();
@@ -55,7 +58,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunMosaicPuzzle( inputName, outputName, inputDirectory, numCells, secondPass, renderScale, buildScale, angleOffset, edgeWeight, skipNearBy, sizePower, recursiveSearch, fileName );
+    RunMosaicPuzzle( inputName, outputName, inputDirectory, numCells, secondPass, renderScale, buildScale, angleOffset, edgeWeight, smoothImage, skipNearBy, sizePower, recursiveSearch, fileName );
   }
   catch (ArgException &e)  // catch any exceptions
   {

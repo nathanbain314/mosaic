@@ -19,6 +19,8 @@ int main( int argc, char **argv )
 
     ValueArg<float> gammaArg( "g", "gamma", "Value to use for gamma exponent", false, 1.0, "float", cmd);
 
+    SwitchArg smoothArg( "", "smooth", "Compute edge preserving smoothing before finding edges", cmd, false );
+
     ValueArg<float> edgeWeightArg( "e", "edgeWeight", "Weight edge pixels more than other pixels", false, 1.0, "float", cmd);
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
@@ -60,6 +62,7 @@ int main( int argc, char **argv )
     bool gammutMapping                = gammutMappingArg.getValue();
     float gamma                       = gammaArg.getValue();
     float edgeWeight                  = edgeWeightArg.getValue();
+    bool smoothImage                  = smoothArg.getValue();
     int cropStyle                     = cropStyleArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
@@ -70,7 +73,7 @@ int main( int argc, char **argv )
 
     if( dither ) gammutMapping = !gammutMapping;
 
-    RunMosaic( inputName, outputName, inputDirectory, numHorizontal, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, edgeWeight, dither, gamma, gammutMapping, quiet, recursiveSearch );
+    RunMosaic( inputName, outputName, inputDirectory, numHorizontal, cropStyle, flip, spin, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, edgeWeight, smoothImage, dither, gamma, gammutMapping, quiet, recursiveSearch );
   }
   catch (ArgException &e)  // catch any exceptions
   {

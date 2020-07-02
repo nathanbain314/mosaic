@@ -452,7 +452,7 @@ void buildDeepZoomImage( vector< vector< int > > &mosaic, vector< cropType > cro
   htmlFile << "\nvar mosaicTileWidth = " << tileWidth << ";\nvar mosaicTileHeight = " << tileHeight << ";\nvar mosaicWidth = " << numHorizontal << ";\nvar mosaicHeight = " << numVertical << ";\nvar mosaicLevel = " << mosaicStrings.size()-1 << ";\nvar minZoomablesLevel = " << minZoomablesLevel << ";\nvar maxZoomablesLevel = " << maxZoomablesLevel << ";\n";
 }
 
-void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, float edgeWeight, bool dither, float gamma, bool gammutMapping, bool quiet, bool recursiveSearch )
+void RunMosaic( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, int cropStyle, bool flip, bool spin, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, float edgeWeight, bool smoothImage, bool dither, float gamma, bool gammutMapping, bool quiet, bool recursiveSearch )
 {
   bool inputIsDirectory = (vips_foreign_find_save( inputName.c_str() ) == NULL);
   bool isDeepZoom = (vips_foreign_find_save( outputName.c_str() ) == NULL) && !inputIsDirectory;
@@ -637,7 +637,7 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
   {
     vector< vector< int > > mosaic( numVertical, vector< int >( numHorizontal, -1 ) );
 
-    numUnique = generateMosaic( mat_index, mosaic, inputImages[i], repeat, false, numHorizontal * mosaicTileWidth, edgeWeight, dither, gamma, gammutMapping, quiet );
+    numUnique = generateMosaic( mat_index, mosaic, inputImages[i], repeat, false, numHorizontal * mosaicTileWidth, edgeWeight, smoothImage, dither, gamma, gammutMapping, quiet );
 
     if( isDeepZoom )
     {

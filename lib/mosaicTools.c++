@@ -86,75 +86,6 @@ void changeColorspace( Tree &tree, Point &center, unsigned char * c, float * c2,
   }
 }
 
-void generateEdgeWeights( VImage &image, float * edgeData, int tileHeight, float edgeWeight )
-{
-  VImage edgeImage = image.colourspace(VIPS_INTERPRETATION_B_W).canny();
-
-  float * edgeData1 = ( float * )edgeImage.data();
-
-  int width = image.width();
-  int height = image.height();
-
-  vector< vector< int > > integralSum(height,vector< int >(width,0));
-
-  unsigned char * edgeData2 = new unsigned char[width*height];
-
-  if( edgeWeight > 0.0f )
-  {
-    for( int y = 0, p = 0; y < height; ++y )
-    {
-      for( int x = 0; x < width; ++x, ++p )
-      {
-        int sum = edgeData1[p] < 1 ? 0 : 1;
-
-        if( y > 0 ) sum += integralSum[y-1][x];
-        if( x > 0 ) sum += integralSum[y][x-1];
-        if( y > 0 && x > 0 ) sum -= integralSum[y-1][x-1];
-
-        integralSum[y][x] = sum;
-      }
-    }
-  }
-
-  for( int y = 0, p = 0; y < height; ++y )
-  {
-    for( int x = 0; x < width; ++x, ++p )
-    {
-      edgeData[p] = 1.0f;
-
-      if( edgeWeight > 0.0f )
-      {
-        for( int s = 0; s <= 5; ++s )
-        {
-          int x0 = max(x - s - 1,0);
-          int y0 = max(y - s - 1,0);
-          int x1 = min(x + s,width-1);
-          int y1 = min(y + s,height-1);
-
-          if( integralSum[y1][x1] + integralSum[y0][x0] - integralSum[y1][x0] - integralSum[y0][x1] > 0 )
-          {
-            float d = s+1;
-            float _d = tileHeight/4.0;
-
-            edgeData2[p] = ( 5 - s ) * 255 / 5;
-
-            d = d*d / (_d*_d);
-
-            d = 1.0f+edgeWeight*pow(2.71828,-d);
-
-            edgeData[p] = d;
-
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  VImage::new_from_memory( edgeData2, width*height, width, height, 1, VIPS_FORMAT_UCHAR ).vipssave("edge.png");
-
-}
-
 void processImages( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< string > &names, int start, int end, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, int minWidth, int minHeight, bool spin, bool different, int cropStyle, bool flip, bool quiet, ProgressBar *processing_images )
 {
   string str;
@@ -670,7 +601,7 @@ int generateMosaicThread( my_kd_tree_t *mat_index, vector< vector< int > > &mosa
   return 0;
 }
 
-int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, string inputImage, int repeat, bool square, int resize, float edgeWeight, bool dither, float gamma, bool gammutMapping, bool quiet )
+int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, string inputImage, int repeat, bool square, int resize, float edgeWeight, bool smoothImage, bool dither, float gamma, bool gammutMapping, bool quiet )
 {
   // Number of images to check against
   int num_images = mat_index->kdtree_get_point_count();
@@ -698,38 +629,6 @@ int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, st
   // Resize the image for correct mosaic tile size
   if( resize != 0 ) image = image.resize( (float)resize / (float)(image.width()) );
 
-
-
-
-
-  // Load input image
-  VImage edgeImage = VImage::vipsload( "edge.jpg" ).autorot();
-
-  // Convert to a three band image
-  if( edgeImage.bands() == 1 )
-  {
-    edgeImage = edgeImage.bandjoin(edgeImage).bandjoin(edgeImage);
-  }
-  if( edgeImage.bands() == 4 )
-  {
-    edgeImage = edgeImage.flatten();
-  }
-
-  // Crop out the middle square if specified
-  if(square)
-  {
-    edgeImage = (edgeImage.width() < edgeImage.height()) ? edgeImage.extract_area(0, (edgeImage.height()-edgeImage.width())/2, edgeImage.width(), edgeImage.width()) :
-                                               edgeImage.extract_area((edgeImage.width()-edgeImage.height())/2, 0, edgeImage.height(), edgeImage.height());
-  }
-
-  // Resize the image for correct mosaic tile size
-  if( resize != 0 ) edgeImage = edgeImage.resize( (float)resize / (float)(edgeImage.width()) );
-
-
-
-
-
-
   int width = image.width();
   int height = image.height();
 
@@ -748,7 +647,7 @@ int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, st
 
   float * edgeData = new float[width*height];
 
-  generateEdgeWeights( edgeImage, edgeData, tileHeight, edgeWeight );
+  generateEdgeWeights( image, edgeData, tileHeight, edgeWeight, smoothImage, quiet );
 
   // Whether an image was used or not
   vector< bool > used( num_images, false );

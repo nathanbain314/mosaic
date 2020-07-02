@@ -740,7 +740,7 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
   }
 }
 
-void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, float renderScale, float buildScale, float angleOffset, float edgeWeight, bool skipNearby, float sizePower, bool recursiveSearch, string fileName )
+void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, float renderScale, float buildScale, float angleOffset, float edgeWeight, bool smoothImage, bool skipNearby, float sizePower, bool recursiveSearch, string fileName )
 {
   vector< Polygon > polygons, imagePolygons;
   vector< vector< unsigned char > > images, masks;
@@ -777,33 +777,14 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
     }
   }
 
-
-  // Load input image
-  VImage edgeImage = VImage::vipsload( "edge.jpg" ).autorot().resize(buildScale);
-
-  // Convert to a three band image
-  if( edgeImage.bands() == 1 )
-  {
-    edgeImage = edgeImage.bandjoin(edgeImage).bandjoin(edgeImage);
-  }
-  if( edgeImage.bands() == 4 )
-  {
-    edgeImage = edgeImage.flatten();
-  }
-
   float * edgeData = new float[inputWidth*inputHeight];
 
-  generateEdgeWeights( edgeImage, edgeData, 24, edgeWeight );
-
-
-
-
+  generateEdgeWeights( inputImage, edgeData, 24, edgeWeight, smoothImage );
 
   int outputWidth = inputWidth;
   int outputHeight = inputHeight;
 
   generateVoronoiPolygons( polygons, count, 100, outputWidth, outputHeight, fileName, buildScale );
-
 
   float cellrange[4] = {1000000000,1000000000,-1000000000,-1000000000};
 
