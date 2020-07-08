@@ -23,7 +23,9 @@ int main( int argc, char **argv )
 
     ValueArg<int> mosaicTileWidthArg( "m", "mosaicTileWidth", "Maximum tile width for generating mosaic", false, 0, "int", cmd);
 
-    SwitchArg edgeWeightsArg( "", "edgeWeights", "Weight edge pixels more than other pixels", cmd, false );
+    SwitchArg smoothArg( "", "smooth", "Compute edge preserving smoothing before finding edges", cmd, false );
+
+    ValueArg<float> edgeWeightArg( "e", "edgeWeight", "Weight edge pixels more than other pixels", false, 1.0, "float", cmd);
 
     ValueArg<int> repeatArg( "r", "repeat", "Closest distance to repeat image", false, 0, "int", cmd);
 
@@ -42,7 +44,8 @@ int main( int argc, char **argv )
     string outputName                 = outputArg.getValue();
     int repeat                        = repeatArg.getValue();
     int numHorizontal                 = numberArg.getValue();
-    bool useEdgeWeights               = edgeWeightsArg.getValue();
+    float edgeWeight                  = edgeWeightArg.getValue();
+    bool smoothImage                  = smoothArg.getValue();
     bool recursiveSearch              = recursiveArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
@@ -53,7 +56,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunVideo( inputName, outputName, inputDirectory, numHorizontal, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, frames, skip, recursiveSearch, useEdgeWeights );
+    RunVideo( inputName, outputName, inputDirectory, numHorizontal, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, frames, skip, recursiveSearch, edgeWeight, smoothImage );
   }
   catch (ArgException &e)  // catch any exceptions
   {

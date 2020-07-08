@@ -613,7 +613,6 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
   }
 
   int tileArea = mosaicTileWidth*mosaicTileHeight*3;
-  int numVertical = int( (float)height / (float)width * (float)numHorizontal * (float)mosaicTileWidth/(float)mosaicTileHeight );
   int numUnique = 0;
 
   float* d = (float *)malloc(numImages*tileArea*sizeof(float));
@@ -635,6 +634,11 @@ void RunMosaic( string inputName, string outputName, vector< string > inputDirec
 
   for( int i = 0; i < inputImages.size(); ++i )
   {
+    width = VImage::new_memory().vipsload( (char *)inputImages[i].c_str() ).autorot().width();
+    height = VImage::new_memory().vipsload( (char *)inputImages[i].c_str() ).autorot().height();
+
+    int numVertical = int( (float)height / (float)width * (float)numHorizontal * (float)mosaicTileWidth/(float)mosaicTileHeight );
+  
     vector< vector< int > > mosaic( numVertical, vector< int >( numHorizontal, -1 ) );
 
     numUnique = generateMosaic( mat_index, mosaic, inputImages[i], repeat, false, numHorizontal * mosaicTileWidth, edgeWeight, smoothImage, dither, gamma, gammutMapping, quiet );

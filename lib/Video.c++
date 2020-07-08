@@ -36,7 +36,7 @@ void videoThread( int start, int end, int numHorizontal, int p, int frames, int 
   }
 }
 
-void RunVideo( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, int frames, int skip, bool recursiveSearch, bool useEdgeWeights )
+void RunVideo( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, int frames, int skip, bool recursiveSearch, float edgeWeight, bool smoothImage )
 {
   vector< string > inputImages;
   vector< string > outputImages;
@@ -259,7 +259,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
       rgbToLab( c[3*p+0], c[3*p+1], c[3*p+2], c2[3*p+0], c2[3*p+1], c2[3*p+2] );
     }
 
-    generateEdgeWeights( image, edgeData, mosaicTileHeight, useEdgeWeights );
+    generateEdgeWeights( image, edgeData, mosaicTileHeight, edgeWeight, smoothImage );
 
     future< void > ret[threads];
 
