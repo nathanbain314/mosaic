@@ -17,6 +17,10 @@ int main( int argc, char **argv )
 
     ValueArg<int> minSizeArg( "", "min", "Min size of image before processing", false, -1, "int", cmd);
 
+    SwitchArg smoothArg( "", "smooth", "Compute edge preserving smoothing before finding edges", cmd, false );
+
+    ValueArg<float> edgeWeightArg( "e", "edgeWeight", "Weight edge pixels more than other pixels", false, 1.0, "float", cmd);
+
     ValueArg<int> skipArg( "s", "skip", "Number of times to skip over an image before using it again", false, 0, "int", cmd);
 
     ValueArg<int> fillPercentageArg( "f", "fillPercentage", "Percentage of output to fill", false, 100, "int", cmd);
@@ -38,11 +42,13 @@ int main( int argc, char **argv )
     string inputName                  = pictureArg.getValue();
     vector< string > inputDirectory   = directoryArg.getValue();
     string outputName                 = outputArg.getValue();
-    float imageScale                 = imageScaleArg.getValue();
-    float renderScale                = renderScaleArg.getValue();
+    float imageScale                  = imageScaleArg.getValue();
+    float renderScale                 = renderScaleArg.getValue();
     int angleOffset                   = angleOffsetArg.getValue();
     int fillPercentage                = fillPercentageArg.getValue();
     int skip                          = skipArg.getValue();
+    bool smoothImage                  = smoothArg.getValue();
+    float edgeWeight                  = edgeWeightArg.getValue();
     int maxSize                       = maxSizeArg.getValue();
     int minSize                       = minSizeArg.getValue();
     bool recursiveSearch              = recursiveArg.getValue();
@@ -50,7 +56,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunCollage( inputName, outputName, inputDirectory, angleOffset, imageScale, renderScale, fillPercentage, fileName, minSize, maxSize, skip, recursiveSearch );
+    RunCollage( inputName, outputName, inputDirectory, angleOffset, imageScale, renderScale, fillPercentage, fileName, edgeWeight, smoothImage, minSize, maxSize, skip, recursiveSearch );
   }
   catch (ArgException &e)  // catch any exceptions
   {

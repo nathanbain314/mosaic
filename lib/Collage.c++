@@ -52,6 +52,12 @@ void generateCollageThumbnails( string imageDirectory, vector< string > &inputDi
       // Load image and create white one band image of the same size
       VImage image = VImage::vipsload( (char *)str.c_str() ).autorot();
 
+      int left, top, centerImageWidth, centerImageHeight;
+
+      left = image.find_trim( &top, &centerImageWidth, &centerImageHeight );
+
+      image = image.extract_area( left, top, centerImageWidth, centerImageHeight );
+
       int width = image.width();
       int height = image.height();
 
@@ -395,7 +401,7 @@ void buildTopLevel( string outputImage, int start, int end, int outputWidth, int
   }
 }
 
-void buildCollage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float resize, int angleOffset, int fillPercentage, int skip )
+void buildCollage( string inputImage, string outputImage, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float resize, int angleOffset, int fillPercentage, int skip, float edgeWeight, bool smoothImage )
 {
   VImage image = VImage::new_memory().vipsload( (char *)inputImage.c_str() ).autorot();
 
@@ -412,37 +418,9 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
   int imageWidth = image.width();
   int imageHeight = image.height();
 
-
-
-
-
-
-
-
-
-  // Load input image
-  VImage edgeImage = VImage::vipsload( "edge.jpg" ).autorot();
-
-  // Convert to a three band image
-  if( edgeImage.bands() == 1 )
-  {
-    edgeImage = edgeImage.bandjoin(edgeImage).bandjoin(edgeImage);
-  }
-  if( edgeImage.bands() == 4 )
-  {
-    edgeImage = edgeImage.flatten();
-  }
-
   float * edgeData = new float[imageWidth*imageHeight];
 
-  generateEdgeWeights( edgeImage, edgeData, 24, 2.5 );
-
-
-
-
-
-
-
+  generateEdgeWeights( image, edgeData, 24, edgeWeight, smoothImage );
 
   unsigned char * imageData = ( unsigned char * )image.data();
   float * c2 = new float[3*imageWidth*imageHeight];
@@ -822,7 +800,7 @@ void buildCollage( string inputImage, string outputImage, vector< vector< unsign
   }
 }
 
-void RunCollage( string inputName, string outputName, vector< string > inputDirectory, int angleOffset, float imageScale, float renderScale, int fillPercentage, string fileName, int minSize, int maxSize, int skip, bool recursiveSearch )
+void RunCollage( string inputName, string outputName, vector< string > inputDirectory, int angleOffset, float imageScale, float renderScale, int fillPercentage, string fileName, float edgeWeight, bool smoothImage, int minSize, int maxSize, int skip, bool recursiveSearch )
 {
   vector< vector< unsigned char > > images, masks;
   vector< pair< int, int > > dimensions;
@@ -898,5 +876,5 @@ void RunCollage( string inputName, string outputName, vector< string > inputDire
 
   skip = min( skip, (((int)images.size())>>1)-1 );
 
-  buildCollage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, angleOffset, fillPercentage, skip );
+  buildCollage( inputName, outputName, images, masks, dimensions, renderScale/imageScale, angleOffset, fillPercentage, skip, edgeWeight, smoothImage );
 }
