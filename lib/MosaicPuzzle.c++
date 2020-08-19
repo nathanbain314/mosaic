@@ -133,7 +133,7 @@ void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrel
   jcv_diagram_free(&diagram);
 }
 
-void generateImagePolygonsThread( int start, int end, vector< string > &names, vector< Polygon > &imagePolygons, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, ProgressBar *processing_images )
+void generateImagePolygonsThread( int start, int end, vector< string > &names, vector< Polygon > &imagePolygons, vector< Polygon > &concavePolygons, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, bool useConcave, ProgressBar *processing_images )
 {
   unsigned char *imageData, *maskData;
 
@@ -146,7 +146,7 @@ void generateImagePolygonsThread( int start, int end, vector< string > &names, v
 
 //      cout << str << endl;
 
-      Polygon P, P2;
+      Polygon P;
 
       polygonFromAlphaImage( P, names[i], 1 );
 
@@ -162,6 +162,20 @@ void generateImagePolygonsThread( int start, int end, vector< string > &names, v
 
       imagePolygons.push_back( P );
       
+      if( useConcave )
+      {
+        Polygon P2;
+  
+        concavePolygonFromAlphaImage( P2, names[i], 1 );
+
+        decimate(P2,.01);
+
+        P2.makeClockwise();
+        P2.center();
+
+        concavePolygons.push_back( P2 );
+      }
+
       // Load image and create white one band image of the same size
       VImage image = VImage::vipsload( (char *)str.c_str() ).autorot().colourspace(VIPS_INTERPRETATION_sRGB);
 
@@ -211,7 +225,7 @@ void generateImagePolygonsThread( int start, int end, vector< string > &names, v
   }
 }
 
-void generateImagePolygons( string imageDirectory, vector< string > &inputDirectory, vector< Polygon > &imagePolygons, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, bool recursiveSearch )
+void generateImagePolygons( string imageDirectory, vector< string > &inputDirectory, vector< Polygon > &imagePolygons, vector< Polygon > &concavePolygons, vector< vector< unsigned char > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, bool useConcave, bool recursiveSearch )
 {
   DIR *dir;
   struct dirent *ent;
@@ -256,13 +270,13 @@ void generateImagePolygons( string imageDirectory, vector< string > &inputDirect
   vector< vector< unsigned char > > imagesThread[threads];
   vector< vector< unsigned char > > masksThread[threads];
   vector< pair< int, int > > dimensionsThread[threads];
-  vector< Polygon > imagePolygonsThread[threads];
+  vector< Polygon > imagePolygonsThread[threads], concavePolygonsThread[threads];
 
   future< void > ret[threads];
 
   for( int k = 0; k < threads; ++k )
   {
-    ret[k] = async( launch::async, &generateImagePolygonsThread, k*num_images/threads, (k+1)*num_images/threads, ref(names), ref(imagePolygonsThread[k]), ref(imagesThread[k]), ref(masksThread[k]), ref(dimensionsThread[k]), processing_images );
+    ret[k] = async( launch::async, &generateImagePolygonsThread, k*num_images/threads, (k+1)*num_images/threads, ref(names), ref(imagePolygonsThread[k]), ref(concavePolygonsThread[k]), ref(imagesThread[k]), ref(masksThread[k]), ref(dimensionsThread[k]), useConcave, processing_images );
   }
 
   // Wait for threads to finish
@@ -274,6 +288,7 @@ void generateImagePolygons( string imageDirectory, vector< string > &inputDirect
     masks.insert(masks.end(), masksThread[k].begin(), masksThread[k].end());
     dimensions.insert(dimensions.end(), dimensionsThread[k].begin(), dimensionsThread[k].end());
     imagePolygons.insert(imagePolygons.end(), imagePolygonsThread[k].begin(), imagePolygonsThread[k].end());
+    concavePolygons.insert(concavePolygons.end(), concavePolygonsThread[k].begin(), concavePolygonsThread[k].end());
   }
 
   processing_images->Finish();
@@ -329,7 +344,7 @@ void computeLargerPolygon( vector< Vertex > &vertices, vector< Edge > &edges, Ve
   P.addEdge(P.vertices.size()-2,P.vertices.size()-1);
 }
 
-tuple< int, float, float, Vertex > generateSecondPassBestValues( int i2, int cellDistance, vector< Polygon > &imagePolygons, vector< Polygon > &polygons, vector< tuple< int, float, float, Vertex > > &bestValues, vector< vector< float > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float *inputData, float * edgeData, int inputWidth, int inputHeight, float angleOffset, bool skipNearby, float sizePower, bool doDraw, ProgressBar *drawingImages )
+tuple< int, float, float, Vertex > generateSecondPassBestValues( int i2, int cellDistance, vector< Polygon > &imagePolygons, vector< Polygon > &concavePolygons, vector< Polygon > &polygons, vector< tuple< int, float, float, Vertex > > &bestValues, vector< vector< float > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float *inputData, float * edgeData, int inputWidth, int inputHeight, float angleOffset, bool skipNearby, float sizePower, bool doDraw, bool useConcave, ProgressBar *drawingImages )
 {
   set< int > skipValues;
 
@@ -386,7 +401,16 @@ tuple< int, float, float, Vertex > generateSecondPassBestValues( int i2, int cel
     int offsetX = floor(offset.x + 0.0001);
     int offsetY = floor(offset.y + 0.0001);
 
-    Polygon P = imagePolygons[bestImage];
+    Polygon P;
+
+    if( useConcave )
+    {
+      P = concavePolygons[bestImage];
+    }
+    else
+    {
+      P = imagePolygons[bestImage];
+    }
 
     Vertex po = P.computeOffset(rotation*180.0/3.14159265358979);
 
@@ -740,9 +764,9 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
   }
 }
 
-void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, float renderScale, float buildScale, float angleOffset, float edgeWeight, bool smoothImage, bool skipNearby, float sizePower, bool recursiveSearch, string fileName )
+void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, float renderScale, float buildScale, float angleOffset, float edgeWeight, bool smoothImage, bool skipNearby, float sizePower, bool useConcave, bool recursiveSearch, string fileName )
 {
-  vector< Polygon > polygons, imagePolygons;
+  vector< Polygon > polygons, imagePolygons, concavePolygons;
   vector< vector< unsigned char > > images, masks;
   vector< pair< int, int > > dimensions;
 
@@ -750,7 +774,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
   {
     string imageDirectory = inputDirectory[i];
     if( imageDirectory.back() != '/' ) imageDirectory += '/';
-    generateImagePolygons( imageDirectory, inputDirectory, imagePolygons, images, masks, dimensions, recursiveSearch );
+    generateImagePolygons( imageDirectory, inputDirectory, imagePolygons, concavePolygons, images, masks, dimensions, useConcave, recursiveSearch );
   }
 
   VImage inputImage = VImage::vipsload((char *)inputName.c_str()).autorot().resize(buildScale);
@@ -852,7 +876,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
         int i2 = indices2[i3]+k*indices2.size();
         if( i2 >= polygons.size() ) continue;
 
-        ret[k] = async( launch::async, &generateSecondPassBestValues, i2, cellDistance, ref(imagePolygons), ref(polygons), ref(bestValues), ref(images2), ref(masks), ref(dimensions), c2, edgeData, inputWidth, inputHeight, angleOffset, skipNearby, sizePower, k==0, fillingGaps );
+        ret[k] = async( launch::async, &generateSecondPassBestValues, i2, cellDistance, ref(imagePolygons), ref(concavePolygons), ref(polygons), ref(bestValues), ref(images2), ref(masks), ref(dimensions), c2, edgeData, inputWidth, inputHeight, angleOffset, skipNearby, sizePower, k==0, useConcave, fillingGaps );
       }
 
       // Wait for threads to finish

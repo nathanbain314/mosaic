@@ -104,6 +104,10 @@ void Polygon::rotateBy( float r, bool offset )
   {
     offsetBy(Vertex(-origin.x,-origin.y));
   }
+  else
+  {
+    center();
+  }
 }
 
 Vertex Polygon::center()

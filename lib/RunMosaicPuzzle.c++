@@ -13,6 +13,8 @@ int main( int argc, char **argv )
 
     ValueArg<string> fileArg( "", "file", "File of voronoi diagram", false, " ", "string", cmd);
 
+    SwitchArg useConcaveArg( "c", "concave", "Use concave shapes", cmd, false );
+
     SwitchArg skipNearByArg( "s", "skipNearBy", "Skip images if they nearby cells used them", cmd, false );
 
     SwitchArg secondPassArg( "g", "gapfill", "Do another pass to fill the gaps", cmd, false );
@@ -44,6 +46,7 @@ int main( int argc, char **argv )
     string outputName                 = outputArg.getValue();
     bool skipNearBy                   = skipNearByArg.getValue();
     bool recursiveSearch              = recursiveArg.getValue();
+    bool useConcave                   = useConcaveArg.getValue();
     bool secondPass                   = secondPassArg.getValue();
     int numCells                      = numCellsArg.getValue();
     float sizePower                   = fillWeightArg.getValue();
@@ -54,11 +57,13 @@ int main( int argc, char **argv )
     float angleOffset                 = angleOffsetArg.getValue();
     string fileName                   = fileArg.getValue();
 
+    if( !secondPass ) useConcave = false;
+
     renderScale /= buildScale;
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunMosaicPuzzle( inputName, outputName, inputDirectory, numCells, secondPass, renderScale, buildScale, angleOffset, edgeWeight, smoothImage, skipNearBy, sizePower, recursiveSearch, fileName );
+    RunMosaicPuzzle( inputName, outputName, inputDirectory, numCells, secondPass, renderScale, buildScale, angleOffset, edgeWeight, smoothImage, skipNearBy, sizePower, useConcave, recursiveSearch, fileName );
   }
   catch (ArgException &e)  // catch any exceptions
   {
