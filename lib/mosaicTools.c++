@@ -660,52 +660,74 @@ int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, st
 
   ProgressBar *changingColorspace = new ProgressBar(height/threads, "Changing colorspace");
 
-  std::vector<Point> points;
-
-  float center1[3] = {0.0,0.0,0.0};
-
-  int n100 = 0;
-
-  for( int n = 0; n < num_images; ++n )
+  if( gammutMapping )
   {
-    float averageColor[3] = {0,0,0};
+    std::vector<Point> points;
 
-    for( int k = 0; k < tileWidth * tileHeight; ++k )
+    float center1[3] = {0.0,0.0,0.0};
+
+    int n100 = 0;
+
+    for( int n = 0; n < num_images; ++n )
     {
+      float averageColor[3] = {0,0,0};
+
+      for( int k = 0; k < tileWidth * tileHeight; ++k )
+      {
+        for( int i1 = 0; i1 < 3; ++i1 )
+        {
+          averageColor[i1] += mat_index->m_data[tileArea*n+3*k+i1];
+        }
+      }
+
       for( int i1 = 0; i1 < 3; ++i1 )
       {
-        averageColor[i1] += mat_index->m_data[tileArea*n+3*k+i1];
+        averageColor[i1] /= (tileWidth*tileHeight);
+        center1[i1] += averageColor[i1];
       }
+
+      points.push_back(Point(averageColor[0],averageColor[1],averageColor[2]));
     }
 
-    for( int i1 = 0; i1 < 3; ++i1 )
+    Point center(center1[0]/(float)points.size(),center1[1]/(float)points.size(),center1[2]/(float)points.size());
+
+    Polyhedron poly;
+
+    CGAL::convex_hull_3(points.begin(), points.end(), poly);
+
+    Tree tree(faces(poly).first, faces(poly).second, poly);
+
+    future< void > ret2[threads];
+
+    for( int k = 0; k < threads; ++k )
     {
-      averageColor[i1] /= (tileWidth*tileHeight);
-      center1[i1] += averageColor[i1];
+      ret2[k] = async( launch::async, &changeColorspace, ref(tree), ref(center), c, c2, k*height/threads, (k+1)*height/threads, width, gamma, gammutMapping, changingColorspace, quiet );
     }
 
-    points.push_back(Point(averageColor[0],averageColor[1],averageColor[2]));
+    // Wait for threads to finish
+    for( int k = 0; k < threads; ++k )
+    {
+      ret2[k].get();
+    }
   }
-
-  Point center(center1[0]/(float)points.size(),center1[1]/(float)points.size(),center1[2]/(float)points.size());
-
-  Polyhedron poly;
-
-  CGAL::convex_hull_3(points.begin(), points.end(), poly);
-
-  Tree tree(faces(poly).first, faces(poly).second, poly);
-
-  future< void > ret2[threads];
-
-  for( int k = 0; k < threads; ++k )
+  else
   {
-    ret2[k] = async( launch::async, &changeColorspace, ref(tree), ref(center), c, c2, k*height/threads, (k+1)*height/threads, width, gamma, gammutMapping, changingColorspace, quiet );
-  }
+    Point center;
 
-  // Wait for threads to finish
-  for( int k = 0; k < threads; ++k )
-  {
-    ret2[k].get();
+    Tree tree;
+
+    future< void > ret2[threads];
+
+    for( int k = 0; k < threads; ++k )
+    {
+      ret2[k] = async( launch::async, &changeColorspace, ref(tree), ref(center), c, c2, k*height/threads, (k+1)*height/threads, width, gamma, gammutMapping, changingColorspace, quiet );
+    }
+
+    // Wait for threads to finish
+    for( int k = 0; k < threads; ++k )
+    {
+      ret2[k].get();
+    }
   }
 
   if( !quiet ) changingColorspace->Finish();
