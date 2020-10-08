@@ -246,7 +246,7 @@ void RunContinuous( vector< string > inputDirectory, string outputDirectory, int
 
   for( int n = 0; n < numImages; ++n )
   {
-    generateMosaic( mat_index, mosaics[n], get<0>(cropData[n]), repeat, true, tileWidth*64, 0.0f, false, 1.0f, false, true );
+    generateMosaic( mat_index, mosaics[n], get<0>(cropData[n]), repeat, true, tileWidth*64, 0.0f, false, false, 1.0f, false, true );
     buildingMosaic->Increment();
   }
 
