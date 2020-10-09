@@ -784,6 +784,9 @@ int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, st
 
   if( !quiet ) buildingMosaic->Finish();
 
+  delete [] c2;
+  delete [] edgeData;
+
   // Get total number of different images used
   return accumulate(used.begin(), used.end(), 0);
 }
