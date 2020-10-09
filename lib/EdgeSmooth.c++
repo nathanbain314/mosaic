@@ -445,78 +445,89 @@ void generateEdges( VImage image, unsigned char * edgeData3 )
 
 void generateEdgeWeights( VImage &image, float * edgeData, int tileHeight, float edgeWeight, bool smoothImage, bool quiet )
 {
-  VImage edgeImage;
-
   int width = image.width();
   int height = image.height();
 
-  unsigned char * edgeData1 = new unsigned char[width*height];
-
-  if( smoothImage )
+  if( edgeWeight > 0.0f )
   {
-    EdgeSmooth( image, edgeImage, 0.005f, 2.0f, 1.0f, 3, 2.0f, quiet );
-    generateEdges( edgeImage, edgeData1 );
+    VImage edgeImage;
+
+    unsigned char * edgeData1 = new unsigned char[width*height];
+
+    if( smoothImage )
+    {
+      EdgeSmooth( image, edgeImage, 0.005f, 2.0f, 1.0f, 3, 2.0f, quiet );
+      generateEdges( edgeImage, edgeData1 );
+    }
+    else
+    {
+      generateEdges( image, edgeData1 );
+    }
+
+    vector< vector< int > > integralSum(height,vector< int >(width,0));
+
+    if( edgeWeight > 0.0f )
+    {
+      for( int y = 0, p = 0; y < height; ++y )
+      {
+        for( int x = 0; x < width; ++x, ++p )
+        {
+          int sum = edgeData1[p] < 1 ? 0 : 1;
+
+          if( y > 0 ) sum += integralSum[y-1][x];
+          if( x > 0 ) sum += integralSum[y][x-1];
+          if( y > 0 && x > 0 ) sum -= integralSum[y-1][x-1];
+
+          integralSum[y][x] = sum;
+        }
+      }
+    }
+
+    for( int y = 0, p = 0; y < height; ++y )
+    {
+      for( int x = 0; x < width; ++x, ++p )
+      {
+        edgeData[p] = 1.0f;
+
+        if( edgeWeight > 0.0f )
+        {
+          for( int s = 0; s <= 5; ++s )
+          {
+            int x0 = max(x - s - 1,0);
+            int y0 = max(y - s - 1,0);
+            int x1 = min(x + s,width-1);
+            int y1 = min(y + s,height-1);
+
+            if( integralSum[y1][x1] + integralSum[y0][x0] - integralSum[y1][x0] - integralSum[y0][x1] > 0 )
+            {
+              float d = s+1;
+              float _d = tileHeight/4.0;
+
+              d = d*d / (_d*_d);
+
+              d = 1.0f+edgeWeight*pow(2.71828,-d);
+
+              edgeData[p] = d;
+
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    delete [] edgeData1;
   }
   else
-  {
-    generateEdges( image, edgeData1 );
-  }
-
-  vector< vector< int > > integralSum(height,vector< int >(width,0));
-
-  if( edgeWeight > 0.0f )
   {
     for( int y = 0, p = 0; y < height; ++y )
     {
       for( int x = 0; x < width; ++x, ++p )
       {
-        int sum = edgeData1[p] < 1 ? 0 : 1;
-
-        if( y > 0 ) sum += integralSum[y-1][x];
-        if( x > 0 ) sum += integralSum[y][x-1];
-        if( y > 0 && x > 0 ) sum -= integralSum[y-1][x-1];
-
-        integralSum[y][x] = sum;
+        edgeData[p] = 1.0f;
       }
     }
   }
-
-  for( int y = 0, p = 0; y < height; ++y )
-  {
-    for( int x = 0; x < width; ++x, ++p )
-    {
-      edgeData[p] = 1.0f;
-
-      if( edgeWeight > 0.0f )
-      {
-        for( int s = 0; s <= 5; ++s )
-        {
-          int x0 = max(x - s - 1,0);
-          int y0 = max(y - s - 1,0);
-          int x1 = min(x + s,width-1);
-          int y1 = min(y + s,height-1);
-
-          if( integralSum[y1][x1] + integralSum[y0][x0] - integralSum[y1][x0] - integralSum[y0][x1] > 0 )
-          {
-            float d = s+1;
-            float _d = tileHeight/4.0;
-
-            //edgeData2[p] = ( 5 - s ) * 255 / 5;
-
-            d = d*d / (_d*_d);
-
-            d = 1.0f+edgeWeight*pow(2.71828,-d);
-
-            edgeData[p] = d;
-
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  delete [] edgeData1;
 
 //  VImage::new_from_memory( edgeData2, width*height, width, height, 1, VIPS_FORMAT_UCHAR ).vipssave("edge.png");
 }
