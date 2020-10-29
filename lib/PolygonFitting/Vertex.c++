@@ -25,12 +25,12 @@ bool Vertex::equals( const Vertex& rhs, float epsilon )
   return ( abs( this->x - rhs.x ) < epsilon && abs( this->y - rhs.y ) < epsilon );
 }
 
-bool Vertex::operator==( const Vertex& rhs )
+bool Vertex::operator==( const Vertex& rhs ) const
 {
   return ( abs( this->x - rhs.x ) < 0.0000000001 && abs( this->y - rhs.y ) < 0.0000000001 );
 }
 
-bool Vertex::operator!=( const Vertex& rhs )
+bool Vertex::operator!=( const Vertex& rhs ) const
 {
   return ( abs( this->x - rhs.x ) > 0.0000000001 || abs( this->y - rhs.y ) > 0.0000000001 );
 }

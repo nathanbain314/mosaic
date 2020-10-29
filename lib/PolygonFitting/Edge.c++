@@ -20,12 +20,12 @@ Edge& Edge::operator=( const Edge& rhs )
   return *this;
 }
 
-bool Edge::operator==( const Edge& rhs )
+bool Edge::operator==( const Edge& rhs ) const
 {
   return (this->v1 == rhs.v1 && this->v2 == rhs.v2);
 }
 
-bool Edge::operator!=( const Edge& rhs )
+bool Edge::operator!=( const Edge& rhs ) const
 {
   return (this->v1 != rhs.v1 || this->v2 != rhs.v2);
 }

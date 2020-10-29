@@ -13,7 +13,7 @@ public:
 
   Edge& operator=( const Edge& rhs );
   
-  bool operator==( const Edge& rhs );
+  bool operator==( const Edge& rhs ) const;
 
-  bool operator!=( const Edge& rhs );
+  bool operator!=( const Edge& rhs ) const;
 };

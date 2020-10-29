@@ -35,9 +35,9 @@ public:
 
   bool equals( const Vertex& rhs, float epsilon );
 
-  bool operator==( const Vertex& rhs );
+  bool operator==( const Vertex& rhs ) const;
 
-  bool operator!=( const Vertex& rhs );
+  bool operator!=( const Vertex& rhs ) const;
 
   Vertex offset( float _x, float _y );
 

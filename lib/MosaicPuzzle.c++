@@ -118,11 +118,13 @@ void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrel
     while (graph_edge)
     {
       P.addVertex( graph_edge->pos[0].x, graph_edge->pos[0].y );
-      P.addVertex( graph_edge->pos[1].x, graph_edge->pos[1].y );
-
-      P.addEdge( P.vertices.size()-2, P.vertices.size()-1 );
 
       graph_edge = graph_edge->next;
+    }
+
+    for( int i1 = 0; i1 < P.vertices.size(); ++i1 )
+    {
+      P.addEdge(i1,(i1+1)%P.vertices.size());
     }
 
     P.makeClockwise();

@@ -106,7 +106,7 @@ void Polygon::rotateBy( float r, bool offset )
   }
   else
   {
-    center();
+//    center();
   }
 }
 
