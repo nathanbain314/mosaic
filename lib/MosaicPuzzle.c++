@@ -117,7 +117,13 @@ void generateVoronoiPolygons( vector< Polygon > &polygons, int count, int numrel
 
     while (graph_edge)
     {
-      P.addVertex( graph_edge->pos[0].x, graph_edge->pos[0].y );
+      float x = round(graph_edge->pos[0].x);
+      x = min((float)width-1.0f,max(0.0f,x));
+
+      float y = round(graph_edge->pos[0].y);
+      y = min((float)height-1.0f,max(0.0f,y));
+      
+      P.addVertex( x, y );
 
       graph_edge = graph_edge->next;
     }
