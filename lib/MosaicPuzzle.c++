@@ -772,7 +772,61 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
   }
 }
 
-void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, float renderScale, float buildScale, float angleOffset, float edgeWeight, bool smoothImage, bool skipNearby, float sizePower, bool useConcave, bool recursiveSearch, string fileName )
+// Code for morphing image
+Vertex intersectionPointPolygon( Vertex &C, Vertex &P1, Polygon &P )
+{
+  for( int i = 0; i < P.edges.size(); ++i )
+  {
+    pair< float, float > t = intersection( C, P1, P.vertices[P.edges[i].v1], P.vertices[P.edges[i].v2] );
+
+    if( t.first > 0 && t.second >= 0 && t.second <= 1 )
+    {
+      Vertex P2 = intersectionPoint( t.first, C, P1 );
+      return P2;
+    }
+  }
+
+  return P1;
+}
+
+float interpolate(float r1, float r2, float a)
+{
+  return (1.0f - a) * r1 + a * r2;
+}
+
+Vertex newPoint( Vertex &C, Vertex &P1, Polygon &P, Polygon &R, float morphValue, float shrinkValue )
+{
+  Vertex I1 = intersectionPointPolygon( C, P1, P );
+  Vertex I2 = intersectionPointPolygon( C, P1, R );
+
+  float ratio1 = sqrt(distance( C, P1 )) / sqrt(distance( C, I1 ));
+  float ratio2 = sqrt(distance( C, P1 )) / sqrt(distance( C, I2 ));
+
+  float ratio = interpolate( ratio1, ratio2, morphValue );
+
+  ratio *= (1.0f+shrinkValue);
+
+  if( ratio > 1 ) return Vertex(-1, -1);
+
+  Vertex V2 = intersectionPoint( ratio, C, I1 );
+
+  return V2;
+}
+
+bool newPointHelper( int &x, int &y, Vertex C, Polygon &P, Polygon &R, float morphValue, float shrinkValue )
+{
+  Vertex P1( x, y );
+
+  Vertex P2 = newPoint( C, P1, P, R, morphValue, shrinkValue );
+
+  x = P2.x;
+  y = P2.y;
+
+  if( x < 0 ) return true;
+  return false;
+}
+
+void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, float renderScale, float buildScale, float angleOffset, float edgeWeight, float morphValue, float shrinkValue, bool smoothImage, bool skipNearby, float sizePower, bool useConcave, bool recursiveSearch, string fileName )
 {
   vector< Polygon > polygons, imagePolygons, concavePolygons;
   vector< vector< unsigned char > > images, masks;
@@ -924,6 +978,8 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
     Polygon R = polygons[i1];
 
+    Polygon P = imagePolygons[bestImage];
+
     vector< float > ink = {0,0,0};
 
     // Set the values for the output image
@@ -934,6 +990,8 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
     float sinAngle = sin(rotation);
     float halfWidth = (float)width/2.0;
     float halfHeight = (float)height/2.0;
+
+    Vertex halfVertex( halfWidth, halfHeight );
 
     int xOffset = max( rotateX(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateX(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateX(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - width;
     int yOffset = max( rotateY(0,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(width,0,cosAngle,sinAngle,halfWidth,halfHeight), max( rotateY(0,height,cosAngle,sinAngle,halfWidth,halfHeight), rotateY(width,height,cosAngle,sinAngle,halfWidth,halfHeight) ) ) ) - height;
@@ -948,16 +1006,39 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
     float scaleOffset = 1.0 / scale;
 
+    R.offsetBy(Vertex(-offset.x,-offset.y));
+    R.scaleBy(scaleOffset*renderScale);
+    R.offsetBy(Vertex(halfWidth,halfHeight));
+
+    P.offsetBy(halfVertex);
+
+    float maxX = -1000000000, minX = 1000000000, maxY = -1000000000, minY = 1000000000;
+
+    for( int i10 = 0; i10 < R.vertices.size(); ++i10 )
+    {
+      Vertex v1 = R.vertices[i10];
+
+      minX = min( v1.x, minX );
+      maxX = max( v1.x, maxX );
+      minY = min( v1.y, minY );
+      maxY = max( v1.y, maxY );
+    }
+
+    R.offsetBy(Vertex(-halfWidth,-halfHeight));
+
+    R.rotateBy(-180.0f/3.14159265*rotation);
+    R.offsetBy(halfVertex);
+
     int ix, iy;
 
-    iy = offsetY - scale*newHeight/2;
+    iy = offsetY - scale*halfHeight + minY*scale;
 
     // Render the image onto the output image
-    for( float i = 0; i < newHeight; i += scaleOffset, ++iy )
+    for( float i = minY; i < maxY; i += scaleOffset, ++iy )
     {
-      ix = offsetX - scale*newWidth/2;
+      ix = offsetX - scale*halfWidth + minX*scale;
 
-      for( float j = 0; j < newWidth; j += scaleOffset, ++ix )
+      for( float j = minX; j < maxX; j += scaleOffset, ++ix )
       {
         int newX = rotateX(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
         int newY = rotateY(j,i,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
@@ -972,12 +1053,14 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
         int numUsed = 0;
 
-        for( float ni = i; ni < i + scaleOffset && ni < newHeight; ++ni )
+        for( float ni = i; ni < i + scaleOffset && ni < maxY; ++ni )
         {
-          for( float nj = j; nj < j + scaleOffset && nj < newWidth ; ++nj )
+          for( float nj = j; nj < j + scaleOffset && nj < maxX; ++nj )
           {
             int nx = rotateX(nj,ni,cosAngle,sinAngle,halfWidth,halfHeight) - xOffset;
             int ny = rotateY(nj,ni,cosAngle,sinAngle,halfWidth,halfHeight) - yOffset;
+
+            if( newPointHelper( nx, ny, halfVertex, P, R, morphValue, shrinkValue ) ) continue;
 
             if( (nx < 0) || (nx > width-1) || (ny < 0) || (ny > height-1) ) continue;
 

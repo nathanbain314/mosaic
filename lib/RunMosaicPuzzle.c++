@@ -21,6 +21,10 @@ int main( int argc, char **argv )
 
     SwitchArg smoothArg( "", "smooth", "Compute edge preserving smoothing before finding edges", cmd, false );
 
+    ValueArg<float> shrinkValueArg( "", "shrink", "Shrink value", false, 0.0, "float", cmd);
+
+    ValueArg<float> morphValueArg( "m", "morph", "Weight of cell morph value", false, 0.0, "float", cmd);
+
     ValueArg<float> edgeWeightArg( "e", "edgeWeight", "Weight edge pixels more than other pixels", false, 1.0, "float", cmd);
 
     ValueArg<float> fillWeightArg( "f", "fillWeight", "Weight of cell fill value", false, 1.0, "float", cmd);
@@ -54,6 +58,8 @@ int main( int argc, char **argv )
     float buildScale                  = buildScaleArg.getValue();
     bool smoothImage                  = smoothArg.getValue();
     float edgeWeight                  = edgeWeightArg.getValue();
+    float morphValue                  = morphValueArg.getValue();
+    float shrinkValue                 = shrinkValueArg.getValue();
     float angleOffset                 = angleOffsetArg.getValue();
     string fileName                   = fileArg.getValue();
 
@@ -63,7 +69,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunMosaicPuzzle( inputName, outputName, inputDirectory, numCells, secondPass, renderScale, buildScale, angleOffset, edgeWeight, smoothImage, skipNearBy, sizePower, useConcave, recursiveSearch, fileName );
+    RunMosaicPuzzle( inputName, outputName, inputDirectory, numCells, secondPass, renderScale, buildScale, angleOffset, edgeWeight, morphValue, shrinkValue, smoothImage, skipNearBy, sizePower, useConcave, recursiveSearch, fileName );
   }
   catch (ArgException &e)  // catch any exceptions
   {

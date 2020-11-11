@@ -383,6 +383,7 @@ Vertex midpoint( Vertex v1, Vertex v2 )
 
 bool validPoint( Vertex p, Vertex v1, Vertex v2 )
 {
+  if( v1 == v2 ) return false;
   return p.y <= v1.y && p.y <= v2.y && p != v1 && p != v2;
 }
 
