@@ -37,7 +37,7 @@ public:
   void drawImageFit( float maxScale, Vertex bestFitOrigin );
 };
 
-void findBestFit( Polygon P2, Polygon R, float &scale, float &rotation, Vertex &offset, float rotationOffset = 1.0, float startRotation = 0.0 );
+void findBestFit( Polygon P2, Polygon R, float &scale, float &rotation, Vertex &offset, float rotationOffset = 1.0, float maxAngle = 180.0 );
 
 void drawImage( Polygon P, Polygon R, float scale, float rotation, Vertex offset, string outputName, float scaleUp );
 

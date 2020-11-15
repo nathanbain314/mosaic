@@ -33,6 +33,8 @@ int main( int argc, char **argv )
 
     ValueArg<float> buildScaleArg( "b", "buildScale", "Scale for building the mosaic", false, 1.0, "float", cmd);
 
+    ValueArg<float> maxAngleArg( "", "maxAngle", "Max angle rotation", false, 180.0, "float", cmd);
+
     ValueArg<float> angleOffsetArg( "a", "angleOffset", "Angle to offset images by to find best rotation", false, 360.0, "float", cmd);
 
     ValueArg<int> numCellsArg( "n", "numCells", "Number of cells to use", true, 100, "int", cmd);
@@ -61,6 +63,7 @@ int main( int argc, char **argv )
     float morphValue                  = morphValueArg.getValue();
     float shrinkValue                 = shrinkValueArg.getValue();
     float angleOffset                 = angleOffsetArg.getValue();
+    float maxAngle                    = maxAngleArg.getValue();
     string fileName                   = fileArg.getValue();
 
     if( !secondPass ) useConcave = false;
@@ -69,7 +72,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunMosaicPuzzle( inputName, outputName, inputDirectory, numCells, secondPass, renderScale, buildScale, angleOffset, edgeWeight, morphValue, shrinkValue, smoothImage, skipNearBy, sizePower, useConcave, recursiveSearch, fileName );
+    RunMosaicPuzzle( inputName, outputName, inputDirectory, numCells, secondPass, renderScale, buildScale, angleOffset, maxAngle, edgeWeight, morphValue, shrinkValue, smoothImage, skipNearBy, sizePower, useConcave, recursiveSearch, fileName );
   }
   catch (ArgException &e)  // catch any exceptions
   {

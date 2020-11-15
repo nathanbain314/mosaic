@@ -352,7 +352,7 @@ void computeLargerPolygon( vector< Vertex > &vertices, vector< Edge > &edges, Ve
   P.addEdge(P.vertices.size()-2,P.vertices.size()-1);
 }
 
-tuple< int, float, float, Vertex > generateSecondPassBestValues( int i2, int cellDistance, vector< Polygon > &imagePolygons, vector< Polygon > &concavePolygons, vector< Polygon > &polygons, vector< tuple< int, float, float, Vertex > > &bestValues, vector< vector< float > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float *inputData, float * edgeData, int inputWidth, int inputHeight, float angleOffset, bool skipNearby, float sizePower, bool doDraw, bool useConcave, ProgressBar *drawingImages )
+tuple< int, float, float, Vertex > generateSecondPassBestValues( int i2, int cellDistance, vector< Polygon > &imagePolygons, vector< Polygon > &concavePolygons, vector< Polygon > &polygons, vector< tuple< int, float, float, Vertex > > &bestValues, vector< vector< float > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float *inputData, float * edgeData, int inputWidth, int inputHeight, float angleOffset, float maxAngle, bool skipNearby, float sizePower, bool doDraw, bool useConcave, ProgressBar *drawingImages )
 {
   set< int > skipValues;
 
@@ -465,7 +465,7 @@ tuple< int, float, float, Vertex > generateSecondPassBestValues( int i2, int cel
 
     Vertex offset;
 
-    findBestFit( P, R, scale, rotation, offset, angleOffset, 0 );
+    findBestFit( P, R, scale, rotation, offset, angleOffset, maxAngle );
 
     float angle = rotation * 3.14159265/180.0;
 
@@ -586,7 +586,7 @@ tuple< int, float, float, Vertex > generateSecondPassBestValues( int i2, int cel
   return make_tuple( bestImage, bestScale, bestRotation, bestOffset );
 }
 
-void generateBestValues( int start, int end, vector< int > &indices, vector< Polygon > &polygons, vector< Polygon > &imagePolygons, vector< tuple< int, float, float, Vertex > > &bestValues, vector< vector< float > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float *inputData, float * edgeData, int inputWidth, int inputHeight, float angleOffset, float sizePower, float cellDistance, bool skipNearby, ProgressBar *findingBestImages )
+void generateBestValues( int start, int end, vector< int > &indices, vector< Polygon > &polygons, vector< Polygon > &imagePolygons, vector< tuple< int, float, float, Vertex > > &bestValues, vector< vector< float > > &images, vector< vector< unsigned char > > &masks, vector< pair< int, int > > &dimensions, float *inputData, float * edgeData, int inputWidth, int inputHeight, float angleOffset, float maxAngle, float sizePower, float cellDistance, bool skipNearby, ProgressBar *findingBestImages )
 {
   for( int st = start; st < end; ++st )
   {
@@ -648,7 +648,7 @@ void generateBestValues( int start, int end, vector< int > &indices, vector< Pol
 
       Vertex offset;
 
-      findBestFit( P, R, scale, rotation, offset, angleOffset, 0 );
+      findBestFit( P, R, scale, rotation, offset, angleOffset, maxAngle );
 
       float angle = rotation * 3.14159265/180.0;
 
@@ -826,7 +826,7 @@ bool newPointHelper( int &x, int &y, Vertex C, Polygon &P, Polygon &R, float mor
   return false;
 }
 
-void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, float renderScale, float buildScale, float angleOffset, float edgeWeight, float morphValue, float shrinkValue, bool smoothImage, bool skipNearby, float sizePower, bool useConcave, bool recursiveSearch, string fileName )
+void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inputDirectory, int count, bool secondPass, float renderScale, float buildScale, float angleOffset, float maxAngle, float edgeWeight, float morphValue, float shrinkValue, bool smoothImage, bool skipNearby, float sizePower, bool useConcave, bool recursiveSearch, string fileName )
 {
   vector< Polygon > polygons, imagePolygons, concavePolygons;
   vector< vector< unsigned char > > images, masks;
@@ -903,7 +903,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
 
   for( int k = 0; k < threads; ++k )
   {
-    ret[k] = async( launch::async, &generateBestValues, k*indices.size()/threads, (k+1)*indices.size()/threads, ref(indices), ref(polygons), ref(imagePolygons), ref(bestValues), ref(images2), ref(masks), ref(dimensions), c2, edgeData, inputWidth, inputHeight, angleOffset, sizePower, cellDistance, skipNearby, findingBestImages );
+    ret[k] = async( launch::async, &generateBestValues, k*indices.size()/threads, (k+1)*indices.size()/threads, ref(indices), ref(polygons), ref(imagePolygons), ref(bestValues), ref(images2), ref(masks), ref(dimensions), c2, edgeData, inputWidth, inputHeight, angleOffset, maxAngle, sizePower, cellDistance, skipNearby, findingBestImages );
   }
 
   // Wait for threads to finish
@@ -938,7 +938,7 @@ void RunMosaicPuzzle( string inputName, string outputImage, vector< string > inp
         int i2 = indices2[i3]+k*indices2.size();
         if( i2 >= polygons.size() ) continue;
 
-        ret[k] = async( launch::async, &generateSecondPassBestValues, i2, cellDistance, ref(imagePolygons), ref(concavePolygons), ref(polygons), ref(bestValues), ref(images2), ref(masks), ref(dimensions), c2, edgeData, inputWidth, inputHeight, angleOffset, skipNearby, sizePower, k==0, useConcave, fillingGaps );
+        ret[k] = async( launch::async, &generateSecondPassBestValues, i2, cellDistance, ref(imagePolygons), ref(concavePolygons), ref(polygons), ref(bestValues), ref(images2), ref(masks), ref(dimensions), c2, edgeData, inputWidth, inputHeight, angleOffset, maxAngle, skipNearby, sizePower, k==0, useConcave, fillingGaps );
       }
 
       // Wait for threads to finish

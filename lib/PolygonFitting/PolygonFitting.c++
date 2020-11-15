@@ -590,8 +590,10 @@ bool PolygonFitting::findBestScale( float &maxScale, Vertex &bestFitOrigin )
   return isNewBestScale;
 }
 
-void findBestFit( Polygon P, Polygon R, float &scale, float &rotation, Vertex &offset, float rotationOffset, float startRotation )
+void findBestFit( Polygon P, Polygon R, float &scale, float &rotation, Vertex &offset, float rotationOffset, float maxAngle )
 {
+  maxAngle = min( maxAngle, 180.0f );
+
   scale = 0;
 
   Vertex origin = Vertex( -1000000000, -1000000000 );
@@ -608,9 +610,9 @@ void findBestFit( Polygon P, Polygon R, float &scale, float &rotation, Vertex &o
 
   R.scaleBy(10000);
 
-  P.rotateBy(startRotation);
+  float maxR;
 
-  for( float r = startRotation; r < 360; r += rotationOffset )
+  for( float r = 0; r <= maxAngle; r += rotationOffset )
   {
     PolygonFitting pf( P, R );
 
@@ -621,9 +623,32 @@ void findBestFit( Polygon P, Polygon R, float &scale, float &rotation, Vertex &o
       rotation = r;
     }
 
-    if( r+rotationOffset < 360 )
+    if( r+rotationOffset <= maxAngle )
     {
       P.rotateBy(rotationOffset);
+    }
+
+    maxR = r;
+  }
+
+  P.rotateBy(360.0-maxR);
+
+  maxAngle = min( maxAngle, 179.9f );
+
+  for( float r = rotationOffset; r <= maxAngle; r += rotationOffset )
+  {
+    PolygonFitting pf( P, R );
+
+    pf.computeContributingEdges();
+
+    if( pf.findBestScale( scale, offset ) )
+    {
+      rotation = 360.0 - r;
+    }
+
+    if( r+rotationOffset <= maxAngle )
+    {
+      P.rotateBy(360.0-rotationOffset);
     }
   }
 
