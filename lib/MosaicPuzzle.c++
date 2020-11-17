@@ -802,7 +802,11 @@ Vertex newPoint( Vertex &C, Vertex &P1, Polygon &P, Polygon &R, float morphValue
   float ratio1 = sqrt(distance( C, P1 )) / sqrt(distance( C, I1 ));
   float ratio2 = sqrt(distance( C, P1 )) / sqrt(distance( C, I2 ));
 
-  float ratio = interpolate( ratio1, ratio2, morphValue );
+//  float ratio = interpolate( ratio1, ratio2, morphValue );
+
+  float ratio = ratio2/ratio1;
+
+  ratio = pow(ratio,morphValue)*ratio1;
 
   ratio *= (1.0f+shrinkValue);
 
