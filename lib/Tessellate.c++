@@ -281,6 +281,199 @@ void buildImage( vector< vector< cropType > > &cropData, vector< int > &mosaic, 
   }
 }
 
+int generateRowThread( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > shapeIndices, vector< int > &indices, int repeat, float * c, float * edgeData, int start, int end, vector< int > &tileWidth, vector< int > &tileHeight, int width, int height, ProgressBar* buildingMosaic, bool quiet )
+{
+  // Whether to update progressbar
+  bool show = !quiet && !(start);
+
+  // Color difference of images
+  float out_dist_sqr;
+
+  for( int i1 = start; i1 < end; ++i1 )
+  {
+    int i = indices[i1];
+    // Update progressbar if necessary
+    if(show) buildingMosaic->Increment();
+
+    vector< int > allIndices( width+1, -1 );
+    vector< int > allTypes( width+1, -1 );
+    vector< float > allDifferences( width+1, -1 );
+    vector< float > allMosaics( width+1, -1 );
+
+    allDifferences[0] = 0;
+
+    // For every index
+    for( int j = 0; j < width; ++j )
+    {
+      if( allDifferences[j] < -0.5 ) continue;
+
+      for( int t = 0; t < shapeIndices.size(); ++t )
+      {
+        if( j + tileWidth[t] > width ) continue;
+        if( i + tileHeight[t] > height ) continue;
+        vector< float > d(shapeIndices[t].size()*6);
+
+        // Get rgb data about tile and save in vector
+        for( int x = 0; x < shapeIndices[t].size(); ++x )
+        {
+          int l = 3 * ( ( i + shapeIndices[t][x]/tileWidth[t] ) * width + j + shapeIndices[t][x]%tileWidth[t] );
+
+          d[3*x+0] = c[l];
+          d[3*x+1] = c[l+1];
+          d[3*x+2] = c[l+2];
+          d[3*(x+shapeIndices[t].size())+0] = edgeData[l/3];
+          d[3*(x+shapeIndices[t].size())+1] = 1.0f;//edgeData[l/3];
+          d[3*(x+shapeIndices[t].size())+2] = 1.0f;//edgeData[l/3];
+        }
+
+        size_t ret_index;
+
+        mat_index[t]->query( &d[0], 1, &ret_index, &out_dist_sqr );
+
+        out_dist_sqr += allDifferences[j];
+
+        if( allDifferences[j+tileWidth[t]] < -0.5 || out_dist_sqr < allDifferences[j+tileWidth[t]] )
+        {
+          allDifferences[j+tileWidth[t]] = out_dist_sqr;
+          allMosaics[j+tileWidth[t]] = ret_index;
+          allIndices[j+tileWidth[t]] = j;
+          allTypes[j+tileWidth[t]] = t;
+        }
+      }
+    }
+
+    vector< int > ind;
+
+    for( int k = width; k > 0; k = allIndices[k] )
+    {
+      ind.push_back(k);
+    }
+    ind.push_back(0);
+
+    for( int k1 = ind.size()-1; k1 > 0; --k1 )
+    {
+      int ik1 = ind[k1];
+      int ik2 = ind[k1-1];
+
+      int length = ik2-ik1;
+
+      int t = allTypes[ik2];
+
+      mosaic.push_back(allMosaics[ik2]);
+
+      mosaicLocations.push_back({ ik1, i, ik1+tileWidth[t], i+tileHeight[t], t } );
+    }
+  }
+
+  return 0;
+}
+
+int generateRowMosaic( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< vector< int > > &mosaicLocations, vector< vector< int > > &edgeLocations, vector< vector< int > > &shapeIndices, vector< int > &mosaic, string inputImage, int repeat, bool square, int resize, bool quiet, vector< int > &tileWidth, vector< int > &tileHeight, float edgeWeight, bool smoothImage )
+{
+  // Load input image
+  VImage image = VImage::vipsload( (char *)inputImage.c_str() ).autorot();
+
+  // Convert to a three band image
+  if( image.bands() == 1 )
+  {
+    image = image.bandjoin(image).bandjoin(image);
+  }
+  if( image.bands() == 4 )
+  {
+    image = image.flatten();
+  }
+
+  // Crop out the middle square if specified
+  if(square)
+  {
+    image = (image.width() < image.height()) ? image.extract_area(0, (image.height()-image.width())/2, image.width(), image.width()) :
+                                               image.extract_area((image.width()-image.height())/2, 0, image.height(), image.height());
+  }
+
+  // Resize the image for correct mosaic tile size
+  if( resize != 0 ) image = image.resize( (float)resize / (float)(image.width()) );
+
+  int width = image.width();
+  int height = image.height();
+
+  int numVertical = height / tileHeight[0];
+
+  // Get image data
+  unsigned char * c = ( unsigned char * )image.data();
+  float * c2 = new float[3*width*height];
+
+  for( int p = 0; p < width*height; ++p )
+  {
+    rgbToLab( c[3*p+0], c[3*p+1], c[3*p+2], c2[3*p+0], c2[3*p+1], c2[3*p+2] );
+  }
+
+  float * edgeData = new float[width*height];
+
+  generateEdgeWeights( image, edgeData, tileHeight[0], edgeWeight, smoothImage, quiet );
+
+  // Number of threads for multithreading: needs to be a square number
+  int threads = numberOfCPUS();
+
+  // Create list of numbers in thread block
+  vector< int > indices;
+
+  for( int i = 0; i < height; i += tileHeight[0] )
+  {
+    indices.push_back(i);
+  }
+
+  // Break mosaic into blocks and find best matching tiles inside each block on a different thread
+  future< int > ret[threads];
+
+  ProgressBar *buildingMosaic = new ProgressBar(numVertical/threads+1, "Building mosaic");
+
+  vector< vector< int > > mosaicLocationsThread[threads];
+  vector< int > mosaicThread[threads];
+
+  for( int i = 0; i < threads; ++i )
+  {
+    ret[i] = async( launch::async, &generateRowThread, ref(mat_index), ref(mosaicThread[i]), ref(mosaicLocationsThread[i]), ref(shapeIndices), ref(indices), repeat, c2, edgeData, i*indices.size()/threads, (i+1)*indices.size()/threads, ref(tileWidth), ref(tileHeight), width, height, buildingMosaic, quiet );
+  }
+
+  // Wait for threads to finish
+  for( int k = 0; k < threads; ++k )
+  {
+    ret[k].get();
+
+    mosaicLocations.insert(mosaicLocations.end(), mosaicLocationsThread[k].begin(), mosaicLocationsThread[k].end());
+    mosaic.insert(mosaic.end(), mosaicThread[k].begin(), mosaicThread[k].end());
+  }
+
+  if( !quiet ) buildingMosaic->Finish();
+
+/*
+  vector< int > edgeIndices( edgeLocations.size() );
+  iota( edgeIndices.begin(), edgeIndices.end(), 0 );
+
+  // Shuffle the points so that patterns do not form
+  shuffle( edgeIndices.begin(), edgeIndices.end(), default_random_engine(time(NULL)) );
+
+  if( !quiet ) buildingMosaic->Finish();
+
+  ProgressBar *buildingMosaicEdge = new ProgressBar(edgeLocations.size()/threads, "Building mosaic edge");
+
+  for( int i = 0; i < threads; ++i )
+  {
+    ret[i] = async( launch::async, &generateBlockEdgeThread, ref(mat_index), ref(mosaic), mosaicLocations.size(), ref(edgeLocations), ref(shapeIndices), ref(edgeIndices), repeat, c2, edgeData, i*edgeIndices.size()/threads, (i+1)*edgeIndices.size()/threads, ref(tileWidth), width, height, buildingMosaicEdge, quiet );
+  }
+
+  // Wait for threads to finish
+  for( int k = 0; k < threads; ++k )
+  {
+    ret[k].get();
+  }
+
+  if( !quiet ) buildingMosaicEdge->Finish();
+*/
+  return 0;
+}
+
+
 int generateBlockThread( vector< unique_ptr< my_kd_tree_t > > &mat_index, vector< int > &mosaic, vector< vector< int > > &mosaicLocations, vector< vector< int > > shapeIndices, vector< int > &indices, int repeat, float * c, float * edgeData, int start, int end, vector< int > &tileWidth, vector< int > &tileHeight, int width, ProgressBar* buildingMosaic, bool quiet )
 {
   // Whether to update progressbar
@@ -766,6 +959,9 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
   {
     createJigsawLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
   }
+  else if( tessellateTypeName == "offsets.t" || tessellateTypeName == "offsets2.t" )
+  {
+  }
   else
   {
     createLocations( mosaicLocations, mosaicLocations2, edgeLocations, edgeLocations2, offsets, dimensions, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, numHorizontal * mosaicTileWidth, numVertical * mosaicTileHeight );
@@ -809,7 +1005,19 @@ void RunTessellate( string inputName, string outputName, vector< string > inputD
 
 //    ProgressBar *buildingMosaic = new ProgressBar(mosaicLocations.size()/threads, "Building mosaic");
 
-    numUnique = generateMosaic( mat_index, mosaicLocations, edgeLocations, shapeIndices, mosaic, inputImages[i], repeat, false, numHorizontal * mosaicTileWidth, quiet, tileWidth, tileHeight, edgeWeight, smoothImage );
+    if( tessellateTypeName == "offsets.t" || tessellateTypeName == "offsets2.t" )
+    {
+      numUnique = generateRowMosaic( mat_index, mosaicLocations, edgeLocations, shapeIndices, mosaic, inputImages[i], repeat, false, numHorizontal * mosaicTileWidth, quiet, tileWidth, tileHeight, edgeWeight, smoothImage );
+    }
+    else
+    {
+      numUnique = generateMosaic( mat_index, mosaicLocations, edgeLocations, shapeIndices, mosaic, inputImages[i], repeat, false, numHorizontal * mosaicTileWidth, quiet, tileWidth, tileHeight, edgeWeight, smoothImage );
+    }
+
+    for( int m1 = 0; m1 < mosaicLocations.size(); ++m1 )
+    {
+      mosaicLocations2.push_back({ mosaicLocations[m1][0]*imageTileWidth/mosaicTileWidth, mosaicLocations[m1][1]*imageTileHeight/mosaicTileHeight, mosaicLocations[m1][2]*imageTileWidth/mosaicTileWidth, mosaicLocations[m1][3]*imageTileHeight/mosaicTileHeight, mosaicLocations[m1][4] });
+    }
 
     if( mosaicTileWidth == imageTileWidth )
     {
