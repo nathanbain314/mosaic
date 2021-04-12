@@ -136,6 +136,10 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
   int imageTileArea = imageTileWidth*imageTileHeight*3;
   int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
 
+  int preW = width;
+  width = mosaicTileWidth*numHorizontal;
+  height = ceil((float)width * (float)height/preW);
+
   if( !loadData )
   {
     for( int i = 0; i < inputDirectory.size(); ++i )
