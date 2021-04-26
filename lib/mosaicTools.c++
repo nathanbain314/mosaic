@@ -345,32 +345,41 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
 
   int threads = numberOfCPUS();
 
-  if( !multithread ) threads = 1;
-
-  ProgressBar *processing_images = new ProgressBar(ceil((float)num_images/threads), "Processing images");
-
-  vector< cropType > cropDataThread[threads];
-  vector< vector< unsigned char > > mosaicTileDataThread[threads];
-  vector< vector< unsigned char > > imageTileDataThread[threads];
-
-  future< void > ret[threads];
-
-  for( int k = 0; k < threads; ++k )
+  if( multithread )
   {
-    ret[k] = async( launch::async, &processImages, ref(cropDataThread[k]), ref(mosaicTileDataThread[k]), ref(imageTileDataThread[k]), ref(names), k*num_images/threads, (k+1)*num_images/threads, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, minWidth, minHeight, spin, different, cropStyle, flip, quiet, processing_images );
-  }
+    ProgressBar *processing_images = new ProgressBar(ceil((float)num_images/threads), "Processing images");
 
-  // Wait for threads to finish
-  for( int k = 0; k < threads; ++k )
+    vector< cropType > cropDataThread[threads];
+    vector< vector< unsigned char > > mosaicTileDataThread[threads];
+    vector< vector< unsigned char > > imageTileDataThread[threads];
+
+    future< void > ret[threads];
+
+    for( int k = 0; k < threads; ++k )
+    {
+      ret[k] = async( launch::async, &processImages, ref(cropDataThread[k]), ref(mosaicTileDataThread[k]), ref(imageTileDataThread[k]), ref(names), k*num_images/threads, (k+1)*num_images/threads, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, minWidth, minHeight, spin, different, cropStyle, flip, quiet, processing_images );
+    }
+
+    // Wait for threads to finish
+    for( int k = 0; k < threads; ++k )
+    {
+      ret[k].get();
+
+      cropData.insert(cropData.end(), cropDataThread[k].begin(), cropDataThread[k].end());
+      mosaicTileData.insert(mosaicTileData.end(), mosaicTileDataThread[k].begin(), mosaicTileDataThread[k].end());
+      if( mosaicTileWidth != imageTileWidth ) imageTileData.insert(imageTileData.end(), imageTileDataThread[k].begin(), imageTileDataThread[k].end());
+    }
+  
+    if( !quiet ) processing_images->Finish();
+  }
+  else
   {
-    ret[k].get();
+    ProgressBar *processing_images = new ProgressBar(num_images, "Processing images");
 
-    cropData.insert(cropData.end(), cropDataThread[k].begin(), cropDataThread[k].end());
-    mosaicTileData.insert(mosaicTileData.end(), mosaicTileDataThread[k].begin(), mosaicTileDataThread[k].end());
-    if( mosaicTileWidth != imageTileWidth ) imageTileData.insert(imageTileData.end(), imageTileDataThread[k].begin(), imageTileDataThread[k].end());
+    processImages( cropData, mosaicTileData, imageTileData, names, 0, num_images, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, minWidth, minHeight, spin, different, cropStyle, flip, quiet, processing_images );
+
+    if( !quiet ) processing_images->Finish();
   }
-
-  if( !quiet ) processing_images->Finish();
 }
 
 int generateMosaicThread( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, vector< int > &indices, vector< bool > &used, int repeat, float * c, condition_variable *cv, int threadIdx, int numThreads, float * edgeData, int tileWidth, int tileHeight, int width, int numHorizontal, int numVertical, bool dither, ProgressBar* buildingMosaic, bool quiet )

@@ -48,8 +48,8 @@ int main( int argc, char **argv )
     int numHorizontal                 = numberArg.getValue();
     float edgeWeight                  = edgeWeightArg.getValue();
     bool smoothImage                  = smoothArg.getValue();
-    bool recursiveSearch              = batchLoadArg.getValue();
-    bool batchLoad                    = recursiveArg.getValue();
+    bool recursiveSearch              = recursiveArg.getValue();
+    bool batchLoad                    = batchLoadArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
     int imageTileWidth                = imageTileArg.getValue();

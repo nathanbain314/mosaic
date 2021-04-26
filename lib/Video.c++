@@ -47,7 +47,7 @@ void batchLoadHelper( int start, int end, vector< cropType > &cropData, vector< 
     string imageDirectory = inputDirectory[i];
     if( imageDirectory.back() != '/' ) imageDirectory += '/';
 
-    generateThumbnails( cropData, mosaicTileData, imageTileData, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, true, recursiveSearch, true );
+    generateThumbnails( cropData, mosaicTileData, imageTileData, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, true, recursiveSearch, false );
 
     idx.resize(mosaicTileData.size());
     iota(idx.begin()+numImages, idx.end(), numImages);
