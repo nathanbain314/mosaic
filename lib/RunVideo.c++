@@ -11,6 +11,8 @@ int main( int argc, char **argv )
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
+    SwitchArg batchLoadArg( "", "batch", "Load frame directories in batches. Faster when there are many directories", cmd, false );
+
     SwitchArg recursiveArg( "", "recursive", "Recursive search directories", cmd, false );
 
     ValueArg<int> skipTileArg( "s", "skip", "Number of frames to skip in between each video", false, 30, "int", cmd);
@@ -46,7 +48,8 @@ int main( int argc, char **argv )
     int numHorizontal                 = numberArg.getValue();
     float edgeWeight                  = edgeWeightArg.getValue();
     bool smoothImage                  = smoothArg.getValue();
-    bool recursiveSearch              = recursiveArg.getValue();
+    bool recursiveSearch              = batchLoadArg.getValue();
+    bool batchLoad                    = recursiveArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
     int imageTileWidth                = imageTileArg.getValue();
@@ -56,7 +59,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunVideo( inputName, outputName, inputDirectory, numHorizontal, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, frames, skip, recursiveSearch, edgeWeight, smoothImage );
+    RunVideo( inputName, outputName, inputDirectory, numHorizontal, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, frames, skip, recursiveSearch, batchLoad, edgeWeight, smoothImage );
   }
   catch (ArgException &e)  // catch any exceptions
   {

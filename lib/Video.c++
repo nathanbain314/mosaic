@@ -36,7 +36,33 @@ void videoThread( int start, int end, int numHorizontal, int p, int frames, int 
   }
 }
 
-void RunVideo( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, int frames, int skip, bool recursiveSearch, float edgeWeight, bool smoothImage )
+void batchLoadHelper( int start, int end, vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< int > &idx, vector< int > &inputTileStarts, vector< string > &inputDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, bool recursiveSearch, ProgressBar* loadingFrames )
+{
+  int numImages = 0;
+
+  for( int i = start; i < end; ++i )
+  {
+    if( start == 0 ) loadingFrames->Increment();
+
+    string imageDirectory = inputDirectory[i];
+    if( imageDirectory.back() != '/' ) imageDirectory += '/';
+
+    generateThumbnails( cropData, mosaicTileData, imageTileData, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, true, recursiveSearch, true );
+
+    idx.resize(mosaicTileData.size());
+    iota(idx.begin()+numImages, idx.end(), numImages);
+
+    sort(idx.begin()+numImages, idx.end(), [&cropData](int i1, int i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
+
+    inputTileStarts.push_back(numImages);
+
+    numImages = mosaicTileData.size();
+
+    inputTileStarts.push_back(numImages);
+  }
+}
+
+void RunVideo( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, int frames, int skip, bool recursiveSearch, bool batchLoad, float edgeWeight, bool smoothImage )
 {
   vector< string > inputImages;
   vector< string > outputImages;
@@ -142,22 +168,77 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
   if( !loadData )
   {
-    for( int i = 0; i < inputDirectory.size(); ++i )
+    if( batchLoad )
     {
-      string imageDirectory = inputDirectory[i];
+      string imageDirectory = inputDirectory[0];
       if( imageDirectory.back() != '/' ) imageDirectory += '/';
-      generateThumbnails( cropData, mosaicTileData, imageTileData, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, false, recursiveSearch );
 
-      idx.resize(mosaicTileData.size());
-      iota(idx.begin()+numImages, idx.end(), numImages);
+      int threads = numberOfCPUS();
 
-      sort(idx.begin()+numImages, idx.end(), [&cropData](int i1, int i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
+      future< void > ret[threads];
 
-      inputTileStarts.push_back(numImages);
+      vector< cropType > cropDataThread[threads];
+      vector< vector< unsigned char > > mosaicTileDataThread[threads];
+      vector< vector< unsigned char > > imageTileDataThread[threads];
+      vector< int > inputTileStartsThread[threads];
+      vector< int > idxThread[threads];
 
-      numImages = mosaicTileData.size();
+      generateThumbnails( cropDataThread[0], mosaicTileDataThread[0], imageTileDataThread[0], inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, true, recursiveSearch );
 
-      inputTileStarts.push_back(numImages);
+      ProgressBar *loadingFrames = new ProgressBar(inputDirectory.size()/threads+1, "Loading frames");
+
+      for( int k = 0; k < threads; ++k )
+      {
+        ret[k] = async( launch::async, &batchLoadHelper, k*inputDirectory.size()/threads, (k+1)*inputDirectory.size()/threads, ref( cropDataThread[k] ), ref( mosaicTileDataThread[k] ), ref( imageTileDataThread[k] ), ref( idxThread[k] ), ref( inputTileStartsThread[k] ), ref( inputDirectory ), mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, recursiveSearch, loadingFrames );
+      }
+
+      // Wait for threads to finish
+      for( int k = 0; k < threads; ++k )
+      { 
+        cropData.insert(cropData.end(), cropDataThread[k].begin(), cropDataThread[k].end());
+        mosaicTileData.insert(mosaicTileData.end(), mosaicTileDataThread[k].begin(), mosaicTileDataThread[k].end());
+        if( mosaicTileWidth != imageTileWidth ) imageTileData.insert(imageTileData.end(), imageTileDataThread[k].begin(), imageTileDataThread[k].end());
+
+        for( int k1 = 0; k1 < inputTileStartsThread[k].size(); ++k1 )
+        {
+          inputTileStartsThread[k][k1] += numImages;
+        }
+
+        for( int k1 = 0; k1 < idxThread[k].size(); ++k1 )
+        {
+          idxThread[k][k1] += numImages;
+        }
+
+        inputTileStarts.insert(inputTileStarts.end(), inputTileStartsThread[k].begin(), inputTileStartsThread[k].end());
+        idx.insert(idx.end(), idxThread[k].begin(), idxThread[k].end());
+
+        numImages = mosaicTileData.size();
+
+        ret[k].get();
+      }
+
+      loadingFrames->Finish();
+    }
+    else
+    {
+      for( int i = 0; i < inputDirectory.size(); ++i )
+      {
+        string imageDirectory = inputDirectory[i];
+        if( imageDirectory.back() != '/' ) imageDirectory += '/';
+
+        generateThumbnails( cropData, mosaicTileData, imageTileData, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, false, recursiveSearch );
+
+        idx.resize(mosaicTileData.size());
+        iota(idx.begin()+numImages, idx.end(), numImages);
+
+        sort(idx.begin()+numImages, idx.end(), [&cropData](int i1, int i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
+
+        inputTileStarts.push_back(numImages);
+
+        numImages = mosaicTileData.size();
+
+        inputTileStarts.push_back(numImages);
+      }
     }
 
     if( numImages == 0 ) 

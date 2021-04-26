@@ -287,7 +287,7 @@ void processImages( vector< cropType > &cropData, vector< vector< unsigned char 
   }
 }
 
-void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< string > &inputDirectory, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight,  bool exclude, bool spin, int cropStyle, bool flip, bool quiet, bool recursiveSearch )
+void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< string > &inputDirectory, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight,  bool exclude, bool spin, int cropStyle, bool flip, bool quiet, bool recursiveSearch, bool multithread )
 {
   // Used for reading directory
   DIR *dir;
@@ -344,6 +344,8 @@ void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned 
   if( !quiet ) cout << endl;
 
   int threads = numberOfCPUS();
+
+  if( !multithread ) threads = 1;
 
   ProgressBar *processing_images = new ProgressBar(ceil((float)num_images/threads), "Processing images");
 

@@ -57,6 +57,6 @@ void changeColorspace( Tree &tree, Point &center, unsigned char * c, float * c2,
 
 int numberOfCPUS();
 
-void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< string > &inputDirectory, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, bool exclude = false, bool spin = false, int cropStyle = 0, bool flip = false, bool quiet = false, bool recursiveSearch = false );
+void generateThumbnails( vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< string > &inputDirectory, string imageDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, bool exclude = false, bool spin = false, int cropStyle = 0, bool flip = false, bool quiet = false, bool recursiveSearch = false, bool multithread = true );
 
 int generateMosaic( my_kd_tree_t *mat_index, vector< vector< int > > &mosaic, string inputImage, int repeat = 0, bool square = false, int resize = 0, float edgeWeight = 0.0f, bool smoothImage = false, bool dither = false, float gamma = 1.0f, bool gammutMapping = false, bool quiet = false );
