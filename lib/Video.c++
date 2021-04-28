@@ -1,6 +1,6 @@
 #include "Video.h"
 
-void videoThread( int start, int end, int numHorizontal, int p, int frames, int mosaicTileWidth, int mosaicTileHeight, int tileArea, int width, my_kd_tree_t* mat_index, vector< vector< vector< float > > > &e, vector< vector< int > > &starts, vector< vector< vector< int > > > &mosaic, vector< int > &sequenceStarts, float *c, float *edgeData )
+void videoThread( int start, int end, int numHorizontal, int p, int frames, int mosaicTileWidth, int mosaicTileHeight, int tileArea, int width, my_kd_tree_t* mat_index, vector< vector< vector< float > > > &e, vector< vector< int > > &starts, vector< vector< vector< int > > > &mosaic, vector< size_t > &sequenceStarts, float *c, float *edgeData )
 {
   size_t ret_index;
   float out_dist_sqr;
@@ -36,11 +36,11 @@ void videoThread( int start, int end, int numHorizontal, int p, int frames, int 
   }
 }
 
-void batchLoadHelper( int start, int end, vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< int > &idx, vector< int > &inputTileStarts, vector< string > &inputDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, bool recursiveSearch, ProgressBar* loadingFrames )
+void batchLoadHelper( int start, int end, vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< size_t > &idx, vector< size_t > &inputTileStarts, vector< string > &inputDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, bool recursiveSearch, ProgressBar* loadingFrames )
 {
-  int numImages = 0;
+  size_t numImages = 0;
 
-  for( int i = start; i < end; ++i )
+  for( size_t i = start; i < end; ++i )
   {
     if( start == 0 ) loadingFrames->Increment();
 
@@ -52,7 +52,7 @@ void batchLoadHelper( int start, int end, vector< cropType > &cropData, vector< 
     idx.resize(mosaicTileData.size());
     iota(idx.begin()+numImages, idx.end(), numImages);
 
-    sort(idx.begin()+numImages, idx.end(), [&cropData](int i1, int i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
+    sort(idx.begin()+numImages, idx.end(), [&cropData](size_t i1, size_t i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
 
     inputTileStarts.push_back(numImages);
 
@@ -97,14 +97,14 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
   int imageTileHeight = imageTileWidth*mosaicTileHeight/mosaicTileWidth;
 
-  int numImages = 0;
+  size_t numImages = 0;
   vector< cropType > cropData;
   vector< vector< unsigned char > > mosaicTileData;
   vector< vector< unsigned char > > imageTileData;
   float *d;
-  vector< int > sequenceStarts;
-  vector< int > inputTileStarts;
-  vector< int > idx;
+  vector< size_t > sequenceStarts;
+  vector< size_t > inputTileStarts;
+  vector< size_t > idx;
 
   bool loadData = (fileName != " ");
 
@@ -114,7 +114,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
     if(data.is_open())
     {
-      data.read( (char *)&numImages, sizeof(int) );
+      data.read( (char *)&numImages, sizeof(size_t) );
       data.read( (char *)&mosaicTileWidth, sizeof(int) );
       data.read( (char *)&mosaicTileHeight, sizeof(int) );
       data.read( (char *)&imageTileWidth, sizeof(int) );
@@ -122,7 +122,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     
       mosaicTileData.resize( numImages );
       
-      for( int i = 0; i < numImages; ++i )
+      for( size_t i = 0; i < numImages; ++i )
       {
         mosaicTileData[i].resize( mosaicTileWidth*mosaicTileHeight*3 );
         data.read((char *)mosaicTileData[i].data(), mosaicTileData[i].size()*sizeof(unsigned char));
@@ -132,24 +132,24 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
       {
         imageTileData.resize( numImages );
         
-        for( int i = 0; i < numImages; ++i )
+        for( size_t i = 0; i < numImages; ++i )
         {
           imageTileData[i].resize( imageTileWidth*imageTileHeight*3 );
           data.read((char *)imageTileData[i].data(), imageTileData[i].size()*sizeof(unsigned char));
         }
       }
 
-      int inputTileStartsLength;
-      data.read((char *)&inputTileStartsLength, sizeof(int));
+      size_t inputTileStartsLength;
+      data.read((char *)&inputTileStartsLength, sizeof(size_t));
 
       inputTileStarts.resize( inputTileStartsLength );
-      data.read((char *)inputTileStarts.data(), inputTileStartsLength*sizeof(int));
+      data.read((char *)inputTileStarts.data(), inputTileStartsLength*sizeof(size_t));
 
-      int idxLength;
-      data.read((char *)&idxLength, sizeof(int));
+      size_t idxLength;
+      data.read((char *)&idxLength, sizeof(size_t));
 
       idx.resize( idxLength );
-      data.read((char *)idx.data(), idxLength*sizeof(int));
+      data.read((char *)idx.data(), idxLength*sizeof(size_t));
  
     }
     else
@@ -158,8 +158,8 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     }
   }
 
-  int tileArea = mosaicTileWidth*mosaicTileHeight*3;
-  int imageTileArea = imageTileWidth*imageTileHeight*3;
+  size_t tileArea = mosaicTileWidth*mosaicTileHeight*3;
+  size_t imageTileArea = imageTileWidth*imageTileHeight*3;
   int numVertical = int( (double)height / (double)width * (double)numHorizontal * (double)mosaicTileWidth/(double)mosaicTileHeight );
 
   int preW = width;
@@ -180,10 +180,12 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
       vector< cropType > cropDataThread[threads];
       vector< vector< unsigned char > > mosaicTileDataThread[threads];
       vector< vector< unsigned char > > imageTileDataThread[threads];
-      vector< int > inputTileStartsThread[threads];
-      vector< int > idxThread[threads];
+      vector< size_t > inputTileStartsThread[threads];
+      vector< size_t > idxThread[threads];
 
       generateThumbnails( cropDataThread[0], mosaicTileDataThread[0], imageTileDataThread[0], inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, true, recursiveSearch );
+
+      inputDirectory.erase(inputDirectory.begin());
 
       ProgressBar *loadingFrames = new ProgressBar(inputDirectory.size()/threads+1, "Loading frames");
 
@@ -231,7 +233,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
         idx.resize(mosaicTileData.size());
         iota(idx.begin()+numImages, idx.end(), numImages);
 
-        sort(idx.begin()+numImages, idx.end(), [&cropData](int i1, int i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
+        sort(idx.begin()+numImages, idx.end(), [&cropData](size_t i1, size_t i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
 
         inputTileStarts.push_back(numImages);
 
@@ -250,7 +252,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     if( fileName != " " )
     {
       ofstream data( fileName, ios::binary );
-      data.write( (char *)&numImages, sizeof(int) );
+      data.write( (char *)&numImages, sizeof(size_t) );
 
       data.write( (char *)&mosaicTileWidth, sizeof(int) );
 
@@ -260,34 +262,34 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
       data.write( (char *)&imageTileHeight, sizeof(int) );
 
-      for( int i = 0; i < numImages; ++i )
+      for( size_t i = 0; i < numImages; ++i )
       {
         data.write((char *)&mosaicTileData[i].front(), mosaicTileData[i].size() * sizeof(unsigned char)); 
       }
 
       if( imageTileWidth != mosaicTileWidth )
       {
-        for( int i = 0; i < numImages; ++i )
+        for( size_t i = 0; i < numImages; ++i )
         {
           data.write((char *)&imageTileData[i].front(), imageTileData[i].size() * sizeof(unsigned char)); 
         }
       }
 
-      int inputTileStartsLength = inputTileStarts.size();
+      size_t inputTileStartsLength = inputTileStarts.size();
 
-      data.write((char *)&inputTileStartsLength, sizeof(int));
-      data.write((char *)&inputTileStarts.front(), inputTileStartsLength*sizeof(int));
+      data.write((char *)&inputTileStartsLength, sizeof(size_t));
+      data.write((char *)&inputTileStarts.front(), inputTileStartsLength*sizeof(size_t));
 
-      data.write((char *)&numImages, sizeof(int));
-      data.write((char *)&idx.front(), numImages*sizeof(int));
+      data.write((char *)&numImages, sizeof(size_t));
+      data.write((char *)&idx.front(), numImages*sizeof(size_t));
     }
   }
 
-  int matSize = 0;
+  size_t matSize = 0;
 
-  for( int i = 0; i < inputTileStarts.size(); i+=2 )
+  for( size_t i = 0; i < inputTileStarts.size(); i+=2 )
   {
-    for( int j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip )
+    for( size_t j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip )
     {
       ++matSize;
     }
@@ -295,14 +297,14 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
   d = (float *) malloc(matSize*tileArea*frames*sizeof(float));
 
-  for( int i = 0, l = 0; i < inputTileStarts.size(); i+=2 )
+  for( size_t i = 0, l = 0; i < inputTileStarts.size(); i+=2 )
   {
-    for( int j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip, ++l )
+    for( size_t j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip, ++l )
     {
       sequenceStarts.push_back(j);
-      for( int k = 0; k < frames; ++k )
+      for( size_t k = 0; k < frames; ++k )
       {
-        for( int p = 0; p < tileArea; ++p )
+        for( size_t p = 0; p < tileArea; ++p )
         {
           rgbToLab(mosaicTileData[idx[j+k]][p+0],mosaicTileData[idx[j+k]][p+1],mosaicTileData[idx[j+k]][p+2], d[ l*tileArea*frames + k*tileArea + p + 0 ], d[ l*tileArea*frames + k*tileArea + p + 1 ], d[ l*tileArea*frames + k*tileArea + p + 2 ] );
         }
@@ -339,9 +341,9 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     unsigned char * c = ( unsigned char * )image.data();
     float * c2 = new float[3*width*height];
 
-    for( int p = 0; p < width*height; ++p )
+    for( int p2 = 0; p2 < width*height; ++p2 )
     {
-      rgbToLab( c[3*p+0], c[3*p+1], c[3*p+2], c2[3*p+0], c2[3*p+1], c2[3*p+2] );
+      rgbToLab( c[3*p2+0], c[3*p2+1], c[3*p2+2], c2[3*p2+0], c2[3*p2+1], c2[3*p2+2] );
     }
 
     generateEdgeWeights( image, edgeData, mosaicTileHeight, edgeWeight, smoothImage );
