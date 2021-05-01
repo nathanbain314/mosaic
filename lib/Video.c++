@@ -36,7 +36,7 @@ void videoThread( int start, int end, int numHorizontal, int p, int frames, int 
   }
 }
 
-void batchLoadHelper( int start, int end, vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< size_t > &idx, vector< size_t > &inputTileStarts, vector< string > &inputDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, bool recursiveSearch, ProgressBar* loadingFrames )
+void batchLoadHelper( int start, int end, vector< cropType > &cropData, vector< vector< unsigned char > > &mosaicTileData, vector< vector< unsigned char > > &imageTileData, vector< size_t > &inputTileStarts, vector< string > &inputDirectory, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int imageTileHeight, bool recursiveSearch, ProgressBar* loadingFrames )
 {
   size_t numImages = 0;
 
@@ -47,12 +47,27 @@ void batchLoadHelper( int start, int end, vector< cropType > &cropData, vector< 
     string imageDirectory = inputDirectory[i];
     if( imageDirectory.back() != '/' ) imageDirectory += '/';
 
-    generateThumbnails( cropData, mosaicTileData, imageTileData, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, true, recursiveSearch, false );
+    vector< vector< unsigned char > > mosaicTileData2, imageTileData2;
 
-    idx.resize(mosaicTileData.size());
-    iota(idx.begin()+numImages, idx.end(), numImages);
+    generateThumbnails( cropData, mosaicTileData2, imageTileData2, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, true, recursiveSearch, false );
 
-    sort(idx.begin()+numImages, idx.end(), [&cropData](size_t i1, size_t i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
+    vector< size_t > idx;
+    idx.resize(numImages);
+    iota(idx.begin(), idx.end(), 0);
+    sort(idx.begin(), idx.end(), [&cropData](size_t i1, size_t i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
+
+    for( int i = 0; i < idx.size(); ++i )
+    {
+      mosaicTileData.push_back(mosaicTileData2[idx[i]]);
+    }
+
+    if( mosaicTileWidth != imageTileWidth ) 
+    {
+      for( int i = 0; i < idx.size(); ++i )
+      {
+        imageTileData.push_back(imageTileData2[idx[i]]);
+      }
+    }
 
     inputTileStarts.push_back(numImages);
 
@@ -104,7 +119,6 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
   float *d;
   vector< size_t > sequenceStarts;
   vector< size_t > inputTileStarts;
-  vector< size_t > idx;
 
   bool loadData = (fileName != " ");
 
@@ -144,13 +158,6 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
       inputTileStarts.resize( inputTileStartsLength );
       data.read((char *)inputTileStarts.data(), inputTileStartsLength*sizeof(size_t));
-
-      size_t idxLength;
-      data.read((char *)&idxLength, sizeof(size_t));
-
-      idx.resize( idxLength );
-      data.read((char *)idx.data(), idxLength*sizeof(size_t));
- 
     }
     else
     {
@@ -181,7 +188,6 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
       vector< vector< unsigned char > > mosaicTileDataThread[threads];
       vector< vector< unsigned char > > imageTileDataThread[threads];
       vector< size_t > inputTileStartsThread[threads];
-      vector< size_t > idxThread[threads];
 
       generateThumbnails( cropDataThread[0], mosaicTileDataThread[0], imageTileDataThread[0], inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, true, recursiveSearch );
 
@@ -191,7 +197,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
       for( int k = 0; k < threads; ++k )
       {
-        ret[k] = async( launch::async, &batchLoadHelper, k*inputDirectory.size()/threads, (k+1)*inputDirectory.size()/threads, ref( cropDataThread[k] ), ref( mosaicTileDataThread[k] ), ref( imageTileDataThread[k] ), ref( idxThread[k] ), ref( inputTileStartsThread[k] ), ref( inputDirectory ), mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, recursiveSearch, loadingFrames );
+        ret[k] = async( launch::async, &batchLoadHelper, k*inputDirectory.size()/threads, (k+1)*inputDirectory.size()/threads, ref( cropDataThread[k] ), ref( mosaicTileDataThread[k] ), ref( imageTileDataThread[k] ), ref( inputTileStartsThread[k] ), ref( inputDirectory ), mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, recursiveSearch, loadingFrames );
       }
 
       // Wait for threads to finish
@@ -206,13 +212,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
           inputTileStartsThread[k][k1] += numImages;
         }
 
-        for( int k1 = 0; k1 < idxThread[k].size(); ++k1 )
-        {
-          idxThread[k][k1] += numImages;
-        }
-
         inputTileStarts.insert(inputTileStarts.end(), inputTileStartsThread[k].begin(), inputTileStartsThread[k].end());
-        idx.insert(idx.end(), idxThread[k].begin(), idxThread[k].end());
 
         numImages = mosaicTileData.size();
 
@@ -228,12 +228,28 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
         string imageDirectory = inputDirectory[i];
         if( imageDirectory.back() != '/' ) imageDirectory += '/';
 
-        generateThumbnails( cropData, mosaicTileData, imageTileData, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, false, recursiveSearch );
+        vector< vector< unsigned char > > mosaicTileData2;
+        vector< vector< unsigned char > > imageTileData2;
 
-        idx.resize(mosaicTileData.size());
-        iota(idx.begin()+numImages, idx.end(), numImages);
+        generateThumbnails( cropData, mosaicTileData2, imageTileData2, inputDirectory, imageDirectory, mosaicTileWidth, mosaicTileHeight, imageTileWidth, imageTileHeight, false, false, 0, false, false, recursiveSearch );
 
-        sort(idx.begin()+numImages, idx.end(), [&cropData](size_t i1, size_t i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
+        vector< size_t > idx;
+        idx.resize(numImages);
+        iota(idx.begin(), idx.end(), 0);
+        sort(idx.begin(), idx.end(), [&cropData](size_t i1, size_t i2) {return get<0>(cropData[i1]) < get<0>(cropData[i2]);});
+
+        for( int i = 0; i < idx.size(); ++i )
+        {
+          mosaicTileData.push_back(mosaicTileData2[idx[i]]);
+        }
+
+        if( mosaicTileWidth != imageTileWidth ) 
+        {
+          for( int i = 0; i < idx.size(); ++i )
+          {
+            imageTileData.push_back(imageTileData2[idx[i]]);
+          }
+        }
 
         inputTileStarts.push_back(numImages);
 
@@ -279,9 +295,6 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
       data.write((char *)&inputTileStartsLength, sizeof(size_t));
       data.write((char *)&inputTileStarts.front(), inputTileStartsLength*sizeof(size_t));
-
-      data.write((char *)&numImages, sizeof(size_t));
-      data.write((char *)&idx.front(), numImages*sizeof(size_t));
     }
   }
 
@@ -306,7 +319,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
       {
         for( size_t p = 0; p < tileArea; ++p )
         {
-          rgbToLab(mosaicTileData[idx[j+k]][p+0],mosaicTileData[idx[j+k]][p+1],mosaicTileData[idx[j+k]][p+2], d[ l*tileArea*frames + k*tileArea + p + 0 ], d[ l*tileArea*frames + k*tileArea + p + 1 ], d[ l*tileArea*frames + k*tileArea + p + 2 ] );
+          rgbToLab(mosaicTileData[j+k][p+0],mosaicTileData[j+k][p+1],mosaicTileData[j+k][p+2], d[ l*tileArea*frames + k*tileArea + p + 0 ], d[ l*tileArea*frames + k*tileArea + p + 1 ], d[ l*tileArea*frames + k*tileArea + p + 2 ] );
         }
       }
     }
@@ -391,15 +404,15 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
             {
               if( mosaicTileWidth == imageTileWidth )
               {
-                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = mosaicTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
-                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = mosaicTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
-                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = mosaicTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
+                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = mosaicTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
               }
               else
               {
-                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = imageTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
-                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = imageTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
-                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = imageTileData[idx[mosaic[pp/frames][i][j]+(pp%frames)]][y2++];
+                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) ] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 1 ] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
+                data[ 3 * ( numHorizontal * imageTileWidth * ( i * imageTileHeight + y ) + j * imageTileWidth + x ) + 2] = imageTileData[mosaic[pp/frames][i][j]+(pp%frames)][y2++];
               }
             }
           }
