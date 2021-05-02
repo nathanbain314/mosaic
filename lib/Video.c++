@@ -1,6 +1,6 @@
 #include "Video.h"
 
-void videoThread( int start, int end, int numHorizontal, int p, int frames, int mosaicTileWidth, int mosaicTileHeight, int tileArea, int width, my_kd_tree_t* mat_index,   vector< vector< float > > &mosaicTileDataFloat, vector< vector< vector< float > > > &e, vector< vector< int > > &starts, vector< vector< vector< int > > > &mosaic, vector< size_t > &sequenceStarts, float *c, float *edgeData, bool bruteForce )
+void videoThread( int start, int end, int numHorizontal, int p, int frames, int mosaicTileWidth, int mosaicTileHeight, int tileArea, int width, my_kd_tree_t* mat_index, vector< vector< float > > &mosaicTileDataFloat, vector< vector< vector< float > > > &e, vector< vector< int > > &starts, vector< vector< vector< int > > > &mosaic, vector< size_t > &sequenceStarts, float *c, float *edgeData, bool bruteForce )
 {
   size_t ret_index;
   float out_dist_sqr;
@@ -13,6 +13,7 @@ void videoThread( int start, int end, int numHorizontal, int p, int frames, int 
     for( int j = 0; j < numHorizontal; ++j )
     {
       int p2 = p - starts[i][j];
+
       if( p2 >= 0 )
       {
         for( int y = i*mosaicTileHeight,ii=tileArea*(p2%frames); y < (i+1)*mosaicTileHeight; ++y )
@@ -32,25 +33,24 @@ void videoThread( int start, int end, int numHorizontal, int p, int frames, int 
         {
           if( bruteForce )
           {
-            float bestDifference = 0.0f;
-
-            ret_index = -1;
+            float bestDifference = -1.0f;
 
             for( int index = 0; index < sequenceStarts.size(); ++index )
             {
+              int startIndex = sequenceStarts[index];
               float difference = 0.0f;
               
               for( int frame = 0, index3 = 0; frame < frames; ++frame )
               {
                 for( int index2 = 0; index2 < tileArea; ++index2, ++index3 )
                 {
-                  float t = e[i][j][index3+frameLength] * ( mosaicTileDataFloat[index+frame][index2] - e[i][j][index3] );
+                  float t = e[i][j][index3+frameLength] * ( mosaicTileDataFloat[startIndex+frame][index2] - e[i][j][index3] );
 
                   difference += t*t;
                 }
               }
 
-              if( ret_index < 0 || difference < bestDifference )
+              if( difference < 0 || difference < bestDifference )
               {
                 ret_index = index;
 
@@ -150,7 +150,6 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
   vector< cropType > cropData;
   vector< vector< unsigned char > > mosaicTileData;
   vector< vector< unsigned char > > imageTileData;
-  vector< vector< float > > mosaicTileDataFloat;
   float *d;
   vector< size_t > sequenceStarts;
   vector< size_t > inputTileStarts;
@@ -333,17 +332,9 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     }
   }
 
-  size_t matSize = 0;
+  vector< vector< float > > mosaicTileDataFloat(numImages,vector< float >(tileArea));
 
-  for( size_t i = 0; i < inputTileStarts.size(); i+=2 )
-  {
-    for( size_t j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip )
-    {
-      ++matSize;
-    }
-  }
-
-  for( size_t i = 0; 0 < numImages; ++i )
+  for( size_t i = 0; i < numImages; ++i )
   {
     for( size_t p = 0; p < tileArea; p += 3 )
     {
@@ -351,8 +342,20 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     }
   }
 
-  if( !batchLoad )
+  my_kd_tree_t *mat_index;
+
+  if( !bruteForce )
   {
+    size_t matSize = 0;
+
+    for( size_t i = 0; i < inputTileStarts.size(); i+=2 )
+    {
+      for( size_t j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip )
+      {
+        ++matSize;
+      }
+    }
+
     d = (float *) malloc(matSize*tileArea*frames*sizeof(float));
 
     for( size_t i = 0, l = 0; i < inputTileStarts.size(); i+=2 )
@@ -367,6 +370,18 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
             d[ l*tileArea*frames + k*tileArea + p ] = mosaicTileDataFloat[j+k][p];
           }
         }
+      }
+    }
+
+    mat_index = new my_kd_tree_t(tileArea*frames, matSize, d, 10 );
+  }
+  else
+  {
+    for( size_t i = 0, l = 0; i < inputTileStarts.size(); i+=2 )
+    {
+      for( size_t j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip, ++l )
+      {
+        sequenceStarts.push_back(j);
       }
     }
   }
@@ -384,13 +399,6 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
   g_mkdir(outputName.c_str(), 0777);
   
   vector< vector< vector< int > > > mosaic( inputImages.size()/frames+1, vector< vector< int > >( numVertical, vector< int >( numHorizontal, -1 ) ) );
-
-  my_kd_tree_t *mat_index;
-
-  if( !bruteForce )
-  {
-    mat_index = new my_kd_tree_t(tileArea*frames, matSize, d, 10 );
-  }
 
   ProgressBar *processing_video = new ProgressBar(inputImages.size(), "Processing video");
 
@@ -474,7 +482,10 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     rendering_video->Increment();
   }
 
-  free(d);
+  if( !bruteForce )
+  {
+    free(d);
+  }
 
   rendering_video->Finish();
 }
