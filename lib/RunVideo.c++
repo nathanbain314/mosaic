@@ -11,6 +11,8 @@ int main( int argc, char **argv )
 
     ValueArg<string> fileArg( "", "file", "File of image data to save or load", false, " ", "string", cmd);
 
+    SwitchArg bruteForceArg( "", "brute", "Use brute force instead of k-d tree", cmd, false );
+
     SwitchArg batchLoadArg( "", "batch", "Load frame directories in batches. Faster when there are many directories", cmd, false );
 
     SwitchArg recursiveArg( "", "recursive", "Recursive search directories", cmd, false );
@@ -50,6 +52,7 @@ int main( int argc, char **argv )
     bool smoothImage                  = smoothArg.getValue();
     bool recursiveSearch              = recursiveArg.getValue();
     bool batchLoad                    = batchLoadArg.getValue();
+    bool bruteForce                   = bruteForceArg.getValue();
     int mosaicTileWidth               = mosaicTileWidthArg.getValue();
     int mosaicTileHeight              = mosaicTileHeightArg.getValue();
     int imageTileWidth                = imageTileArg.getValue();
@@ -59,7 +62,7 @@ int main( int argc, char **argv )
 
     if( VIPS_INIT( argv[0] ) ) return( -1 );
 
-    RunVideo( inputName, outputName, inputDirectory, numHorizontal, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, frames, skip, recursiveSearch, batchLoad, edgeWeight, smoothImage );
+    RunVideo( inputName, outputName, inputDirectory, numHorizontal, mosaicTileWidth, mosaicTileHeight, imageTileWidth, repeat, fileName, frames, skip, recursiveSearch, batchLoad, bruteForce, edgeWeight, smoothImage );
   }
   catch (ArgException &e)  // catch any exceptions
   {

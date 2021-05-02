@@ -1,10 +1,12 @@
 #include "Video.h"
 
-void videoThread( int start, int end, int numHorizontal, int p, int frames, int mosaicTileWidth, int mosaicTileHeight, int tileArea, int width, my_kd_tree_t* mat_index, vector< vector< vector< float > > > &e, vector< vector< int > > &starts, vector< vector< vector< int > > > &mosaic, vector< size_t > &sequenceStarts, float *c, float *edgeData )
+void videoThread( int start, int end, int numHorizontal, int p, int frames, int mosaicTileWidth, int mosaicTileHeight, int tileArea, int width, my_kd_tree_t* mat_index,   vector< vector< float > > &mosaicTileDataFloat, vector< vector< vector< float > > > &e, vector< vector< int > > &starts, vector< vector< vector< int > > > &mosaic, vector< size_t > &sequenceStarts, float *c, float *edgeData, bool bruteForce )
 {
   size_t ret_index;
   float out_dist_sqr;
   nanoflann::KNNResultSet<int> resultSet(1);
+
+  int frameLength = tileArea * frames;
 
   for( int i = start; i < end; ++i )
   {
@@ -21,14 +23,46 @@ void videoThread( int start, int end, int numHorizontal, int p, int frames, int 
             e[i][j][ii+1] = c[jj+1];
             e[i][j][ii+2] = c[jj+2];
             e[i][j][tileArea*frames+ii+0] = edgeData[jj/3];
-            e[i][j][tileArea*frames+ii+1] = edgeData[jj/3];
-            e[i][j][tileArea*frames+ii+2] = edgeData[jj/3];
+            e[i][j][tileArea*frames+ii+1] = 1.0f;
+            e[i][j][tileArea*frames+ii+2] = 1.0f;
           }
         }
 
         if(p2%frames == frames-1 && p2/frames < mosaic.size() )
         {
-          mat_index->query( &e[i][j][0], 1, &ret_index, &out_dist_sqr );
+          if( bruteForce )
+          {
+            float bestDifference = 0.0f;
+
+            ret_index = -1;
+
+            for( int index = 0; index < sequenceStarts.size(); ++index )
+            {
+              float difference = 0.0f;
+              
+              for( int frame = 0, index3 = 0; frame < frames; ++frame )
+              {
+                for( int index2 = 0; index2 < tileArea; ++index2, ++index3 )
+                {
+                  float t = e[i][j][index3+frameLength] * ( mosaicTileDataFloat[index+frame][index2] - e[i][j][index3] );
+
+                  difference += t*t;
+                }
+              }
+
+              if( ret_index < 0 || difference < bestDifference )
+              {
+                ret_index = index;
+
+                bestDifference = difference;
+              }
+            }
+          }
+          else
+          {
+            mat_index->query( &e[i][j][0], 1, &ret_index, &out_dist_sqr );
+          }
+
           mosaic[p2/frames][i][j] = sequenceStarts[ret_index];
         }
       }
@@ -77,7 +111,7 @@ void batchLoadHelper( int start, int end, vector< cropType > &cropData, vector< 
   }
 }
 
-void RunVideo( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, int frames, int skip, bool recursiveSearch, bool batchLoad, float edgeWeight, bool smoothImage )
+void RunVideo( string inputName, string outputName, vector< string > inputDirectory, int numHorizontal, int mosaicTileWidth, int mosaicTileHeight, int imageTileWidth, int repeat, string fileName, int frames, int skip, bool recursiveSearch, bool batchLoad, bool bruteForce, float edgeWeight, bool smoothImage )
 {
   vector< string > inputImages;
   vector< string > outputImages;
@@ -116,6 +150,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
   vector< cropType > cropData;
   vector< vector< unsigned char > > mosaicTileData;
   vector< vector< unsigned char > > imageTileData;
+  vector< vector< float > > mosaicTileDataFloat;
   float *d;
   vector< size_t > sequenceStarts;
   vector< size_t > inputTileStarts;
@@ -308,18 +343,29 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
     }
   }
 
-  d = (float *) malloc(matSize*tileArea*frames*sizeof(float));
-
-  for( size_t i = 0, l = 0; i < inputTileStarts.size(); i+=2 )
+  for( size_t i = 0; 0 < numImages; ++i )
   {
-    for( size_t j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip, ++l )
+    for( size_t p = 0; p < tileArea; p += 3 )
     {
-      sequenceStarts.push_back(j);
-      for( size_t k = 0; k < frames; ++k )
+      rgbToLab(mosaicTileData[i][p+0],mosaicTileData[i][p+1],mosaicTileData[i][p+2],mosaicTileDataFloat[i][p+0],mosaicTileDataFloat[i][p+1],mosaicTileDataFloat[i][p+2]);
+    }
+  }
+
+  if( !batchLoad )
+  {
+    d = (float *) malloc(matSize*tileArea*frames*sizeof(float));
+
+    for( size_t i = 0, l = 0; i < inputTileStarts.size(); i+=2 )
+    {
+      for( size_t j = inputTileStarts[i]; j < inputTileStarts[i+1]-frames; j+=skip, ++l )
       {
-        for( size_t p = 0; p < tileArea; ++p )
+        sequenceStarts.push_back(j);
+        for( size_t k = 0; k < frames; ++k )
         {
-          rgbToLab(mosaicTileData[j+k][p+0],mosaicTileData[j+k][p+1],mosaicTileData[j+k][p+2], d[ l*tileArea*frames + k*tileArea + p + 0 ], d[ l*tileArea*frames + k*tileArea + p + 1 ], d[ l*tileArea*frames + k*tileArea + p + 2 ] );
+          for( size_t p = 0; p < tileArea; ++p )
+          {
+            d[ l*tileArea*frames + k*tileArea + p ] = mosaicTileDataFloat[j+k][p];
+          }
         }
       }
     }
@@ -339,7 +385,12 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
   
   vector< vector< vector< int > > > mosaic( inputImages.size()/frames+1, vector< vector< int > >( numVertical, vector< int >( numHorizontal, -1 ) ) );
 
-  my_kd_tree_t *mat_index = new my_kd_tree_t(tileArea*frames, matSize, d, 10 );
+  my_kd_tree_t *mat_index;
+
+  if( !bruteForce )
+  {
+    mat_index = new my_kd_tree_t(tileArea*frames, matSize, d, 10 );
+  }
 
   ProgressBar *processing_video = new ProgressBar(inputImages.size(), "Processing video");
 
@@ -365,7 +416,7 @@ void RunVideo( string inputName, string outputName, vector< string > inputDirect
 
     for( int k = 0; k < threads; ++k )
     {
-      ret[k] = async( launch::async, &videoThread, k*numVertical/threads, (k+1)*numVertical/threads, numHorizontal, p, frames, mosaicTileWidth, mosaicTileHeight, tileArea, image.width(), ref(mat_index), ref(e), ref(starts), ref(mosaic), ref(sequenceStarts), c2, edgeData );
+      ret[k] = async( launch::async, &videoThread, k*numVertical/threads, (k+1)*numVertical/threads, numHorizontal, p, frames, mosaicTileWidth, mosaicTileHeight, tileArea, image.width(), ref(mat_index), ref( mosaicTileDataFloat ), ref(e), ref(starts), ref(mosaic), ref(sequenceStarts), c2, edgeData, bruteForce );
     }
 
     // Wait for threads to finish
