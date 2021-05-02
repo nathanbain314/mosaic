@@ -50,7 +50,7 @@ void videoThread( int start, int end, int numHorizontal, int p, int frames, int 
                 }
               }
 
-              if( difference < 0 || difference < bestDifference )
+              if( bestDifference < 0 || difference < bestDifference )
               {
                 ret_index = index;
 
